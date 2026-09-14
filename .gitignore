@@ -1,0 +1,16 @@
+# Local secrets. Commit only a redacted .env.example contract.
+.env
+.env.*
+!.env.example
+
+# Dependency and framework output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Local tooling and logs
+*.log
+.DS_Store
+
