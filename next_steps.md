@@ -11,7 +11,7 @@ The site is a Vite-powered, dependency-light storefront implemented in `src/main
 - Responsive desktop and mobile layouts.
 - A local-storage cart with quantity and removal controls.
 - An optional $20 break-in service that appears in the cart and subtotal.
-- Checkout intentionally disabled until real server-side commerce is connected.
+- Checkout remains disabled in local mode. A Shopify Storefront API adapter is prepared for product, cart, and hosted-checkout operations.
 
 Run locally with `npm run dev`. Verify production output with `npm run build`.
 
@@ -60,20 +60,21 @@ Break-in service:
 - The About page contains supplied copy under `HOW IT STARTED` and `OUR STORY`.
 - The two founder names, biographies, and photos are still placeholders.
 
-## Important commerce limitation
+## Shopify commerce direction
 
-The current cart is browser-side presentation state, not a secure commerce backend. Do not enable real checkout until the application has server-owned product prices and inventory, atomic stock reservation, durable order storage, secure payment-provider checkout, signed and idempotent webhooks, and failure/retry handling. Browser state must never determine the amount charged or whether an order can be fulfilled.
+Shopify is the selected commerce backend. The storefront runs in safe local mode until a Shopify account is connected through the Headless sales channel. In Shopify mode, Shopify supplies variant IDs, availability, prices, authoritative cart totals, and the hosted checkout URL. Never put Admin API or private Storefront credentials in this client application.
+
+The $20 break-in service must be created as its own Shopify product with one purchasable variant. The storefront associates one service line with each serviced glove so Shopify—not browser arithmetic—controls the charge and any future capacity limit.
 
 ## Recommended next work
 
 1. Add final founder names, portraits, and biographies when supplied.
-2. Confirm actual inventory quantities and whether break-in service capacity needs its own limit.
-3. Choose the production commerce stack and payment provider.
-4. Implement server-side catalog, inventory reservation, order creation, and webhook processing.
-5. Add finalized shipping and return policies.
-6. Replace placeholder inventory behavior with live server data.
-7. Run full mobile, keyboard, accessibility, and browser testing.
-8. Add deployment configuration, environment-variable validation, monitoring, and backups.
+2. Create the three glove products and separate break-in-service product in Shopify; confirm inventory quantities and service capacity.
+3. Install Shopify's Headless channel, create the storefront, and supply its public Storefront API token and exact product handles through the documented environment variables.
+4. Test product availability, cart restoration, quantity changes, service-line synchronization, and Shopify-hosted checkout in a non-production setup.
+5. Add finalized shipping and return policies in both Shopify and the storefront.
+6. Run full mobile, keyboard, accessibility, and browser testing.
+7. Add deployment configuration, environment-variable validation, monitoring, and backups.
 
 ## Suggested prompt for the next Codex session
 
