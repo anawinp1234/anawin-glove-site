@@ -20,7 +20,7 @@ let cartError = '';
 
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-const arrow = () => `<span aria-hidden="true">↗</span>`;
+const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
 const productLine = productId => cart.lines.find(line => line.productId === productId && !line.isBreakIn);
 const serviceLine = productId => cart.lines.find(line => line.productId === productId && line.isBreakIn);
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
