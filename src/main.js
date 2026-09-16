@@ -83,7 +83,19 @@ function productPage(product) {
 function about() {
   return `<main><section class="about-hero"><p class="eyebrow">Company / ANAWIN</p><h1>ABOUT<br><em>ANAWIN.</em></h1><div class="about-image"><img src="/images/cherry_pink.png" alt="Cherry-pink ANAWIN glove among flowers" /></div></section>
     <section class="origin"><p class="eyebrow">Company</p><div><h2>HOW IT STARTED</h2><p>ANAWIN started with two best friends, over 10 years of friendship, and a shared love for baseball.</p><p>We created ANAWIN with a simple goal: bring more energy and attention back to the game we grew up loving. From the beginning, authenticity has been at the center of what we do. We shared the process, listened to feedback, and let the baseball community help shape what we were building.</p><p>ANAWIN was not just built for the baseball community. It was built with them.</p></div></section>
-    <section class="founders"><div class="section-heading"><p class="eyebrow">Co-founders / 02</p><h2>CO-<br><em>FOUNDERS.</em></h2></div><div class="founder-grid">${[1, 2].map(n => `<article><div class="founder-placeholder"><span>Founder portrait<br>coming soon</span></div><h3>FOUNDER 0${n}</h3><p class="temporary">Name and biography placeholder</p></article>`).join('')}</div></section>
+    <section class="founders founders-editorial" aria-labelledby="founders-heading">
+      <div class="founders-heading"><p class="eyebrow">ANAWIN / Co-founders</p><h2 id="founders-heading"><em>FOUNDERS</em></h2></div>
+      <div class="founders-layout">
+        <article class="founder-profile" aria-labelledby="founder-ray">
+          <div class="founder-portrait"><img src="/images/ray_headshot.png" alt="Ray Lopez, co-founder of ANAWIN" loading="lazy" /></div>
+          <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-ray">RAY LOPEZ</h3><div class="founder-bio"><p>Growing up with a father who played professional baseball, Ray developed a love for the game that eventually led him to start ANAWIN.</p><ul><li>Finance and Sports Business student at Arizona State University</li><li>Former Finance Intern with the Arizona Diamondbacks</li><li>Building ANAWIN alongside the baseball community, with their ideas helping shape each product</li></ul></div></div>
+        </article>
+        <article class="founder-profile" aria-labelledby="founder-anawin">
+          <div class="founder-portrait"><img src="/images/anawin_headshot-gray.png" alt="Anawin Pikulthong, co-founder of ANAWIN" loading="lazy" /></div>
+          <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-anawin">ANAWIN PIKULTHONG</h3><div class="founder-bio"><p>With a background in competitive golf, Anawin brings a mix of athlete experience and a passion for equipment to building ANAWIN.</p><ul><li>Data Science student at Arizona State University</li><li>Former Marketing Analytics Intern at TaylorMade Golf</li><li>Former Division 1 Golfer at Arizona State University</li></ul></div></div>
+        </article>
+      </div>
+    </section>
     <section class="philosophy"><p class="eyebrow">ANAWIN</p><h2>OUR STORY</h2><div class="story-copy"><p>We met in sixth grade and have been close ever since. Over the years, we have spent countless hours playing catch, throwing sliders into the dirt, talking baseball, and competing over just about everything.</p><p>Baseball has always been part of our friendship, so building ANAWIN felt natural. We wanted to create something that reflected the way we actually grew up around the game: competitive, creative, and authentic.</p><p>What started as an idea between two friends became a brand shaped by the same baseball community we have always been part of.</p></div></section></main>`;
 }
 
