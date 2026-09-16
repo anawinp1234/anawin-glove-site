@@ -41,7 +41,7 @@ function commerceNotice() {
 }
 
 function footer() {
-  return `<footer><div class="footer-mark"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></div><div class="footer-grid">
+  return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
     <div><p class="eyebrow">Information</p><span>Shipping — Coming soon</span><span>Returns — Coming soon</span></div>
@@ -60,7 +60,7 @@ const productGrid = () => `<div class="product-grid">${products.map(productCard)
 
 function home() {
   return `<main><section class="hero"><img class="hero-background" src="/images/hero-background.jpg" alt="" /><div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
-    <section class="collection"><div class="section-heading"><p class="eyebrow">Collection / 03</p><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
+    <section class="collection"><div class="section-heading"><p class="eyebrow">Collection</p><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
     <section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
 }
 
