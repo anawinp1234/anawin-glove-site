@@ -4,6 +4,8 @@ Use this file as context when continuing work on the ANAWIN storefront.
 
 ## Current state
 
+The `fullstack-review` storefront work was merged into `main` at commit `2e52f2e`. The two branches still exist, but their tracked files currently match. Continue new work from `main`.
+
 The site is a Vite-powered, dependency-light storefront implemented in `src/main.js` and `src/style.css`. It has:
 
 - Homepage, Shop, About, product-detail, cart, and 404 views.
@@ -11,9 +13,9 @@ The site is a Vite-powered, dependency-light storefront implemented in `src/main
 - Responsive desktop and mobile layouts.
 - A local-storage cart with quantity and removal controls.
 - An optional $20 break-in service that appears in the cart and subtotal.
-- Checkout remains disabled in local mode. A Shopify Storefront API adapter is prepared for product, cart, and hosted-checkout operations.
+- Checkout remains disabled in local mode. A Shopify Storefront API adapter is prepared for product, cart, and hosted-checkout operations, but has not been connected to a store.
 
-Run locally with `npm run dev`. Verify production output with `npm run build`.
+Run locally with `npm run dev`. Verify with `npm test` and `npm run build`.
 
 ## Brand and design decisions
 
@@ -58,7 +60,7 @@ Break-in service:
 - Instagram: `@anawinofficial`.
 - TikTok: `@anawinofficial`.
 - The About page contains supplied copy under `HOW IT STARTED` and `OUR STORY`.
-- The two founder names, biographies, and photos are still placeholders.
+- The founders section now shows Ray Lopez and Anawin Pikulthong with biographies and portraits. Confirm final approval of that content before launch.
 
 ## Shopify commerce direction
 
@@ -68,14 +70,16 @@ The $20 break-in service must be created as its own Shopify product with one pur
 
 ## Recommended next work
 
-1. Add final founder names, portraits, and biographies when supplied.
-2. Create the three glove products and separate break-in-service product in Shopify; confirm inventory quantities and service capacity.
-3. Install Shopify's Headless channel, create the storefront, and supply its public Storefront API token and exact product handles through the documented environment variables.
-4. Test product availability, cart restoration, quantity changes, service-line synchronization, and Shopify-hosted checkout in a non-production setup.
-5. Add finalized shipping and return policies in both Shopify and the storefront.
-6. Run full mobile, keyboard, accessibility, and browser testing.
-7. Add deployment configuration, environment-variable validation, monitoring, and backups.
+1. Confirm the final founder content, product details, prices, inventory quantities, and break-in-service capacity with ANAWIN.
+2. Create BR16, OB16, CL16, and the separate $20 break-in-service product in Shopify, each with one purchasable variant.
+3. Install Shopify's Headless channel, create a storefront, and enter its public Storefront API token, store domain, and exact product handles using `.env.example`. Keep private and Admin API credentials out of the browser.
+4. Test product availability, cart restoration, quantity changes, service-line synchronization, and Shopify-hosted checkout with non-production settings.
+5. Finalize shipping and return policies in Shopify and replace the storefront's current placeholder policy text.
+6. Run mobile, keyboard, accessibility, and cross-browser checks; fix issues found and rerun `npm test` and `npm run build`.
+7. Choose hosting and add the verified deployment configuration, environment-variable validation, monitoring, and recovery plan before launch.
+
+`FULLSTACK_REVIEW.md` and `DEPLOYMENT_GUIDE.md` describe an earlier `19345c0` snapshot that lacked the application. They are historical reports, not current launch checklists.
 
 ## Suggested prompt for the next Codex session
 
-> Continue building the ANAWIN storefront in this repository. Read `next_steps.md`, inspect the current code and Git history, and preserve all confirmed copy, product names, colors, specifications, prices, imagery, and the minimal visual direction. Start by auditing the current state and then work on: [describe the next desired change]. Do not invent company or product information, and do not enable payments until price, inventory, order creation, and payment confirmation are enforced server-side.
+> Continue building the ANAWIN storefront from `main`. Read `next_steps.md` and `README.md`, inspect the current code, and preserve confirmed copy, product names, colors, specifications, prices, imagery, and the minimal visual direction. Start with: [describe the next desired change]. Do not invent company or product information. Keep checkout disabled in local mode, and test the Shopify integration before enabling it in production.
