@@ -32,8 +32,10 @@ const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUr
 function header() {
   return `<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a>
-    <nav aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></nav>
-    <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${String(cartCount()).padStart(2, '0')})</span></button>
+    <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></nav>
+    <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
+    <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><button type="button" data-cart>Cart</button></nav>
+    <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${cartCount()})</span></button>
   </header>`;
 }
 
@@ -73,9 +75,10 @@ function productPage(product) {
   if (!product) return notFound();
   const unavailable = commerceLoading || Boolean(commerceError) || !product.available;
   const buttonLabel = commerceLoading ? 'Checking availability…' : product.available ? 'Add to cart' : 'Sold out';
-  return `<main class="pdp"><section class="pdp-gallery">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}"><img src="${src}" alt="${product.tone} glove view ${i + 1}" /></button>`).join('')}</section>
+  return `<main class="pdp"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}"><img src="${src}" alt="${product.tone} glove view ${i + 1}" /></button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
     <aside class="pdp-info"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h1>${escapeHtml(product.name)}</h1><p class="tone">${escapeHtml(product.tone)}</p><p class="price">${money(product.price, product.currencyCode)}</p>
-      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Throwing hand</dt><dd>Right-hand throw only</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
+      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
+      <dl class="hand-orientation"><div><dt>Throwing hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw</dd></div><div><dt>Worn on</dt><dd>${escapeHtml(product.wornOnHand)} Hand</dd></div></dl>
       <label class="service-option"><input type="checkbox" data-break-in ${breakInService.available === false ? 'disabled' : ''}/><span><strong>Break-in service</strong><small>Optional glove break-in<br>${breakInService.copy}</small></span><b>+${money(breakInService.price, breakInService.currencyCode)}</b></label>
       <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span>${money(product.price, product.currencyCode)}</span></button>
       <details><summary>Product information <span>+</span></summary><p>Designed for baseball and softball players. Built for faster hands, cleaner transfers, and more consistent defensive work.</p></details>
@@ -153,7 +156,42 @@ function closeCart() {
   document.body.classList.remove('cart-open');
   setTimeout(() => { document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove(); }, 300);
 }
-function syncCartCount() { document.querySelectorAll('.cart-count').forEach(node => { node.textContent = `(${String(cartCount()).padStart(2, '0')})`; }); }
+function syncCartCount() {
+  document.querySelectorAll('.cart-count').forEach(node => { node.textContent = `(${cartCount()})`; });
+  document.querySelector('.cart-trigger')?.setAttribute('aria-label', `Open cart with ${cartCount()} items`);
+}
+function closeMobileMenu(returnFocus = false) {
+  const toggle = document.querySelector('.mobile-menu-toggle');
+  const menu = document.querySelector('#mobile-menu');
+  if (!toggle || !menu || menu.hidden) return;
+  menu.hidden = true;
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-label', 'Open menu');
+  if (returnFocus) toggle.focus();
+}
+
+function bindMobileGallery() {
+  const gallery = document.querySelector('.pdp-gallery');
+  const status = document.querySelector('.gallery-status');
+  const dots = [...document.querySelectorAll('.gallery-dot')];
+  if (!gallery || !status || !dots.length) return;
+  const images = [...gallery.querySelectorAll('.gallery-image')];
+  const update = () => {
+    const first = images[0].offsetLeft;
+    const active = images.reduce((closest, image, index) =>
+      Math.abs(image.offsetLeft - first - gallery.scrollLeft) < Math.abs(images[closest].offsetLeft - first - gallery.scrollLeft) ? index : closest, 0);
+    status.textContent = `Image ${active + 1} of ${images.length}`;
+    dots.forEach((dot, index) => {
+      if (index === active) dot.setAttribute('aria-current', 'true');
+      else dot.removeAttribute('aria-current');
+    });
+  };
+  gallery.addEventListener('scroll', update, { passive: true });
+  dots.forEach((dot, index) => dot.addEventListener('click', () => {
+    gallery.scrollTo({ left: images[index].offsetLeft - images[0].offsetLeft, behavior: 'auto' });
+    update();
+  }));
+}
 async function cartAction(action) {
   if (cartBusy) return;
   cartBusy = true; cartError = ''; openCart();
@@ -194,8 +232,29 @@ function bindCart() {
 }
 
 function bind() {
-  document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => { event.preventDefault(); closeCart(); navigate(element.getAttribute('href')); }));
-  document.querySelector('[data-cart]')?.addEventListener('click', openCart);
+  document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
+    event.preventDefault();
+    const fromMobileMenu = Boolean(element.closest('.mobile-nav'));
+    closeMobileMenu(); closeCart(); navigate(element.getAttribute('href'));
+    if (fromMobileMenu) {
+      const heading = document.querySelector('main h1');
+      if (heading) { heading.tabIndex = -1; heading.focus(); }
+    }
+  }));
+  const menuToggle = document.querySelector('.mobile-menu-toggle');
+  menuToggle?.addEventListener('click', () => {
+    const menu = document.querySelector('#mobile-menu');
+    if (!menu.hidden) { closeMobileMenu(true); return; }
+    menu.hidden = false;
+    menuToggle.setAttribute('aria-expanded', 'true');
+    menuToggle.setAttribute('aria-label', 'Close menu');
+  });
+  document.querySelectorAll('[data-cart]').forEach(element => element.addEventListener('click', () => {
+    closeMobileMenu();
+    openCart();
+    if (element.closest('.mobile-nav')) document.querySelector('.cart-head [data-close-cart]')?.focus();
+  }));
+  bindMobileGallery();
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
     const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
     await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn));
@@ -217,5 +276,11 @@ async function boot() {
   finally { commerceLoading = false; render(); }
 }
 
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeMobileMenu(true);
+});
+window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
+  if (event.matches) closeMobileMenu();
+});
 window.addEventListener('popstate', render);
 boot();
