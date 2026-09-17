@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { localProducts } from '../src/catalog.js';
 import {
   createLocalCommerce,
   createShopifyCommerce,
@@ -14,6 +15,14 @@ class MemoryStorage {
   setItem(key, value) { this.values.set(key, String(value)); }
   removeItem(key) { this.values.delete(key); }
 }
+
+test('each glove has product-level hand orientation', () => {
+  assert.equal(localProducts.length, 3);
+  for (const product of localProducts) {
+    assert.equal(product.throwingHand, 'Right');
+    assert.equal(product.wornOnHand, 'Left');
+  }
+});
 
 test('migrates the original local cart and caps unsafe quantities', () => {
   assert.deepEqual(migrateLocalCart({ black: 12, 'breakin-black': 1, blue: -2 }), {
@@ -198,7 +207,9 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false }
 test('adds a glove without service using Shopify price and checkout', async () => {
   const fixture = shopifyFixture();
   const { commerce, requests } = fixture;
-  await commerce.listProducts();
+  const product = (await commerce.listProducts()).find(item => item.id === 'black');
+  assert.equal(product.throwingHand, 'Right');
+  assert.equal(product.wornOnHand, 'Left');
   const cart = await commerce.addProduct('black', false);
   assert.equal(cart.subtotal, 150);
   assert.equal(cart.checkoutUrl, 'https://store.myshopify.com/checkouts/1');
