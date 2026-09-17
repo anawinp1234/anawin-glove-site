@@ -1,6 +1,7 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts } from './catalog.js';
 import { createCommerce } from './commerce.js';
+import { communityItems } from './community.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -63,10 +64,22 @@ function productCard(product, index) {
 
 const productGrid = () => `<div class="product-grid">${products.map(productCard).join('')}</div>`;
 
+function communitySection() {
+  const entries = communityItems.filter(item => item.approved === true && item.image && item.alt);
+  if (!entries.length) return '';
+  return `<section class="community" aria-labelledby="community-heading"><div class="community-heading"><p class="eyebrow">ANAWIN / Community</p><h2 id="community-heading">COMMUNITY</h2></div><div class="community-grid">${entries.map(item => {
+    const image = `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.alt)}" loading="lazy" />`;
+    const product = item.productId && products.find(product => product.id === item.productId);
+    const photo = product ? `<a href="/product/${escapeHtml(product.id)}" data-link aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(item.alt)}">${image}</a>` : image;
+    const caption = item.quote || item.displayName ? `<figcaption>${item.quote ? `<p>${escapeHtml(item.quote)}</p>` : ''}${item.displayName ? `<span>${escapeHtml(item.displayName)}</span>` : ''}</figcaption>` : '';
+    return `<figure class="community-item">${photo}${caption}</figure>`;
+  }).join('')}</div></section>`;
+}
+
 function home() {
   return `<main><section class="hero"><img class="hero-background" src="/images/hero-background.jpg" alt="" /><div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><p class="eyebrow">Collection</p><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
-    <section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
+    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
 }
 
 const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products">${productGrid()}</section></main>`;
