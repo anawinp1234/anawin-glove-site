@@ -1,7 +1,7 @@
 # Production Deployment Guide
 
-Review date: 2026-09-13  
-Reviewed commit: `19345c0` (`main`)  
+Review date: 2026-09-13
+Reviewed commit: `19345c0` (`main`)
 Final verdict: **NOT READY**
 
 Do not deploy this repository. The reviewed branch contains only a placeholder

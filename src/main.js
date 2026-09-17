@@ -21,10 +21,13 @@ let cartError = '';
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
-const productLine = productId => cart.lines.find(line => line.productId === productId && !line.isBreakIn);
-const serviceLine = productId => cart.lines.find(line => line.productId === productId && line.isBreakIn);
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
-const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && cart.lines.length > 0 && cart.lines.every(line => line.merchandiseId);
+const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
+  if (!line.merchandiseId) return false;
+  if (!line.isBreakIn) return true;
+  const parent = cart.lines.find(candidate => candidate.remoteLineId === line.parentLineId && !candidate.isBreakIn);
+  return parent?.productId === line.productId && parent.quantity === line.quantity;
+});
 
 function header() {
   return `<header class="site-header">
@@ -102,14 +105,31 @@ function about() {
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
 
 function cartDrawer() {
-  const productItems = products.filter(product => productLine(product.id));
+  const productItems = commerce.mode === 'shopify'
+    ? cart.lines.filter(line => !line.isBreakIn).map(line => ({
+      line,
+      product: products.find(product => product.id === line.productId),
+      service: cart.lines.find(child => child.isBreakIn && child.parentLineId === line.remoteLineId)
+    })).filter(entry => entry.product)
+    : products.map(product => ({
+      product,
+      line: cart.lines.find(line => line.productId === product.id && !line.isBreakIn),
+      service: cart.lines.find(line => line.productId === product.id && line.isBreakIn)
+    })).filter(entry => entry.line);
   const checkout = canCheckout()
     ? `<button data-checkout ${cartBusy ? 'disabled' : ''}>Checkout securely</button>`
     : `<button disabled>Checkout coming soon</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
   return `<div class="cart-backdrop" data-close-cart></div><aside class="cart-drawer" aria-label="Shopping cart"><div class="cart-head"><h2>Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
-    <div class="cart-body">${productItems.length ? productItems.map(product => {
-      const line = productLine(product.id); const service = serviceLine(product.id);
-      return `<article class="cart-item"><img src="${product.images[0]}" alt=""><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p><p>${money(product.price, product.currencyCode)}</p>${service ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)}</p>` : ''}<div class="quantity"><button data-qty="${product.id}" data-delta="-1" aria-label="Decrease quantity" ${cartBusy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button data-qty="${product.id}" data-delta="1" aria-label="Increase quantity" ${cartBusy ? 'disabled' : ''}>+</button></div></div><button class="remove" data-remove="${product.id}" ${cartBusy ? 'disabled' : ''}>Remove</button></article>`;
+    <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => {
+      const quantityAttribute = commerce.mode === 'shopify' ? `data-qty-line="${escapeHtml(line.remoteLineId)}"` : `data-qty="${product.id}"`;
+      const removeAttribute = commerce.mode === 'shopify' ? `data-remove-line="${escapeHtml(line.remoteLineId)}"` : `data-remove="${product.id}"`;
+      const description = `${product.name}${service ? ' with Break-in service' : ''}`;
+      const serviceControl = commerce.mode === 'shopify'
+        ? service
+          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove Break-in service from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove</button></p>`
+          : `<button class="cart-service-control" data-add-service="${escapeHtml(line.remoteLineId)}" ${cartBusy || cart.incomplete || breakInService.available === false ? 'disabled' : ''}>Add Break-in service +${money(breakInService.price, breakInService.currencyCode)}</button>`
+        : service ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)}</p>` : '';
+      return `<article class="cart-item"><img src="${product.images[0]}" alt=""><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p><p>${money(product.price, product.currencyCode)}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>+</button></div></div><button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${cartBusy ? 'disabled' : ''}>Remove</button></article>`;
     }).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
     ${productItems.length ? `<div class="cart-foot"><div><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div><p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
 }
@@ -138,16 +158,28 @@ async function cartAction(action) {
   if (cartBusy) return;
   cartBusy = true; cartError = ''; openCart();
   try { cart = await action(); }
-  catch (error) { cartError = error.message || 'Cart update failed. Please try again.'; }
+  catch (error) {
+    cartError = error.message || 'Cart update failed. Please try again.';
+    try { cart = await commerce.getCart(); }
+    catch { cart = { ...cart, checkoutUrl: null }; }
+  }
   finally { cartBusy = false; syncCartCount(); openCart(); }
 }
 
 function bindCart() {
   document.querySelectorAll('[data-close-cart]').forEach(element => element.addEventListener('click', closeCart));
   document.querySelectorAll('[data-remove]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeProduct(element.dataset.remove))));
+  document.querySelectorAll('[data-remove-line]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeLine(element.dataset.removeLine))));
+  document.querySelectorAll('[data-add-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.addBreakIn(element.dataset.addService))));
+  document.querySelectorAll('[data-remove-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeBreakIn(element.dataset.removeService))));
   document.querySelectorAll('[data-qty]').forEach(element => element.addEventListener('click', () => {
-    const line = productLine(element.dataset.qty);
+    const line = cart.lines.find(line => line.productId === element.dataset.qty && !line.isBreakIn);
     return cartAction(() => commerce.setQuantity(element.dataset.qty, (line?.quantity || 0) + Number(element.dataset.delta)));
+  }));
+  document.querySelectorAll('[data-qty-line]').forEach(element => element.addEventListener('click', () => {
+    const line = cart.lines.find(line => line.remoteLineId === element.dataset.qtyLine && !line.isBreakIn);
+    if (!line) return;
+    return cartAction(() => commerce.setLineQuantity(line.remoteLineId, line.quantity + Number(element.dataset.delta)));
   }));
   document.querySelector('[data-checkout]')?.addEventListener('click', () => {
     if (!canCheckout()) return;

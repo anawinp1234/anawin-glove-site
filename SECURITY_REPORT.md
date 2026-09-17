@@ -1,7 +1,7 @@
 # Security Review Report
 
-Review date: 2026-09-13  
-Reviewed revision: `19345c0` (`main`)  
+Review date: 2026-09-13
+Reviewed revision: `19345c0` (`main`)
 Deployment recommendation: **NO-GO — not safe to deploy or accept real customers**
 
 ## Executive summary
