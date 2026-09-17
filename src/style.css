@@ -73,3 +73,23 @@
   .gallery-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line)}
   .gallery-dot[aria-current="true"]::before{background:var(--ink)}
 }
+
+/* PDP accents and links to separate gloves. */
+.pdp{--pdp-accent:var(--line);--pdp-accent-background:var(--white)}
+.pdp-info .tone{display:table;max-width:100%;padding:8px 12px;border-left:2px solid var(--pdp-accent);background:var(--pdp-accent-background)}
+.other-gloves{grid-column:1/-1;padding:90px 28px 110px;border-top:1px solid var(--line)}
+.other-gloves h2{margin:0 0 28px;font-family:var(--font-display);font-size:clamp(36px,4vw,60px);line-height:.9;letter-spacing:-.04em}
+.other-gloves-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:1000px}
+.other-glove-card{display:grid;grid-template-columns:120px minmax(0,1fr) 12px;align-items:center;gap:18px;min-width:0;padding:10px;border:1px solid var(--line);background:var(--white)}
+.other-glove-card:hover{border-color:var(--ink)}
+.other-glove-card:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.other-glove-card img{display:block;width:120px;aspect-ratio:1;object-fit:cover;background:var(--image-surface);mix-blend-mode:multiply}
+.other-glove-meta{display:flex;flex-direction:column;gap:6px;min-width:0}
+.other-glove-meta strong{font-family:var(--font-display);font-size:26px;line-height:1}
+.other-glove-meta small{color:var(--muted);font-size:11px;line-height:1.4}
+@media(max-width:760px){
+  .other-gloves{padding:64px 16px 80px}
+  .other-gloves-grid{grid-template-columns:1fr}
+  .other-glove-card{grid-template-columns:92px minmax(0,1fr) 12px;gap:14px}
+  .other-glove-card img{width:92px}
+}
