@@ -86,7 +86,7 @@ export function createLocalCommerce(storage) {
 export function validateShopifyConfig(env = {}) {
   if ((env.VITE_COMMERCE_MODE || 'local') !== 'shopify') return null;
   const domain = (env.VITE_SHOPIFY_STORE_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const accessToken = env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || '';
+  const accessToken = env.VITE_SHOPIFY_STOREFRONT_TOKEN || '';
   const apiVersion = env.VITE_SHOPIFY_API_VERSION || '2026-07';
   const handles = productHandleMap(env);
   const breakInHandle = env.VITE_SHOPIFY_BREAK_IN_HANDLE || '';
@@ -126,8 +126,13 @@ const CART_FIELDS = `
   id checkoutUrl
   cost { subtotalAmount { amount currencyCode } }
   lines(first: 50) {
+    pageInfo { hasNextPage }
     nodes {
-      id quantity attributes { key value }
+      id quantity
+      ... on CartLine {
+        instructions { canRemove canUpdateQuantity }
+        parentRelationship { parent { id merchandise { ... on ProductVariant { id product { handle } } } } }
+      }
       merchandise { ... on ProductVariant { id product { handle } } }
     }
   }
@@ -142,22 +147,27 @@ function assertCartPayload(payload) {
 
 function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   if (!cart) return emptyCart();
+  const lines = cart.lines.nodes.map(line => {
+    const handle = line.merchandise.product.handle;
+    const parentId = line.parentRelationship?.parent.id;
+    const parentHandle = line.parentRelationship?.parent.merchandise.product.handle;
+    return {
+      remoteLineId: line.id,
+      merchandiseId: line.merchandise.id,
+      parentLineId: parentId || null,
+      productId: handle === breakInHandle ? handleToProductId[parentHandle] : handleToProductId[handle],
+      quantity: line.quantity,
+      isBreakIn: handle === breakInHandle,
+      instructions: line.instructions
+    };
+  }).filter(line => line.productId);
   return {
     id: cart.id,
     checkoutUrl: cart.checkoutUrl,
     subtotal: Number(cart.cost.subtotalAmount.amount),
     currencyCode: cart.cost.subtotalAmount.currencyCode,
-    lines: cart.lines.nodes.map(line => {
-      const handle = line.merchandise.product.handle;
-      const parent = line.attributes.find(attribute => attribute.key === '_anawin_parent')?.value;
-      return {
-        remoteLineId: line.id,
-        merchandiseId: line.merchandise.id,
-        productId: handle === breakInHandle ? parent : handleToProductId[handle],
-        quantity: line.quantity,
-        isBreakIn: handle === breakInHandle
-      };
-    }).filter(line => line.productId)
+    incomplete: lines.length !== cart.lines.nodes.length || Boolean(cart.lines.pageInfo?.hasNextPage),
+    lines
   };
 }
 
@@ -198,6 +208,39 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     }`, { input: { lines } }, 'cartCreate');
   }
 
+  async function removeParentLine(cart, parent) {
+    if (!parent.instructions?.canRemove) throw new Error('Shopify does not allow this glove to be removed.');
+    const updated = await mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
+      cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
+    }`, { cartId: cart.id, lineIds: [parent.remoteLineId] }, 'cartLinesRemove');
+    if (updated.lines.some(line => line.parentLineId === parent.remoteLineId)) throw new Error('Shopify did not remove the nested Break-in service.');
+    return updated;
+  }
+
+  async function setParentLineQuantity(cart, parent, quantity) {
+    const next = Math.max(0, Math.min(9, quantity));
+    if (next === parent.quantity) return cart;
+    if (!next) return removeParentLine(cart, parent);
+    if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
+    const update = lines => mutateCart(`mutation UpdateLines($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
+      cartLinesUpdate(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
+    }`, { cartId: cart.id, lines }, 'cartLinesUpdate');
+    const originalChild = cart.lines.find(line => line.isBreakIn && line.parentLineId === parent.remoteLineId);
+    let updated = await update([{ id: parent.remoteLineId, quantity: next }]);
+    const updatedParent = updated.lines.find(line => line.remoteLineId === parent.remoteLineId);
+    if (updatedParent?.quantity !== next) throw new Error('Shopify did not update the glove quantity.');
+    if (originalChild) {
+      const child = updated.lines.find(line => line.isBreakIn && line.parentLineId === parent.remoteLineId);
+      if (!child) throw new Error('Shopify did not preserve the nested Break-in service.');
+      if (child.quantity !== next) {
+        if (!child.instructions?.canUpdateQuantity) throw new Error('Shopify did not synchronize the Break-in service quantity.');
+        updated = await update([{ id: child.remoteLineId, quantity: next }]);
+        if (updated.lines.find(line => line.remoteLineId === child.remoteLineId)?.quantity !== next) throw new Error('Shopify did not update the Break-in service quantity.');
+      }
+    }
+    return updated;
+  }
+
   return {
     mode: 'shopify',
     async listProducts() {
@@ -227,7 +270,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       const lines = [{ merchandiseId: product.merchandiseId, quantity: 1 }];
       if (includeBreakIn) {
         if (!breakInVariant?.availableForSale) throw new Error('Break-in service is not currently available.');
-        lines.push({ merchandiseId: breakInVariant.id, quantity: 1, attributes: [{ key: '_anawin_parent', value: productId }] });
+        lines.push({ merchandiseId: breakInVariant.id, quantity: 1, parent: { merchandiseId: product.merchandiseId } });
       }
       const cartId = storage?.getItem(SHOPIFY_CART_KEY);
       if (!cartId) return createCart(lines);
@@ -235,24 +278,31 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
         cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
       }`, { cartId, lines }, 'cartLinesAdd');
     },
+    async setLineQuantity(lineId, quantity) {
+      const cart = await getCart();
+      const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
+      if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
+      return setParentLineQuantity(cart, parent, quantity);
+    },
+    async removeLine(lineId) {
+      const cart = await getCart();
+      const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
+      if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
+      return removeParentLine(cart, parent);
+    },
     async setQuantity(productId, quantity) {
       const cart = await getCart();
-      const related = cart.lines.filter(line => line.productId === productId);
-      if (!cart.id || !related.length) return cart;
-      const next = Math.max(0, Math.min(9, quantity));
-      if (!next) return this.removeProduct(productId);
-      const lines = related.map(line => ({ id: line.remoteLineId, quantity: next }));
-      return mutateCart(`mutation UpdateLines($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
-        cartLinesUpdate(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
-      }`, { cartId: cart.id, lines }, 'cartLinesUpdate');
+      const parents = cart.lines.filter(line => line.productId === productId && !line.isBreakIn);
+      if (!parents.length) return cart;
+      if (parents.length !== 1) throw new Error('Choose a specific glove cart entry to change its quantity.');
+      return setParentLineQuantity(cart, parents[0], quantity);
     },
     async removeProduct(productId) {
       const cart = await getCart();
-      const lineIds = cart.lines.filter(line => line.productId === productId).map(line => line.remoteLineId);
-      if (!cart.id || !lineIds.length) return cart;
-      return mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
-        cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
-      }`, { cartId: cart.id, lineIds }, 'cartLinesRemove');
+      const parents = cart.lines.filter(line => line.productId === productId && !line.isBreakIn);
+      if (!parents.length) return cart;
+      if (parents.length !== 1) throw new Error('Choose a specific glove cart entry to remove.');
+      return removeParentLine(cart, parents[0]);
     }
   };
 }
