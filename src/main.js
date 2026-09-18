@@ -22,6 +22,22 @@ let cartError = '';
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
+const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 3)';
+const galleryImageSizes = '(max-width: 760px) 90vw, 30vw';
+
+function productImage(src, alt, sizes, loading) {
+  const name = src.split('/').pop().replace(/\.PNG$/, '');
+  const fullWidth = name === 'black1' ? 1045 : 1254;
+  const fullHeight = name === 'black1' ? 1044 : 1254;
+  const optimized = width => `/images/optimized/${name}-${width}.webp`;
+  const srcset = [480, 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${fullWidth}" height="${fullHeight}" loading="${loading}" /></picture>`;
+}
+
+function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '') {
+  const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}" /></picture>`;
+}
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
   if (!line.merchandiseId) return false;
@@ -54,15 +70,15 @@ function footer() {
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
-function productCard(product, index) {
+function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" style="--delay:${index * 80}ms">
-    <a href="/product/${product.id}" data-link class="product-image"><span class="product-index">0${index + 1}</span><img src="${product.images[0]}" alt="${product.tone} ANAWIN glove" loading="${index ? 'lazy' : 'eager'}" /><span class="view-product">View ${arrow()}</span></a>
+    <a href="/product/${product.id}" data-link class="product-image"><span class="product-index">0${index + 1}</span>${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
     <div class="product-meta"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
 
-const productGrid = () => `<div class="product-grid">${products.map(productCard).join('')}</div>`;
+const productGrid = (eagerFirst = false) => `<div class="product-grid">${products.map((product, index) => productCard(product, index, eagerFirst)).join('')}</div>`;
 
 function communitySection() {
   const entries = communityItems.filter(item => item.approved === true && item.image && item.alt);
@@ -77,12 +93,12 @@ function communitySection() {
 }
 
 function home() {
-  return `<main><section class="hero"><img class="hero-background" src="/images/hero-background.jpg" alt="" /><div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
+  return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [640, 960, 1350], '(max-width: 760px) 150vw, 100vw', '', 1350, 1800, 'eager', 'hero-background')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><p class="eyebrow">Collection</p><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
-    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
+    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
 }
 
-const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products">${productGrid()}</section></main>`;
+const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products">${productGrid(true)}</section></main>`;
 
 function productPage(product) {
   if (!product) return notFound();
@@ -90,7 +106,7 @@ function productPage(product) {
   const buttonLabel = commerceLoading ? 'Checking availability…' : product.available ? 'Add to cart' : 'Sold out';
   const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
   const otherGloves = products.filter(other => other.id !== product.id);
-  return `<main class="pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}"><img src="${src}" alt="${product.tone} glove view ${i + 1}" /></button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
+  return `<main class="pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}">${productImage(src, `${product.tone} glove view ${i + 1}`, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
     <aside class="pdp-info"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h1>${escapeHtml(product.name)}</h1><p class="tone">${escapeHtml(product.tone)}</p><p class="price">${money(product.price, product.currencyCode)}</p>
       <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
       <dl class="hand-orientation"><div><dt>Throwing hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw</dd></div><div><dt>Worn on</dt><dd>${escapeHtml(product.wornOnHand)} Hand</dd></div></dl>
@@ -98,21 +114,21 @@ function productPage(product) {
       <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span>${money(product.price, product.currencyCode)}</span></button>
       <details><summary>Product information <span>+</span></summary><p>Designed for baseball and softball players. Built for faster hands, cleaner transfers, and more consistent defensive work.</p></details>
       <details><summary>Shipping & returns <span>+</span></summary><p>Shipping and return policies will be published before checkout launches.</p></details>
-    </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link><img src="${escapeHtml(other.images[0])}" alt="" loading="lazy" /><span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
+    </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
 function about() {
-  return `<main><section class="about-hero"><p class="eyebrow">Company / ANAWIN</p><h1>ABOUT<br><em>ANAWIN.</em></h1><div class="about-image"><img src="/images/cherry_pink.png" alt="Cherry-pink ANAWIN glove among flowers" /></div></section>
+  return `<main><section class="about-hero"><p class="eyebrow">Company / ANAWIN</p><h1>ABOUT<br><em>ANAWIN.</em></h1><div class="about-image">${responsivePhoto('/images/cherry_pink.png', 'cherry_pink', [720, 1200, 1448], '100vw', 'Cherry-pink ANAWIN glove among flowers', 1448, 1086, 'eager')}</div></section>
     <section class="origin"><p class="eyebrow">Company</p><div><h2>HOW IT STARTED</h2><p>ANAWIN started with two best friends, over 10 years of friendship, and a shared love for baseball.</p><p>We created ANAWIN with a simple goal: bring more energy and attention back to the game we grew up loving. From the beginning, authenticity has been at the center of what we do. We shared the process, listened to feedback, and let the baseball community help shape what we were building.</p><p>ANAWIN was not just built for the baseball community. It was built with them.</p></div></section>
     <section class="founders founders-editorial" aria-labelledby="founders-heading">
       <div class="founders-heading"><p class="eyebrow">ANAWIN / Co-founders</p><h2 id="founders-heading"><em>FOUNDERS</em></h2></div>
       <div class="founders-layout">
         <article class="founder-profile" aria-labelledby="founder-ray">
-          <div class="founder-portrait"><img src="/images/ray_headshot.png" alt="Ray Lopez, co-founder of ANAWIN" loading="lazy" /></div>
+          <div class="founder-portrait">${responsivePhoto('/images/ray_headshot.png', 'ray_headshot', [480, 960, 1778], '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 2)', 'Ray Lopez, co-founder of ANAWIN', 1778, 1812, 'lazy')}</div>
           <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-ray">RAY LOPEZ</h3><div class="founder-bio"><p>Growing up with a father who played professional baseball, Ray developed a love for the game that eventually led him to start ANAWIN.</p><ul><li>Finance and Sports Business student at Arizona State University</li><li>Former Finance Intern with the Arizona Diamondbacks</li><li>Building ANAWIN alongside the baseball community, with their ideas helping shape each product</li></ul></div></div>
         </article>
         <article class="founder-profile" aria-labelledby="founder-anawin">
-          <div class="founder-portrait"><img src="/images/anawin_headshot-gray.png" alt="Anawin Pikulthong, co-founder of ANAWIN" loading="lazy" /></div>
+          <div class="founder-portrait">${responsivePhoto('/images/anawin_headshot-gray.png', 'anawin_headshot-gray', [480, 960, 1254], '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 2)', 'Anawin Pikulthong, co-founder of ANAWIN', 1254, 1254, 'lazy')}</div>
           <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-anawin">ANAWIN PIKULTHONG</h3><div class="founder-bio"><p>With a background in competitive golf, Anawin brings a mix of athlete experience and a passion for equipment to building ANAWIN.</p><ul><li>Data Science student at Arizona State University</li><li>Former Marketing Analytics Intern at TaylorMade Golf</li><li>Former Division 1 Golfer at Arizona State University</li></ul></div></div>
         </article>
       </div>
