@@ -1,5 +1,5 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
 import { createCommerce } from './commerce.js';
 import { communityItems } from './community.js';
 
@@ -108,12 +108,12 @@ function productPage(product) {
   const otherGloves = products.filter(other => other.id !== product.id);
   return `<main class="pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}">${productImage(src, `${product.tone} glove view ${i + 1}`, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
     <aside class="pdp-info"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h1>${escapeHtml(product.name)}</h1><p class="tone">${escapeHtml(product.tone)}</p><p class="price">${money(product.price, product.currencyCode)}</p>
-      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
       <dl class="hand-orientation"><div><dt>Throwing hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw</dd></div><div><dt>Worn on</dt><dd>${escapeHtml(product.wornOnHand)} Hand</dd></div></dl>
       <label class="service-option"><input type="checkbox" data-break-in ${breakInService.available === false ? 'disabled' : ''}/><span><strong>Break-in service</strong><small>Optional glove break-in<br>${breakInService.copy}</small></span><b>+${money(breakInService.price, breakInService.currencyCode)}</b></label>
-      <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span>${money(product.price, product.currencyCode)}</span></button>
-      <details><summary>Product information <span>+</span></summary><p>Designed for baseball and softball players. Built for faster hands, cleaner transfers, and more consistent defensive work.</p></details>
-      <details><summary>Shipping & returns <span>+</span></summary><p>Shipping and return policies will be published before checkout launches.</p></details>
+      <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span data-add-price>${money(purchasePrice(product, breakInService, false), product.currencyCode)}</span></button>
+      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
+      <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Designed for baseball and softball players. Built for faster hands, cleaner transfers, and more consistent defensive work.</p></details>
+      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Shipping and return policies will be published before checkout launches.</p></details>
     </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
@@ -160,7 +160,7 @@ function cartDrawer() {
       const description = `${product.name}${service ? ' with Break-in service' : ''}`;
       const serviceControl = commerce.mode === 'shopify'
         ? service
-          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove Break-in service from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove</button></p>`
+          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove break-in from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove break-in</button></p>`
           : `<button class="cart-service-control" data-add-service="${escapeHtml(line.remoteLineId)}" ${cartBusy || cart.incomplete || breakInService.available === false ? 'disabled' : ''}>Add Break-in service +${money(breakInService.price, breakInService.currencyCode)}</button>`
         : service ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)}</p>` : '';
       return `<article class="cart-item"><img src="${product.images[0]}" alt=""><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p><p>${money(product.price, product.currencyCode)}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>+</button></div></div><button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${cartBusy ? 'disabled' : ''}>Remove</button></article>`;
@@ -302,6 +302,12 @@ function bind() {
     if (element.closest('.mobile-nav')) document.querySelector('.cart-head [data-close-cart]')?.focus();
   }));
   bindMobileGallery();
+  const serviceCheckbox = document.querySelector('[data-break-in]');
+  serviceCheckbox?.addEventListener('change', () => {
+    const product = products.find(item => item.id === document.querySelector('[data-add]')?.dataset.add);
+    const amount = document.querySelector('[data-add-price]');
+    if (product && amount) amount.textContent = money(purchasePrice(product, breakInService, serviceCheckbox.checked), product.currencyCode);
+  });
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
     const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
     await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn));

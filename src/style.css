@@ -148,3 +148,6 @@
 @media(max-width:760px){
   .pdp-info .product-specs dd{font-size:13px}
 }
+
+.accordion-indicator::before{content:"+"}
+.pdp-info details[open] .accordion-indicator::before{content:"−"}

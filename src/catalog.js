@@ -6,6 +6,10 @@ export const breakInService = Object.freeze({
   copy: 'Get your glove ready for practice right away.'
 });
 
+export function purchasePrice(product, service, includeService) {
+  return product.price + (includeService ? service.price : 0);
+}
+
 export const localProducts = Object.freeze([
   { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', accentColor: '#9a4c52', accentBackground: '#f8f2f2', price: 150, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/black${n}.PNG`) },
   { id: 'blue', name: 'OB16', tone: 'Sky Blue / Royal / Navy', accentColor: '#5d7f9d', accentBackground: '#f1f5f8', price: 150, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/blue${n}.PNG`) },
