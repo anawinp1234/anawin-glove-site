@@ -50,6 +50,7 @@
 .hero-copy{grid-column:1;grid-row:1}
 .hero-cta{grid-column:1;grid-row:2}
 .hero h1{font-weight:400;font-style:italic;font-stretch:normal;letter-spacing:-.025em}
+@media(max-width:760px) and (orientation:portrait){.hero h1{font-size:clamp(46px,15vw,66px)}}
 .statement-mark img{height:auto}
 .cart-service-control{display:inline-block;margin:8px 0 0;padding:0;border:0;border-bottom:1px solid currentColor;background:none;color:var(--ink);font-size:10px;text-align:left;cursor:pointer}.cart-service .cart-service-control{margin:0 0 0 8px;color:inherit}.cart-service-control:disabled{opacity:.55;cursor:not-allowed}
 
@@ -121,6 +122,7 @@
 
 /* Keep responsive image wrappers in the same slots as the original images. */
 .product-image picture,.gallery-image picture{display:block;width:100%;height:100%}
-.other-glove-card picture{display:block;width:120px;height:120px}
+.other-glove-card picture{display:block;width:120px;height:120px;overflow:hidden}
+.other-glove-card img{height:100%}
 @media(max-width:760px){.other-glove-card picture{width:92px;height:92px}}
 .about-image picture,.founder-portrait picture{display:block;width:100%;height:100%}
