@@ -157,6 +157,7 @@ body.lightbox-open{overflow:hidden}
 .quantity button{width:44px;height:44px}
 .remove{min-width:44px;min-height:44px;padding:0 4px}
 .cart-service-control{min-height:44px;padding:0 6px}
+.cart-item h3 + p,.cart-item .cart-service,.cart-service-control{font-size:12px;line-height:1.35}
 @media(max-width:374px){
   .cart-item{grid-template-columns:72px minmax(0,1fr) auto;gap:12px}
   .cart-item img{width:72px}
