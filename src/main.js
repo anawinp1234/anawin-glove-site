@@ -72,7 +72,7 @@ function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><span>Shipping — Coming soon</span><span>Returns — Coming soon</span></div>
+    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
@@ -119,7 +119,7 @@ function productPage(product) {
       <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span data-add-price>${money(purchasePrice(product, breakInService, false), product.currencyCode)}</span></button>
       <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
       <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>A 10.25-inch training glove designed for focused glove-work practice. Its compact size gives players a smaller training platform than a standard game glove.</p></details>
-      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Shipping and return policies will be published before checkout launches.</p></details>
+      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. U.S. shipping is calculated at checkout, with estimated delivery 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
     </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
@@ -140,6 +140,28 @@ function about() {
       </div>
     </section>
     <section class="philosophy"><p class="eyebrow">ANAWIN</p><h2>OUR STORY</h2><div class="story-copy"><p>We met in sixth grade and have been close ever since. Over the years, we have spent countless hours playing catch, throwing sliders into the dirt, talking baseball, and competing over just about everything.</p><p>Baseball has always been part of our friendship, so building ANAWIN felt natural. We wanted to create something that reflected the way we actually grew up around the game: competitive, creative, and authentic.</p><p>What started as an idea between two friends became a brand shaped by the same baseball community we have always been part of.</p></div></section></main>`;
+}
+
+function shippingPolicy() {
+  return `<main class="policy-page"><h1>Shipping Policy</h1>
+    <section><h2>Processing Times</h2><p>Orders without Break-In Service are processed within 1–3 business days.</p><p>Orders that include Break-In Service require an additional 2–5 business days of processing before shipment.</p><p>Business days exclude weekends and holidays.</p></section>
+    <section><h2>Shipping Area</h2><p>ANAWIN currently ships within the United States only.</p></section>
+    <section><h2>Shipping Rates</h2><p>Shipping costs are calculated at checkout based on the destination and available shipping method.</p></section>
+    <section><h2>Delivery Estimates</h2><p>After an order ships, estimated delivery is typically 3–7 business days.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
+    <section><h2>Tracking</h2><p>When available, tracking information will be provided after the order ships.</p></section>
+    <section><h2>Incorrect or Damaged Orders</h2><p>If an order arrives damaged, defective, or incorrect, contact ANAWIN as soon as possible so the issue can be reviewed and resolved.</p></section>
+  </main>`;
+}
+
+function returnsPolicy() {
+  return `<main class="policy-page"><h1>Returns &amp; Refunds Policy</h1>
+    <section><h2>30-Day Returns</h2><p>Eligible items may be returned within 30 days of delivery.</p><p>To qualify for a return, the glove must be:</p><ul><li>unused or only lightly tried on</li><li>free from game or practice use</li><li>free from alterations or customer-caused damage</li></ul><p>Original packaging should be included when reasonably possible.</p></section>
+    <section><h2>Break-In Service</h2><p>Gloves that receive ANAWIN Break-In Service remain eligible for return, provided they otherwise meet the return requirements above.</p></section>
+    <section><h2>Return Shipping</h2><p>For eligible U.S. returns, ANAWIN will provide a prepaid return shipping label.</p></section>
+    <section><h2>Original Shipping Charges</h2><p>Original shipping charges are non-refundable, except when the order was defective, damaged, or incorrect.</p></section>
+    <section><h2>Non-Returnable Items</h2><p>There are currently no product categories designated as non-returnable.</p></section>
+    <section><h2>Refunds</h2><p>After a returned item is received and inspected, approved refunds will be issued within 3–5 business days.</p><p>The time it takes for the refund to appear in the customer's account after issuance may depend on the bank or payment provider.</p></section>
+  </main>`;
 }
 
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
@@ -179,6 +201,8 @@ function route() {
   if (path === '/') return home();
   if (path === '/shop') return shop();
   if (path === '/about') return about();
+  if (path === '/shipping') return shippingPolicy();
+  if (path === '/returns') return returnsPolicy();
   if (path.startsWith('/product/')) return productPage(products.find(product => product.id === path.split('/')[2]));
   return notFound();
 }
