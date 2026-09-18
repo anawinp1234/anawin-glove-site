@@ -152,6 +152,14 @@
 .accordion-indicator::before{content:"+"}
 .pdp-info details[open] .accordion-indicator::before{content:"−"}
 
+@media(min-width:761px) and (max-width:1100px){
+  .service-option span{display:contents}
+  .service-option input{grid-column:1;grid-row:1}
+  .service-option strong{grid-column:2;grid-row:1}
+  .service-option b{grid-column:3;grid-row:1}
+  .service-option small{grid-column:1/-1;grid-row:2}
+}
+
 body.lightbox-open{overflow:hidden}
 .cart-head button{min-width:44px;min-height:44px}
 .quantity button{width:44px;height:44px}

@@ -3,7 +3,7 @@ export const breakInService = Object.freeze({
   name: 'Break-in service',
   price: 20,
   currencyCode: 'USD',
-  copy: 'Get your glove ready for practice right away.'
+  copy: 'ANAWIN will loosen and work the leather so your glove arrives practice-ready and easier to close. Break-In Service adds 2–5 business days to processing time. Broken-in gloves are still eligible for return under our return policy.'
 });
 
 export function purchasePrice(product, service, includeService) {
