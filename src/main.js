@@ -1,6 +1,7 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
 import { createCommerce } from './commerce.js';
+import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
 
 const app = document.querySelector('#app');
@@ -18,6 +19,11 @@ let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl:
 let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
 let cartError = '';
+let cartIsOpen = false;
+let cartReturnFocus = null;
+let cartCloseTimer = null;
+let lightboxOverlay = null;
+let lightboxReturnFocus = null;
 
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -153,7 +159,7 @@ function cartDrawer() {
   const checkout = canCheckout()
     ? `<button data-checkout ${cartBusy ? 'disabled' : ''}>Checkout securely</button>`
     : `<button disabled>Checkout coming soon</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
-  return `<div class="cart-backdrop" data-close-cart></div><aside class="cart-drawer" aria-label="Shopping cart"><div class="cart-head"><h2>Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
+  return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => {
       const quantityAttribute = commerce.mode === 'shopify' ? `data-qty-line="${escapeHtml(line.remoteLineId)}"` : `data-qty="${product.id}"`;
       const removeAttribute = commerce.mode === 'shopify' ? `data-remove-line="${escapeHtml(line.remoteLineId)}"` : `data-remove="${product.id}"`;
@@ -195,13 +201,30 @@ function fitHeroHeading() {
 
 function render() { app.innerHTML = header() + commerceNotice() + route() + footer(); fitHeroHeading(); bind(); window.scrollTo(0, 0); }
 function navigate(path) { history.pushState({}, '', path); render(); }
-function openCart() {
+function openCart(opener = null) {
+  if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
+  cartIsOpen = true;
+  clearTimeout(cartCloseTimer);
   document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
-  document.body.insertAdjacentHTML('beforeend', cartDrawer()); requestAnimationFrame(() => document.body.classList.add('cart-open')); bindCart();
+  document.body.insertAdjacentHTML('beforeend', cartDrawer());
+  app.inert = true;
+  requestAnimationFrame(() => { if (cartIsOpen) document.body.classList.add('cart-open'); });
+  bindCart();
+  document.querySelector('.cart-head [data-close-cart]')?.focus();
 }
 function closeCart() {
+  if (!cartIsOpen) return;
+  cartIsOpen = false;
   document.body.classList.remove('cart-open');
-  setTimeout(() => { document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove(); }, 300);
+  app.inert = Boolean(lightboxOverlay);
+  const opener = cartReturnFocus;
+  cartReturnFocus = null;
+  (opener?.isConnected && !opener.closest('[hidden]') ? opener : document.querySelector('.cart-trigger'))?.focus();
+  clearTimeout(cartCloseTimer);
+  cartCloseTimer = setTimeout(() => {
+    if (cartIsOpen) return;
+    document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
+  }, 300);
 }
 function syncCartCount() {
   document.querySelectorAll('.cart-count').forEach(node => { node.textContent = `(${cartCount()})`; });
@@ -239,16 +262,16 @@ function bindMobileGallery() {
     update();
   }));
 }
-async function cartAction(action) {
+async function cartAction(action, opener = null) {
   if (cartBusy) return;
-  cartBusy = true; cartError = ''; openCart();
+  cartBusy = true; cartError = ''; openCart(opener);
   try { cart = await action(); }
   catch (error) {
     cartError = error.message || 'Cart update failed. Please try again.';
     try { cart = await commerce.getCart(); }
     catch { cart = { ...cart, checkoutUrl: null }; }
   }
-  finally { cartBusy = false; syncCartCount(); openCart(); }
+  finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
 }
 
 function bindCart() {
@@ -298,8 +321,7 @@ function bind() {
   });
   document.querySelectorAll('[data-cart]').forEach(element => element.addEventListener('click', () => {
     closeMobileMenu();
-    openCart();
-    if (element.closest('.mobile-nav')) document.querySelector('.cart-head [data-close-cart]')?.focus();
+    openCart(element.closest('.mobile-nav') ? menuToggle : element);
   }));
   bindMobileGallery();
   const serviceCheckbox = document.querySelector('[data-break-in]');
@@ -310,13 +332,32 @@ function bind() {
   });
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
     const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
-    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn));
+    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn), element);
   }));
   document.querySelectorAll('[data-image]').forEach(element => element.addEventListener('click', () => {
-    const overlay = document.createElement('div'); overlay.className = 'lightbox';
-    overlay.innerHTML = `<button aria-label="Close image">Close</button><img src="${element.dataset.image}" alt="Expanded product view">`;
-    document.body.append(overlay); overlay.addEventListener('click', () => overlay.remove());
+    lightboxReturnFocus = element;
+    lightboxOverlay = document.createElement('div');
+    lightboxOverlay.className = 'lightbox';
+    lightboxOverlay.setAttribute('role', 'dialog');
+    lightboxOverlay.setAttribute('aria-modal', 'true');
+    lightboxOverlay.setAttribute('aria-label', 'Product image');
+    lightboxOverlay.innerHTML = `<button aria-label="Close image">Close</button><img src="${element.dataset.image}" alt="Expanded product view">`;
+    document.body.append(lightboxOverlay);
+    document.body.classList.add('lightbox-open');
+    app.inert = true;
+    lightboxOverlay.addEventListener('click', closeLightbox);
+    lightboxOverlay.querySelector('button').focus();
   }));
+}
+
+function closeLightbox() {
+  if (!lightboxOverlay) return;
+  lightboxOverlay.remove();
+  lightboxOverlay = null;
+  document.body.classList.remove('lightbox-open');
+  app.inert = cartIsOpen;
+  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus();
+  lightboxReturnFocus = null;
 }
 
 async function boot() {
@@ -326,11 +367,17 @@ async function boot() {
     [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
   }
   catch (error) { commerceError = error.message || 'Unable to connect to Shopify.'; }
-  finally { commerceLoading = false; render(); }
+  finally { commerceLoading = false; render(); if (cartIsOpen) openCart(); }
 }
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') closeMobileMenu(true);
+  if (lightboxOverlay) {
+    if (event.key === 'Escape') { event.preventDefault(); closeLightbox(); }
+    else containTab(event, lightboxOverlay, document.activeElement);
+  } else if (cartIsOpen) {
+    if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
+    else containTab(event, document.querySelector('.cart-drawer'), document.activeElement);
+  } else if (event.key === 'Escape') closeMobileMenu(true);
 });
 window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();

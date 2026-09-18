@@ -151,3 +151,13 @@
 
 .accordion-indicator::before{content:"+"}
 .pdp-info details[open] .accordion-indicator::before{content:"−"}
+
+body.lightbox-open{overflow:hidden}
+.cart-head button{min-width:44px;min-height:44px}
+.quantity button{width:44px;height:44px}
+.remove{min-width:44px;min-height:44px;padding:0 4px}
+.cart-service-control{min-height:44px;padding:0 6px}
+@media(max-width:374px){
+  .cart-item{grid-template-columns:72px minmax(0,1fr) auto;gap:12px}
+  .cart-item img{width:72px}
+}
