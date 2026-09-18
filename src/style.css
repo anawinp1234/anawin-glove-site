@@ -126,3 +126,25 @@
 .other-glove-card img{height:100%}
 @media(max-width:760px){.other-glove-card picture{width:92px;height:92px}}
 .about-image picture,.founder-portrait picture{display:block;width:100%;height:100%}
+
+/* PDP supporting typography on tablet and desktop. */
+@media(min-width:761px){
+  .pdp-info .tone{font-size:15px;line-height:1.4}
+  .pdp-info .price{line-height:1.3}
+  .pdp-info .product-specs dt{font-size:12px;line-height:1.4}
+  .pdp-info .product-specs dd{font-size:14px;line-height:1.4}
+  .pdp-info .hand-orientation dt{font-size:12px;line-height:1.4}
+  .pdp-info .hand-orientation dd{line-height:1.3}
+  .pdp-info .service-option strong{font-size:13px;line-height:1.35}
+  .pdp-info .service-option small{font-size:13px;line-height:1.45}
+  .pdp-info .service-option b{font-size:14px;line-height:1.35}
+  .pdp-info .add-button{font-size:15px;line-height:1.3}
+  .pdp-info summary{font-size:13px;line-height:1.4}
+  .pdp-info details p{font-size:14px;line-height:1.55}
+  .pdp-info .eyebrow{font-size:11px;line-height:1.4}
+  .pdp .other-glove-meta small{font-size:13px;line-height:1.4}
+}
+
+@media(max-width:760px){
+  .pdp-info .product-specs dd{font-size:13px}
+}
