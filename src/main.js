@@ -4,6 +4,7 @@ import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
+import { warrantyParagraphs, careInstructions } from './policy-content.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -30,6 +31,8 @@ const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+const policyParagraphs = paragraphs => paragraphs.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('');
+const policyList = items => `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
 const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
 const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 3)';
 const galleryImageSizes = '(max-width: 760px) 90vw, 30vw';
@@ -75,7 +78,7 @@ function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div>
+    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Care</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
@@ -122,6 +125,8 @@ function productPage(product) {
       <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span data-add-price>${money(purchasePrice(product, breakInService, false), product.currencyCode)}</span></button>
       <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
       <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>A 10.25-inch training glove designed for focused glove-work practice. Its compact size gives players a smaller training platform than a standard game glove.</p></details>
+      <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary>${policyParagraphs(warrantyParagraphs)}</details>
+      <details><summary>Care <span class="accordion-indicator" aria-hidden="true"></span></summary>${policyList(careInstructions)}</details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. U.S. shipping is calculated at checkout, with estimated delivery 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
     </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
@@ -167,6 +172,14 @@ function returnsPolicy() {
   </main>`;
 }
 
+function warrantyPolicy() {
+  return `<main class="policy-page"><h1>Warranty</h1><section><h2>1-Year Limited Warranty</h2>${policyParagraphs(warrantyParagraphs)}</section></main>`;
+}
+
+function carePolicy() {
+  return `<main class="policy-page"><h1>Care</h1><section><h2>Glove Care</h2>${policyList(careInstructions)}</section></main>`;
+}
+
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
 
 function cartDrawer() {
@@ -199,6 +212,8 @@ function route() {
   if (path === '/about') return about();
   if (path === '/shipping') return shippingPolicy();
   if (path === '/returns') return returnsPolicy();
+  if (path === '/warranty') return warrantyPolicy();
+  if (path === '/care') return carePolicy();
   if (path.startsWith('/product/')) return productPage(products.find(product => product.id === path.split('/')[2]));
   return notFound();
 }
@@ -325,8 +340,9 @@ function bind() {
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
     event.preventDefault();
     const fromMobileMenu = Boolean(element.closest('.mobile-nav'));
+    const fromFooter = Boolean(element.closest('footer'));
     closeMobileMenu(); closeCart(); navigate(element.getAttribute('href'));
-    if (fromMobileMenu) {
+    if (fromMobileMenu || fromFooter) {
       const heading = document.querySelector('main h1');
       if (heading) { heading.tabIndex = -1; heading.focus(); }
     }
