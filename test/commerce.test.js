@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { localProducts } from '../src/catalog.js';
+import { breakInService, localProducts, purchasePrice } from '../src/catalog.js';
 import {
   createLocalCommerce,
   createShopifyCommerce,
@@ -22,6 +22,15 @@ test('each glove has product-level hand orientation', () => {
     assert.equal(product.throwingHand, 'Right');
     assert.equal(product.wornOnHand, 'Left');
   }
+});
+
+test('purchase price follows each glove and the selected service price', () => {
+  for (const product of localProducts) {
+    assert.equal(purchasePrice(product, breakInService, false), 150);
+    assert.equal(purchasePrice(product, breakInService, true), 170);
+    assert.equal(purchasePrice(product, breakInService, false), 150);
+  }
+  assert.equal(purchasePrice({ price: 155 }, { price: 25 }, true), 180);
 });
 
 test('migrates the original local cart and caps unsafe quantities', () => {

@@ -1,6 +1,7 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
 import { createCommerce } from './commerce.js';
+import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
 
 const app = document.querySelector('#app');
@@ -18,6 +19,11 @@ let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl:
 let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
 let cartError = '';
+let cartIsOpen = false;
+let cartReturnFocus = null;
+let cartCloseTimer = null;
+let lightboxOverlay = null;
+let lightboxReturnFocus = null;
 
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
@@ -66,7 +72,7 @@ function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><span>Shipping — Coming soon</span><span>Returns — Coming soon</span></div>
+    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
@@ -107,13 +113,13 @@ function productPage(product) {
   const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
   const otherGloves = products.filter(other => other.id !== product.id);
   return `<main class="pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}">${productImage(src, `${product.tone} glove view ${i + 1}`, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
-    <aside class="pdp-info"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h1>${escapeHtml(product.name)}</h1><p class="tone">${escapeHtml(product.tone)}</p><p class="price">${money(product.price, product.currencyCode)}</p>
-      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
+    <aside class="pdp-info"><p class="eyebrow">ANAWIN / TRAINING GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="tone">${escapeHtml(product.tone)}</p><p class="price">${money(product.price, product.currencyCode)}</p>
       <dl class="hand-orientation"><div><dt>Throwing hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw</dd></div><div><dt>Worn on</dt><dd>${escapeHtml(product.wornOnHand)} Hand</dd></div></dl>
-      <label class="service-option"><input type="checkbox" data-break-in ${breakInService.available === false ? 'disabled' : ''}/><span><strong>Break-in service</strong><small>Optional glove break-in<br>${breakInService.copy}</small></span><b>+${money(breakInService.price, breakInService.currencyCode)}</b></label>
-      <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span>${money(product.price, product.currencyCode)}</span></button>
-      <details><summary>Product information <span>+</span></summary><p>Designed for baseball and softball players. Built for faster hands, cleaner transfers, and more consistent defensive work.</p></details>
-      <details><summary>Shipping & returns <span>+</span></summary><p>Shipping and return policies will be published before checkout launches.</p></details>
+      <label class="service-option"><input type="checkbox" data-break-in ${breakInService.available === false ? 'disabled' : ''}/><span><strong>Break-in service</strong><small>${breakInService.copy}</small></span><b>+${money(breakInService.price, breakInService.currencyCode)}</b></label>
+      <button class="add-button" data-add="${product.id}" ${unavailable ? 'disabled' : ''}>${buttonLabel} <span data-add-price>${money(purchasePrice(product, breakInService, false), product.currencyCode)}</span></button>
+      <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
+      <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>A 10.25-inch training glove designed for focused glove-work practice. Its compact size gives players a smaller training platform than a standard game glove.</p></details>
+      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. U.S. shipping is calculated at checkout, with estimated delivery 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
     </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
@@ -136,6 +142,28 @@ function about() {
     <section class="philosophy"><p class="eyebrow">ANAWIN</p><h2>OUR STORY</h2><div class="story-copy"><p>We met in sixth grade and have been close ever since. Over the years, we have spent countless hours playing catch, throwing sliders into the dirt, talking baseball, and competing over just about everything.</p><p>Baseball has always been part of our friendship, so building ANAWIN felt natural. We wanted to create something that reflected the way we actually grew up around the game: competitive, creative, and authentic.</p><p>What started as an idea between two friends became a brand shaped by the same baseball community we have always been part of.</p></div></section></main>`;
 }
 
+function shippingPolicy() {
+  return `<main class="policy-page"><h1>Shipping Policy</h1>
+    <section><h2>Processing Times</h2><p>Orders without Break-In Service are processed within 1–3 business days.</p><p>Orders that include Break-In Service require an additional 2–5 business days of processing before shipment.</p><p>Business days exclude weekends and holidays.</p></section>
+    <section><h2>Shipping Area</h2><p>ANAWIN currently ships within the United States only.</p></section>
+    <section><h2>Shipping Rates</h2><p>Shipping costs are calculated at checkout based on the destination and available shipping method.</p></section>
+    <section><h2>Delivery Estimates</h2><p>After an order ships, estimated delivery is typically 3–7 business days.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
+    <section><h2>Tracking</h2><p>When available, tracking information will be provided after the order ships.</p></section>
+    <section><h2>Incorrect or Damaged Orders</h2><p>If an order arrives damaged, defective, or incorrect, contact ANAWIN as soon as possible so the issue can be reviewed and resolved.</p></section>
+  </main>`;
+}
+
+function returnsPolicy() {
+  return `<main class="policy-page"><h1>Returns &amp; Refunds Policy</h1>
+    <section><h2>30-Day Returns</h2><p>Eligible items may be returned within 30 days of delivery.</p><p>To qualify for a return, the glove must be:</p><ul><li>unused or only lightly tried on</li><li>free from game or practice use</li><li>free from alterations or customer-caused damage</li></ul><p>Original packaging should be included when reasonably possible.</p></section>
+    <section><h2>Break-In Service</h2><p>Gloves that receive ANAWIN Break-In Service remain eligible for return, provided they otherwise meet the return requirements above.</p></section>
+    <section><h2>Return Shipping</h2><p>For eligible U.S. returns, ANAWIN will provide a prepaid return shipping label.</p></section>
+    <section><h2>Original Shipping Charges</h2><p>Original shipping charges are non-refundable, except when the order was defective, damaged, or incorrect.</p></section>
+    <section><h2>Non-Returnable Items</h2><p>There are currently no product categories designated as non-returnable.</p></section>
+    <section><h2>Refunds</h2><p>After a returned item is received and inspected, approved refunds will be issued within 3–5 business days.</p><p>The time it takes for the refund to appear in the customer's account after issuance may depend on the bank or payment provider.</p></section>
+  </main>`;
+}
+
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
 
 function cartDrawer() {
@@ -153,14 +181,14 @@ function cartDrawer() {
   const checkout = canCheckout()
     ? `<button data-checkout ${cartBusy ? 'disabled' : ''}>Checkout securely</button>`
     : `<button disabled>Checkout coming soon</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
-  return `<div class="cart-backdrop" data-close-cart></div><aside class="cart-drawer" aria-label="Shopping cart"><div class="cart-head"><h2>Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
+  return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => {
       const quantityAttribute = commerce.mode === 'shopify' ? `data-qty-line="${escapeHtml(line.remoteLineId)}"` : `data-qty="${product.id}"`;
       const removeAttribute = commerce.mode === 'shopify' ? `data-remove-line="${escapeHtml(line.remoteLineId)}"` : `data-remove="${product.id}"`;
       const description = `${product.name}${service ? ' with Break-in service' : ''}`;
       const serviceControl = commerce.mode === 'shopify'
         ? service
-          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove Break-in service from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove</button></p>`
+          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove break-in from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove break-in</button></p>`
           : `<button class="cart-service-control" data-add-service="${escapeHtml(line.remoteLineId)}" ${cartBusy || cart.incomplete || breakInService.available === false ? 'disabled' : ''}>Add Break-in service +${money(breakInService.price, breakInService.currencyCode)}</button>`
         : service ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)}</p>` : '';
       return `<article class="cart-item"><img src="${product.images[0]}" alt=""><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p><p>${money(product.price, product.currencyCode)}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>+</button></div></div><button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${cartBusy ? 'disabled' : ''}>Remove</button></article>`;
@@ -173,6 +201,8 @@ function route() {
   if (path === '/') return home();
   if (path === '/shop') return shop();
   if (path === '/about') return about();
+  if (path === '/shipping') return shippingPolicy();
+  if (path === '/returns') return returnsPolicy();
   if (path.startsWith('/product/')) return productPage(products.find(product => product.id === path.split('/')[2]));
   return notFound();
 }
@@ -195,13 +225,30 @@ function fitHeroHeading() {
 
 function render() { app.innerHTML = header() + commerceNotice() + route() + footer(); fitHeroHeading(); bind(); window.scrollTo(0, 0); }
 function navigate(path) { history.pushState({}, '', path); render(); }
-function openCart() {
+function openCart(opener = null) {
+  if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
+  cartIsOpen = true;
+  clearTimeout(cartCloseTimer);
   document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
-  document.body.insertAdjacentHTML('beforeend', cartDrawer()); requestAnimationFrame(() => document.body.classList.add('cart-open')); bindCart();
+  document.body.insertAdjacentHTML('beforeend', cartDrawer());
+  app.inert = true;
+  requestAnimationFrame(() => { if (cartIsOpen) document.body.classList.add('cart-open'); });
+  bindCart();
+  document.querySelector('.cart-head [data-close-cart]')?.focus();
 }
 function closeCart() {
+  if (!cartIsOpen) return;
+  cartIsOpen = false;
   document.body.classList.remove('cart-open');
-  setTimeout(() => { document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove(); }, 300);
+  app.inert = Boolean(lightboxOverlay);
+  const opener = cartReturnFocus;
+  cartReturnFocus = null;
+  (opener?.isConnected && !opener.closest('[hidden]') ? opener : document.querySelector('.cart-trigger'))?.focus();
+  clearTimeout(cartCloseTimer);
+  cartCloseTimer = setTimeout(() => {
+    if (cartIsOpen) return;
+    document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
+  }, 300);
 }
 function syncCartCount() {
   document.querySelectorAll('.cart-count').forEach(node => { node.textContent = `(${cartCount()})`; });
@@ -239,16 +286,16 @@ function bindMobileGallery() {
     update();
   }));
 }
-async function cartAction(action) {
+async function cartAction(action, opener = null) {
   if (cartBusy) return;
-  cartBusy = true; cartError = ''; openCart();
+  cartBusy = true; cartError = ''; openCart(opener);
   try { cart = await action(); }
   catch (error) {
     cartError = error.message || 'Cart update failed. Please try again.';
     try { cart = await commerce.getCart(); }
     catch { cart = { ...cart, checkoutUrl: null }; }
   }
-  finally { cartBusy = false; syncCartCount(); openCart(); }
+  finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
 }
 
 function bindCart() {
@@ -298,19 +345,43 @@ function bind() {
   });
   document.querySelectorAll('[data-cart]').forEach(element => element.addEventListener('click', () => {
     closeMobileMenu();
-    openCart();
-    if (element.closest('.mobile-nav')) document.querySelector('.cart-head [data-close-cart]')?.focus();
+    openCart(element.closest('.mobile-nav') ? menuToggle : element);
   }));
   bindMobileGallery();
+  const serviceCheckbox = document.querySelector('[data-break-in]');
+  serviceCheckbox?.addEventListener('change', () => {
+    const product = products.find(item => item.id === document.querySelector('[data-add]')?.dataset.add);
+    const amount = document.querySelector('[data-add-price]');
+    if (product && amount) amount.textContent = money(purchasePrice(product, breakInService, serviceCheckbox.checked), product.currencyCode);
+  });
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
     const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
-    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn));
+    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn), element);
   }));
   document.querySelectorAll('[data-image]').forEach(element => element.addEventListener('click', () => {
-    const overlay = document.createElement('div'); overlay.className = 'lightbox';
-    overlay.innerHTML = `<button aria-label="Close image">Close</button><img src="${element.dataset.image}" alt="Expanded product view">`;
-    document.body.append(overlay); overlay.addEventListener('click', () => overlay.remove());
+    lightboxReturnFocus = element;
+    lightboxOverlay = document.createElement('div');
+    lightboxOverlay.className = 'lightbox';
+    lightboxOverlay.setAttribute('role', 'dialog');
+    lightboxOverlay.setAttribute('aria-modal', 'true');
+    lightboxOverlay.setAttribute('aria-label', 'Product image');
+    lightboxOverlay.innerHTML = `<button aria-label="Close image">Close</button><img src="${element.dataset.image}" alt="Expanded product view">`;
+    document.body.append(lightboxOverlay);
+    document.body.classList.add('lightbox-open');
+    app.inert = true;
+    lightboxOverlay.addEventListener('click', closeLightbox);
+    lightboxOverlay.querySelector('button').focus();
   }));
+}
+
+function closeLightbox() {
+  if (!lightboxOverlay) return;
+  lightboxOverlay.remove();
+  lightboxOverlay = null;
+  document.body.classList.remove('lightbox-open');
+  app.inert = cartIsOpen;
+  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus();
+  lightboxReturnFocus = null;
 }
 
 async function boot() {
@@ -320,11 +391,17 @@ async function boot() {
     [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
   }
   catch (error) { commerceError = error.message || 'Unable to connect to Shopify.'; }
-  finally { commerceLoading = false; render(); }
+  finally { commerceLoading = false; render(); if (cartIsOpen) openCart(); }
 }
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') closeMobileMenu(true);
+  if (lightboxOverlay) {
+    if (event.key === 'Escape') { event.preventDefault(); closeLightbox(); }
+    else containTab(event, lightboxOverlay, document.activeElement);
+  } else if (cartIsOpen) {
+    if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
+    else containTab(event, document.querySelector('.cart-drawer'), document.activeElement);
+  } else if (event.key === 'Escape') closeMobileMenu(true);
 });
 window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
