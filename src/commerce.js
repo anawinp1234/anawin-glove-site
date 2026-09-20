@@ -131,6 +131,7 @@ const CART_FIELDS = `
     pageInfo { hasNextPage }
     nodes {
       id quantity attributes { key value }
+      cost { amountPerQuantity { amount currencyCode } }
       ... on CartLine {
         instructions { canRemove canUpdateQuantity }
         parentRelationship { parent { id merchandise { ... on ProductVariant { id product { handle } } } } }
@@ -147,18 +148,33 @@ function assertCartPayload(payload) {
   return payload.cart;
 }
 
+export function cartUnitPrice(parent, service = null) {
+  const glovePrice = parent?.unitPrice;
+  if (!Number.isFinite(glovePrice?.amount) || glovePrice.amount < 0 || !glovePrice.currencyCode) return null;
+  if (!service) return glovePrice;
+  const servicePrice = service.unitPrice;
+  if (!Number.isFinite(servicePrice?.amount) || servicePrice.amount < 0 ||
+    glovePrice.currencyCode !== servicePrice.currencyCode) return null;
+  return { amount: glovePrice.amount + servicePrice.amount, currencyCode: glovePrice.currencyCode };
+}
+
 function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   if (!cart) return emptyCart();
   const lines = cart.lines.nodes.map(line => {
     const handle = line.merchandise.product.handle;
     const parentId = line.parentRelationship?.parent.id;
     const parentHandle = line.parentRelationship?.parent.merchandise.product.handle;
+    const unitMoney = line.cost?.amountPerQuantity;
     return {
       remoteLineId: line.id,
       merchandiseId: line.merchandise.id,
       parentLineId: parentId || null,
       productId: handle === breakInHandle ? handleToProductId[parentHandle] : handleToProductId[handle],
       quantity: line.quantity,
+      unitPrice: {
+        amount: unitMoney?.amount == null ? NaN : Number(unitMoney.amount),
+        currencyCode: unitMoney?.currencyCode || null
+      },
       isBreakIn: handle === breakInHandle,
       attributes: line.attributes || [],
       serviceConfiguration: (line.attributes || []).find(attribute => attribute.key === SERVICE_ATTRIBUTE)?.value || null,
@@ -174,6 +190,8 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
     lines
   };
   normalized.incomplete ||= !hasConsistentBreakInLines(normalized);
+  normalized.incomplete ||= lines.some(parent => !parent.isBreakIn && !cartUnitPrice(parent,
+    lines.find(child => child.isBreakIn && child.parentLineId === parent.remoteLineId)));
   return normalized;
 }
 

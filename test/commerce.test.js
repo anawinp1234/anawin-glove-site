@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { breakInService, localProducts, purchasePrice } from '../src/catalog.js';
 import {
+  cartUnitPrice,
   createLocalCommerce,
   createShopifyCommerce,
   migrateLocalCart,
@@ -91,15 +92,16 @@ test('Shopify request surfaces HTTP and GraphQL errors', async () => {
   })), /Not permitted/);
 });
 
-function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false } = {}) {
+function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, prices = {}, cartPrices = {}, currencies = {} } = {}) {
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: 'break-in'
   };
   const variants = {
-    br16: ['gid://variant/br16', '150.00'], ob16: ['gid://variant/ob16', '150.00'],
-    cl16: ['gid://variant/cl16', '150.00'], 'break-in': ['gid://variant/service', '20.00']
+    br16: ['gid://variant/br16', prices.br16 || '150.00'], ob16: ['gid://variant/ob16', prices.ob16 || '150.00'],
+    cl16: ['gid://variant/cl16', prices.cl16 || '150.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']
   };
+  const linePrice = handle => cartPrices[handle] || variants[handle][1];
   const storage = new MemoryStorage();
   const requests = [];
   let lines = [];
@@ -112,8 +114,11 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false }
   const response = data => ({ ok: true, json: async () => ({ data }) });
   const snapshot = () => ({
     id: 'gid://cart/1', checkoutUrl: 'https://store.myshopify.com/checkouts/1',
-    cost: { subtotalAmount: { amount: String(lines.reduce((sum, line) => sum + line.quantity * (line.merchandise.product.handle === 'break-in' ? 20 : 150), 0)), currencyCode: 'USD' } },
-    lines: { nodes: structuredClone(lines) }
+    cost: { subtotalAmount: { amount: String(lines.reduce((sum, line) => sum + line.quantity * Number(linePrice(line.merchandise.product.handle)), 0)), currencyCode: 'USD' } },
+    lines: { nodes: structuredClone(lines).map(line => ({ ...line, cost: { amountPerQuantity: {
+      amount: linePrice(line.merchandise.product.handle),
+      currencyCode: currencies[line.merchandise.product.handle] || 'USD'
+    } } })) }
   });
   const makeLine = (handle, quantity, parentId = null, attributes = []) => ({
     id: `line-${nextId++}`, quantity,
@@ -167,10 +172,11 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false }
       const [id, amount] = variants[variables.handle];
       return response({ product: {
         id: `gid://product/${variables.handle}`, title: variables.handle.toUpperCase(), handle: variables.handle,
-        variants: { nodes: [{ id, availableForSale: true, price: { amount, currencyCode: 'USD' } }] }
+        variants: { nodes: [{ id, availableForSale: true, price: { amount, currencyCode: currencies[variables.handle] || 'USD' } }] }
       } });
     }
     assert.match(query, /parentRelationship/);
+    assert.match(query, /cost \{ amountPerQuantity \{ amount currencyCode \} \}/);
     assert.match(query, /attributes \{ key value \}/);
     assert.match(query, /canUpdateQuantity/);
     if (query.includes('query Cart(')) return response({ cart: cartExists ? snapshot() : null });
@@ -302,6 +308,96 @@ function mixedQuantities(cart, servicedId, unservicedId) {
     service: cart.lines.find(line => line.isBreakIn && line.parentLineId === servicedId)?.quantity || 0
   };
 }
+
+function entryUnitPrice(cart, parentId) {
+  const parent = cart.lines.find(line => line.remoteLineId === parentId);
+  const service = cart.lines.find(line => line.isBreakIn && line.parentLineId === parentId);
+  return cartUnitPrice(parent, service);
+}
+
+test('unserviced glove unit price comes from its Shopify cart line', async () => {
+  const { commerce } = shopifyFixture();
+  await commerce.listProducts();
+  const cart = await commerce.addProduct('black', false);
+  assert.deepEqual(entryUnitPrice(cart, cart.lines[0].remoteLineId), { amount: 150, currencyCode: 'USD' });
+  assert.equal(cart.incomplete, false);
+});
+
+test('serviced glove unit price combines its Shopify parent and child prices', async () => {
+  const { commerce } = shopifyFixture();
+  await commerce.listProducts();
+  const cart = await commerce.addProduct('black', true);
+  const parent = cart.lines.find(line => !line.isBreakIn);
+  assert.deepEqual(parent.unitPrice, { amount: 150, currencyCode: 'USD' });
+  assert.deepEqual(cart.lines.find(line => line.isBreakIn).unitPrice, { amount: 20, currencyCode: 'USD' });
+  assert.deepEqual(entryUnitPrice(cart, parent.remoteLineId), { amount: 170, currencyCode: 'USD' });
+});
+
+test('adding service updates the selected glove unit price after Shopify confirms it', async () => {
+  const { commerce } = shopifyFixture();
+  await commerce.listProducts();
+  const before = await commerce.addProduct('black', false);
+  const parentId = before.lines[0].remoteLineId;
+  assert.equal(entryUnitPrice(before, parentId).amount, 150);
+  const after = await commerce.addBreakIn(parentId);
+  assert.equal(entryUnitPrice(after, parentId).amount, 170);
+  assert.equal(after.subtotal, 170);
+});
+
+test('removing service updates the selected glove unit price after Shopify confirms it', async () => {
+  const { commerce } = shopifyFixture();
+  await commerce.listProducts();
+  const before = await commerce.addProduct('black', true);
+  const parentId = before.lines.find(line => !line.isBreakIn).remoteLineId;
+  assert.equal(entryUnitPrice(before, parentId).amount, 170);
+  const after = await commerce.removeBreakIn(parentId);
+  assert.equal(entryUnitPrice(after, parentId).amount, 150);
+  assert.equal(after.subtotal, 150);
+});
+
+test('quantity two keeps the Shopify unit price rather than the extended total', async () => {
+  const { commerce } = shopifyFixture();
+  await commerce.listProducts();
+  const first = await commerce.addProduct('black', true);
+  const parentId = first.lines.find(line => !line.isBreakIn).remoteLineId;
+  const cart = await commerce.setLineQuantity(parentId, 2);
+  assert.equal(cart.lines.find(line => line.remoteLineId === parentId).quantity, 2);
+  assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 2);
+  assert.equal(entryUnitPrice(cart, parentId).amount, 170);
+  assert.equal(cart.subtotal, 340);
+});
+
+test('mixed serviced and unserviced entries use only their own child prices', async () => {
+  const { cart, servicedId, unservicedId } = await mixedCartFixture();
+  assert.equal(entryUnitPrice(cart, servicedId).amount, 170);
+  assert.equal(entryUnitPrice(cart, unservicedId).amount, 150);
+  assert.equal(cart.subtotal, 320);
+});
+
+test('nonstandard Shopify cart prices determine the displayed unit price', async () => {
+  const { commerce } = shopifyFixture({ cartPrices: { br16: '155.00', 'break-in': '25.00' } });
+  await commerce.listProducts();
+  assert.equal((await commerce.getBreakInService()).price, 20);
+  const unserviced = await commerce.addProduct('black', false);
+  assert.equal(entryUnitPrice(unserviced, unserviced.lines[0].remoteLineId).amount, 155);
+  const cart = await commerce.addProduct('black', true);
+  const serviced = cart.lines.find(line => !line.isBreakIn && line.serviceConfiguration === 'break-in');
+  assert.equal(entryUnitPrice(cart, serviced.remoteLineId).amount, 180);
+  assert.equal(cart.subtotal, 335);
+});
+
+test('currency mismatch leaves the combined price unavailable and blocks checkout', async () => {
+  const currencies = {};
+  const { commerce } = shopifyFixture({ currencies });
+  await commerce.listProducts();
+  const before = await commerce.addProduct('black', true);
+  const parentId = before.lines.find(line => !line.isBreakIn).remoteLineId;
+  currencies['break-in'] = 'CAD';
+  const cart = await commerce.getCart();
+  assert.equal(entryUnitPrice(cart, parentId), null);
+  assert.equal(cart.incomplete, true);
+  assert.equal(cart.subtotal, 170);
+});
 
 test('one serviced and one unserviced BR16 have separate parent cart-line identities', async () => {
   const { cart, servicedId, unservicedId } = await mixedCartFixture();
