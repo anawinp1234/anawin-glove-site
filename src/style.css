@@ -82,7 +82,15 @@
 /* PDP accents and links to separate gloves. */
 .pdp{display:block;--pdp-accent:var(--line);--pdp-accent-background:var(--white)}
 .pdp-main{display:grid;grid-template-columns:3fr 2fr;align-items:start}
-.pdp-info .tone{display:table;max-width:100%;padding:8px 12px;border-left:2px solid var(--pdp-accent);background:var(--pdp-accent-background)}
+.pdp-colorway{display:table;max-width:100%;padding:11px 14px 12px;border-left:3px solid var(--pdp-accent);background:var(--pdp-accent-background)}
+.pdp-colorway-label{display:block;margin-bottom:9px;color:var(--muted);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.pdp-colorway-detail{display:flex;align-items:center;flex-wrap:wrap;gap:9px 13px}
+.pdp-swatches{display:inline-flex;align-items:center;gap:5px}
+.pdp-swatch{display:block;width:15px;height:15px;border:1px solid rgba(0,0,0,.15);border-radius:50%;background:var(--swatch-color)}
+.pdp-info .tone{margin:0;color:var(--ink)}
+.pdp-info .product-specs,.pdp-info .product-specs div{border-color:color-mix(in srgb,var(--pdp-accent) 45%,var(--line))}
+.pdp-info .add-button{transition:background-color .2s ease}
+.pdp-info .add-button:not(:disabled):is(:hover,:focus-visible){background:var(--pdp-accent);color:#fff}
 .other-gloves{padding:90px 28px 110px;border-top:1px solid var(--line)}
 .other-gloves h2{margin:0 0 28px;font-family:var(--font-display);font-size:clamp(36px,4vw,60px);line-height:.9;letter-spacing:-.04em}
 .other-gloves-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:1000px}
