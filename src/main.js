@@ -1,6 +1,7 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
-import { cartUnitPrice, createCommerce } from './commerce.js';
+import { createCommerce } from './commerce.js';
+import { renderCartRow } from './cart-row.js';
 import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
 
@@ -25,7 +26,9 @@ let cartCloseTimer = null;
 let lightboxOverlay = null;
 let lightboxReturnFocus = null;
 
-const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
+const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', {
+  style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
+}).format(value);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
 const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 3)';
@@ -182,21 +185,10 @@ function cartDrawer() {
     ? `<button data-checkout ${cartBusy ? 'disabled' : ''}>Checkout securely</button>`
     : `<button disabled>Checkout coming soon</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
-    <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => {
-      const quantityAttribute = commerce.mode === 'shopify' ? `data-qty-line="${escapeHtml(line.remoteLineId)}"` : `data-qty="${product.id}"`;
-      const removeAttribute = commerce.mode === 'shopify' ? `data-remove-line="${escapeHtml(line.remoteLineId)}"` : `data-remove="${product.id}"`;
-      const description = `${product.name}${service ? ' with Break-in service' : ''}`;
-      const unitPrice = commerce.mode === 'shopify'
-        ? cartUnitPrice(line, service)
-        : { amount: purchasePrice(product, breakInService, Boolean(service)), currencyCode: product.currencyCode };
-      const unitPriceLabel = unitPrice ? money(unitPrice.amount, unitPrice.currencyCode) : 'Price unavailable';
-      const serviceControl = commerce.mode === 'shopify'
-        ? service
-          ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="Remove break-in from ${escapeHtml(product.name)}" ${cartBusy || cart.incomplete || !service.instructions?.canRemove ? 'disabled' : ''}>Remove break-in</button></p>`
-          : `<button class="cart-service-control" data-add-service="${escapeHtml(line.remoteLineId)}" ${cartBusy || cart.incomplete || breakInService.available === false ? 'disabled' : ''}>Add Break-in service +${money(breakInService.price, breakInService.currencyCode)}</button>`
-        : service ? `<p class="cart-service">Break-in service · ${money(breakInService.price, breakInService.currencyCode)}</p>` : '';
-      return `<article class="cart-item"><img src="${product.images[0]}" alt=""><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p><p>${unitPriceLabel}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${cartBusy ? 'disabled' : ''}>+</button></div></div><button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${cartBusy ? 'disabled' : ''}>Remove</button></article>`;
-    }).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
+    <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
+      product, line, service, mode: commerce.mode, serviceProduct: breakInService,
+      busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
+    })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
     ${productItems.length ? `<div class="cart-foot"><div><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div><p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
 }
 

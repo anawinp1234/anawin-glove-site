@@ -131,7 +131,7 @@ const CART_FIELDS = `
     pageInfo { hasNextPage }
     nodes {
       id quantity attributes { key value }
-      cost { amountPerQuantity { amount currencyCode } }
+      cost { amountPerQuantity { amount currencyCode } totalAmount { amount currencyCode } }
       ... on CartLine {
         instructions { canRemove canUpdateQuantity }
         parentRelationship { parent { id merchandise { ... on ProductVariant { id product { handle } } } } }
@@ -158,23 +158,37 @@ export function cartUnitPrice(parent, service = null) {
   return { amount: glovePrice.amount + servicePrice.amount, currencyCode: glovePrice.currencyCode };
 }
 
+export function cartEntryTotal(parent, service = null) {
+  const gloveTotal = parent?.lineTotal;
+  if (!Number.isFinite(gloveTotal?.amount) || gloveTotal.amount < 0 || !gloveTotal.currencyCode) return null;
+  if (!service) return gloveTotal;
+  const serviceTotal = service.lineTotal;
+  if (!Number.isFinite(serviceTotal?.amount) || serviceTotal.amount < 0 ||
+    gloveTotal.currencyCode !== serviceTotal.currencyCode) return null;
+  return { amount: gloveTotal.amount + serviceTotal.amount, currencyCode: gloveTotal.currencyCode };
+}
+
+function normalizeMoney(value) {
+  return {
+    amount: value?.amount == null ? NaN : Number(value.amount),
+    currencyCode: value?.currencyCode || null
+  };
+}
+
 function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   if (!cart) return emptyCart();
   const lines = cart.lines.nodes.map(line => {
     const handle = line.merchandise.product.handle;
     const parentId = line.parentRelationship?.parent.id;
     const parentHandle = line.parentRelationship?.parent.merchandise.product.handle;
-    const unitMoney = line.cost?.amountPerQuantity;
     return {
       remoteLineId: line.id,
       merchandiseId: line.merchandise.id,
       parentLineId: parentId || null,
       productId: handle === breakInHandle ? handleToProductId[parentHandle] : handleToProductId[handle],
       quantity: line.quantity,
-      unitPrice: {
-        amount: unitMoney?.amount == null ? NaN : Number(unitMoney.amount),
-        currencyCode: unitMoney?.currencyCode || null
-      },
+      unitPrice: normalizeMoney(line.cost?.amountPerQuantity),
+      lineTotal: normalizeMoney(line.cost?.totalAmount),
       isBreakIn: handle === breakInHandle,
       attributes: line.attributes || [],
       serviceConfiguration: (line.attributes || []).find(attribute => attribute.key === SERVICE_ATTRIBUTE)?.value || null,
@@ -191,6 +205,8 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   };
   normalized.incomplete ||= !hasConsistentBreakInLines(normalized);
   normalized.incomplete ||= lines.some(parent => !parent.isBreakIn && !cartUnitPrice(parent,
+    lines.find(child => child.isBreakIn && child.parentLineId === parent.remoteLineId)));
+  normalized.incomplete ||= lines.some(parent => !parent.isBreakIn && !cartEntryTotal(parent,
     lines.find(child => child.isBreakIn && child.parentLineId === parent.remoteLineId)));
   return normalized;
 }
@@ -247,6 +263,9 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
   const handleToProductId = Object.fromEntries(Object.entries(config.handles).map(([id, handle]) => [handle, id]));
   const request = (query, variables) => shopifyRequest(config, query, variables, fetchImpl);
   const markUnsafe = cartId => storage?.setItem(UNSAFE_CART_KEY, cartId);
+  const clearUnsafe = cartId => {
+    if (storage?.getItem(UNSAFE_CART_KEY) === cartId) storage.removeItem(UNSAFE_CART_KEY);
+  };
   const applySafety = cart => {
     if (storage?.getItem(UNSAFE_CART_KEY) === cart.id) cart.incomplete = true;
     if (!cart.lines.length) storage?.removeItem(UNSAFE_CART_KEY);
@@ -259,7 +278,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     return data.product;
   }
 
-  async function getCart() {
+  async function getRawCart() {
     const id = storage?.getItem(SHOPIFY_CART_KEY);
     if (!id) return emptyCart();
     const data = await request(`query Cart($id: ID!) { cart(id: $id) { ${CART_FIELDS} } }`, { id });
@@ -267,8 +286,10 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       storage?.removeItem(SHOPIFY_CART_KEY);
       return emptyCart();
     }
-    return applySafety(normalizeShopifyCart(data.cart, handleToProductId, config.breakInHandle));
+    return normalizeShopifyCart(data.cart, handleToProductId, config.breakInHandle);
   }
+
+  async function getCart() { return applySafety(await getRawCart()); }
 
   async function mutateCart(query, variables, field) {
     const data = await request(query, variables);
@@ -324,6 +345,138 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       }
     }
     return updated;
+  }
+
+  const configurationQuantity = (cart, source, value) => cart.lines
+    .filter(line => matchingConfiguration(line, source, value))
+    .reduce((sum, line) => sum + line.quantity, 0);
+
+  function resolveAddedDestination(before, after, source, value) {
+    const previous = before.lines.filter(line => matchingConfiguration(line, source, value));
+    const candidates = after.lines.filter(line => matchingConfiguration(line, source, value));
+    if (configurationQuantity(after, source, value) !== configurationQuantity(before, source, value) + 1) {
+      throw new Error('Shopify did not add exactly one glove to the selected service configuration.');
+    }
+    const oldQuantities = new Map(previous.map(line => [line.remoteLineId, line.quantity]));
+    const increased = candidates.filter(line => line.quantity - (oldQuantities.get(line.remoteLineId) || 0) === 1);
+    if (increased.length === 1) return increased[0];
+    if (candidates.length === 1) return candidates[0];
+    throw new Error('Shopify merged the destination glove line ambiguously.');
+  }
+
+  function resolveCurrentLine(cart, source, quantity = source.quantity) {
+    const candidates = cart.lines.filter(line => matchingConfiguration(line, source, source.serviceConfiguration));
+    const sameId = candidates.find(line => line.remoteLineId === source.remoteLineId && line.quantity === quantity);
+    if (sameId) return sameId;
+    const matchingQuantity = candidates.filter(line => line.quantity === quantity);
+    if (matchingQuantity.length === 1) return matchingQuantity[0];
+    throw new Error('Shopify changed the selected glove line ambiguously.');
+  }
+
+  async function decrementSplitSource(cart, source, hasService) {
+    if (!source.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
+    const nextQuantity = source.quantity - 1;
+    await updateLines(cart.id, [{ id: source.remoteLineId, quantity: nextQuantity }]);
+    let current = await getRawCart();
+    const updatedParent = resolveCurrentLine(current, source, nextQuantity);
+    if (hasService) {
+      const children = current.lines.filter(line => line.isBreakIn && line.parentLineId === updatedParent.remoteLineId);
+      if (children.length !== 1) throw new Error('Shopify did not preserve the selected Break-in service child.');
+      if (children[0].quantity !== nextQuantity) {
+        if (!children[0].instructions?.canUpdateQuantity) throw new Error('Shopify cannot synchronize the Break-in service quantity.');
+        await updateLines(current.id, [{ id: children[0].remoteLineId, quantity: nextQuantity }]);
+        current = await getRawCart();
+      }
+    }
+    return current;
+  }
+
+  function configurationSnapshot(cart) {
+    const quantities = new Map();
+    for (const line of cart.lines.filter(line => !line.isBreakIn)) {
+      const attributes = [...line.attributes].sort((a, b) => a.key.localeCompare(b.key));
+      const key = JSON.stringify([line.productId, line.merchandiseId, attributes]);
+      quantities.set(key, (quantities.get(key) || 0) + line.quantity);
+    }
+    return quantities;
+  }
+
+  function verifySplit(before, after, source, destinationValue, serviceDelta) {
+    if (after.id !== before.id || after.incomplete || !hasConsistentBreakInLines(after)) {
+      throw new Error('Shopify returned an incomplete split cart.');
+    }
+    const oldQuantities = configurationSnapshot(before);
+    const newQuantities = configurationSnapshot(after);
+    const sourceKey = JSON.stringify([source.productId, source.merchandiseId,
+      [...source.attributes].sort((a, b) => a.key.localeCompare(b.key))]);
+    const destinationKey = JSON.stringify([source.productId, source.merchandiseId,
+      withServiceAttribute(source.attributes, destinationValue).sort((a, b) => a.key.localeCompare(b.key))]);
+    const keys = new Set([...oldQuantities.keys(), ...newQuantities.keys()]);
+    for (const key of keys) {
+      const expected = (oldQuantities.get(key) || 0) + (key === sourceKey ? -1 : key === destinationKey ? 1 : 0);
+      if ((newQuantities.get(key) || 0) !== expected) throw new Error('Shopify changed the glove quantities unexpectedly during the split.');
+    }
+    const productIds = new Set([...before.lines, ...after.lines].map(line => line.productId));
+    for (const productId of productIds) {
+      const expected = cartLineQuantity(before, productId, true) + (productId === source.productId ? serviceDelta : 0);
+      if (cartLineQuantity(after, productId, true) !== expected) {
+        throw new Error('Shopify changed the Break-in service quantity unexpectedly during the split.');
+      }
+    }
+  }
+
+  function originalCartUnchanged(before, after) {
+    if (after.incomplete || before.id !== after.id || before.subtotal !== after.subtotal || before.currencyCode !== after.currencyCode) return false;
+    const signature = cart => JSON.stringify(cart.lines.map(line => [line.remoteLineId, line.parentLineId,
+      line.merchandiseId, line.quantity, line.attributes, line.unitPrice, line.lineTotal]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+    return signature(before) === signature(after);
+  }
+
+  async function splitBreakIn(cart, parent, addService) {
+    if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
+    markUnsafe(cart.id);
+    try {
+      let current;
+      if (addService) {
+        await addLines(cart.id, [{ merchandiseId: parent.merchandiseId, quantity: 1,
+          attributes: withServiceAttribute(parent.attributes, 'break-in') }]);
+        current = await getRawCart();
+        let destination = resolveAddedDestination(cart, current, parent, 'break-in');
+        const children = current.lines.filter(line => line.isBreakIn && line.parentLineId === destination.remoteLineId);
+        if (children.length > 1 || children[0]?.quantity > destination.quantity) {
+          throw new Error('Shopify returned inconsistent Break-in service children.');
+        }
+        if (!children.length) {
+          await addLines(current.id, [{ merchandiseId: breakInVariant.id, quantity: destination.quantity,
+            parent: { lineId: destination.remoteLineId } }]);
+        } else if (children[0].quantity !== destination.quantity) {
+          if (!children[0].instructions?.canUpdateQuantity) throw new Error('Shopify cannot synchronize the Break-in service quantity.');
+          await updateLines(current.id, [{ id: children[0].remoteLineId, quantity: destination.quantity }]);
+        }
+        current = await getRawCart();
+        destination = resolveCurrentLine(current, destination);
+        if (!current.lines.some(line => line.isBreakIn && line.parentLineId === destination.remoteLineId &&
+          line.quantity === destination.quantity)) throw new Error('Shopify did not attach the Break-in service to the selected glove.');
+        const source = resolveCurrentLine(current, parent);
+        current = await decrementSplitSource(current, source, false);
+      } else {
+        await addLines(cart.id, [{ merchandiseId: parent.merchandiseId, quantity: 1,
+          attributes: withServiceAttribute(parent.attributes, 'none') }]);
+        current = await getRawCart();
+        resolveAddedDestination(cart, current, parent, 'none');
+        const source = resolveCurrentLine(current, parent);
+        current = await decrementSplitSource(current, source, true);
+      }
+      current = await getRawCart();
+      verifySplit(cart, current, parent, addService ? 'break-in' : 'none', addService ? 1 : -1);
+      clearUnsafe(cart.id);
+      return applySafety(current);
+    } catch (error) {
+      try {
+        if (originalCartUnchanged(cart, await getRawCart())) clearUnsafe(cart.id);
+      } catch { /* An uncertain cart remains blocked. */ }
+      throw error;
+    }
   }
 
   return {
@@ -397,6 +550,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
       if (cart.lines.some(line => line.isBreakIn && line.parentLineId === lineId)) return cart;
       if (!breakInVariant?.availableForSale) throw new Error('Break-in service is not currently available.');
+      if (parent.quantity > 1) return splitBreakIn(cart, parent, true);
       let started = false;
       try {
         await updateLines(cart.id, [{ id: parent.remoteLineId,
@@ -432,6 +586,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
       const child = cart.lines.find(line => line.isBreakIn && line.parentLineId === lineId);
       if (!child) return cart;
+      if (parent.quantity > 1) return splitBreakIn(cart, parent, false);
       if (!child.instructions?.canRemove) throw new Error('Shopify does not allow Break-in service to be removed.');
       let started = false;
       try {
