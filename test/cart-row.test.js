@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderCartRow } from '../src/cart-row.js';
 
-const product = { id: 'blue', name: 'OB16', tone: 'Sky Blue / Royal / Navy', images: ['/images/blue1.PNG'] };
+const product = { id: 'blue', name: 'OB16', tone: 'Baby Blue / Royal / Navy', images: ['/images/blue1.PNG'] };
 const serviceProduct = { price: 20, currencyCode: 'USD', available: true };
 const money = (amount, currency) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
@@ -25,7 +25,7 @@ test('cart row places Shopify entry totals in the right price rail', () => {
   ]) {
     const html = render(line, child);
     assert.match(html, new RegExp(`<div class="cart-item-side"><strong class="cart-line-price">\\${expected}</strong>`));
-    assert.match(html, /<div class="cart-item-info"><h3>OB16<\/h3><p>Sky Blue \/ Royal \/ Navy<\/p>/);
+    assert.match(html, /<div class="cart-item-info"><h3>OB16<\/h3><p>Baby Blue \/ Royal \/ Navy<\/p>/);
   }
 });
 
