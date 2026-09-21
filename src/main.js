@@ -4,7 +4,7 @@ import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
-import { warrantyParagraphs, careInstructions } from './policy-content.js';
+import { warrantyParagraphs, careIntro, careInstructions, careSections, breakInIntro, breakInSections } from './policy-content.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -33,6 +33,12 @@ const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', {
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 const policyParagraphs = paragraphs => paragraphs.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('');
 const policyList = items => `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+const careItem = item => {
+  const separator = item.indexOf('. ');
+  return separator > 0 ? `<li><strong>${escapeHtml(item.slice(0, separator + 1))}</strong>${escapeHtml(item.slice(separator + 1))}</li>` : `<li>${escapeHtml(item)}</li>`;
+};
+const carePageContent = () => careSections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2>${section.intro ? `<p>${escapeHtml(section.intro)}</p>` : ''}${section.paragraphs ? policyParagraphs(section.paragraphs) : `<ul>${section.items.map(careItem).join('')}</ul>`}</section>`).join('');
+const breakInPageContent = () => breakInSections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2>${section.paragraphs ? section.paragraphs.map((paragraph, index) => `<p>${section.emphasis === index ? `<strong>${escapeHtml(paragraph)}</strong>` : escapeHtml(paragraph)}</p>`).join('') : ''}${section.items ? policyList(section.items) : ''}${section.after ? policyParagraphs(section.after) : ''}</section>`).join('');
 const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
 const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 3)';
 const galleryImageSizes = '(max-width: 760px) 90vw, 30vw';
@@ -78,14 +84,14 @@ function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Care</a></div>
+    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
 function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
-  return `<article class="product-card reveal" style="--delay:${index * 80}ms">
-    <a href="/product/${product.id}" data-link class="product-image"><span class="product-index">0${index + 1}</span>${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
+  return `<article class="product-card reveal" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
+    <a href="/product/${product.id}" data-link class="product-image">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
     <div class="product-meta"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
@@ -126,7 +132,7 @@ function productPage(product) {
       <dl class="product-specs"><div><dt>Size</dt><dd>10.25 inches</dd></div><div><dt>Leather</dt><dd>US steerhide leather</dd></div><div><dt>Features</dt><dd>Double finger pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin thumb sleeve</dd></div></dl>
       <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>A 10.25-inch training glove designed for focused glove-work practice. Its compact size gives players a smaller training platform than a standard game glove.</p></details>
       <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary>${policyParagraphs(warrantyParagraphs)}</details>
-      <details><summary>Care <span class="accordion-indicator" aria-hidden="true"></span></summary>${policyList(careInstructions)}</details>
+      <details><summary>Care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p>${policyList(careInstructions)}</details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. U.S. shipping is calculated at checkout, with estimated delivery 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
     </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
@@ -177,7 +183,11 @@ function warrantyPolicy() {
 }
 
 function carePolicy() {
-  return `<main class="policy-page"><h1>Care</h1><section><h2>Glove Care</h2>${policyList(careInstructions)}</section></main>`;
+  return `<main class="policy-page"><h1>Care</h1><section><h2>Glove Care</h2><p>${escapeHtml(careIntro)}</p></section>${carePageContent()}</main>`;
+}
+
+function breakInPolicy() {
+  return `<main class="policy-page"><h1>Breaking In Your Glove</h1><section><p>${escapeHtml(breakInIntro)}</p></section>${breakInPageContent()}</main>`;
 }
 
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
@@ -214,6 +224,7 @@ function route() {
   if (path === '/returns') return returnsPolicy();
   if (path === '/warranty') return warrantyPolicy();
   if (path === '/care') return carePolicy();
+  if (path === '/break-in') return breakInPolicy();
   if (path.startsWith('/product/')) return productPage(products.find(product => product.id === path.split('/')[2]));
   return notFound();
 }

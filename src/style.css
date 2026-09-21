@@ -220,3 +220,78 @@ body.lightbox-open{overflow:hidden}
   .policy-page h1{font-size:clamp(44px,12vw,72px);margin-bottom:48px}
   .policy-page h2{font-size:26px}
 }
+
+/* Experimental theme: warm neutrals and restrained glove color. */
+:root{
+  --ink:#111111;
+  --paper:#f5f5f3;
+  --line:#dededb;
+  --muted:#686868;
+  --white:#ffffff;
+  --image-surface:#f1f1ef;
+}
+body{background:var(--paper)}
+.site-header{background:var(--paper);border-bottom-color:var(--line)}
+.site-header nav a,.cart-trigger,.mobile-menu-toggle{font-weight:700}
+.site-header a:hover,.site-header button:hover{color:var(--ink);opacity:.62}
+.site-header .mobile-nav{background:var(--white)}
+.hero{isolation:isolate;background:#111}
+.hero::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.65),rgba(0,0,0,.08) 75%),linear-gradient(0deg,rgba(0,0,0,.42),transparent 35%)}
+.hero-background{filter:brightness(.82) contrast(1.05)}
+.hero-copy{max-width:790px}
+.hero h1{font-style:normal;font-weight:900;letter-spacing:-.07em;line-height:.81;text-shadow:0 2px 22px rgba(0,0,0,.3)}
+.hero h1 em{font-style:italic;font-weight:900}
+.hero .eyebrow{display:inline-block;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.85);color:#fff;font-weight:700}
+.hero-cta{width:260px;border:1px solid #fff;background:var(--ink);color:#fff;padding:18px 20px;font-weight:800;letter-spacing:.06em;transition:background-color .2s,transform .2s}
+.hero-cta:hover,.hero-cta:focus-visible{background:#333;transform:translateY(-3px)}
+.hero-cta:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.collection,.shop-products,.other-gloves{background:var(--paper)}
+.collection .eyebrow,.community .eyebrow,.founders-heading .eyebrow{font-weight:700}
+.product-card{background:var(--white);border:1px solid var(--line);transition:border-color .2s,box-shadow .2s}
+.product-card:hover,.product-card:focus-within{border-color:color-mix(in srgb,var(--card-accent) 28%,#dededb);box-shadow:0 12px 28px color-mix(in srgb,var(--card-accent) 8%,transparent)}
+.product-image{background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--card-accent) 6%,#fff),#fff 75%)}
+.product-image img{display:block;clip-path:inset(0 0 3px 0)}
+.product-image:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.view-product{background:var(--ink);color:#fff;font-weight:800}
+.product-meta{padding:18px 18px 20px}
+.product-meta h3{font-size:27px}
+.product-meta p{font-size:13px}
+.product-meta strong{font-size:18px;font-weight:700}
+.product-image:hover .view-product,.product-image:focus-visible .view-product{opacity:1;transform:none}
+.statement,.philosophy{background:var(--ink);color:#fff}
+.statement a{width:240px;padding:17px 18px;border:1px solid #fff;background:var(--ink);color:#fff;font-weight:800}
+.statement a:hover{background:#333}
+.statement a:focus-visible{outline:2px solid #fff;outline-offset:4px}
+.page-intro{position:relative;isolation:isolate;overflow:hidden;min-height:42vh;background:var(--paper);color:var(--ink)}
+.page-intro::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 42% 75% at 74% 25%,rgba(37,96,174,.13),transparent 72%),radial-gradient(ellipse 39% 75% at 95% 88%,rgba(154,98,45,.12),transparent 72%),radial-gradient(ellipse 36% 72% at 48% 100%,rgba(173,57,57,.11),transparent 72%)}
+.page-intro .eyebrow{font-weight:700}
+.page-intro h1{margin-top:5vh;line-height:.9}
+.shop-products{padding-top:42px}
+.shop-products .product-image{background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--card-accent) 9%,#fff),#fff 76%)}
+.pdp-info{background:var(--white)}
+.pdp-gallery,.gallery-image{background:var(--image-surface)}
+.pdp-info .eyebrow,.pdp-info .price{font-weight:700}
+.pdp-colorway{background:color-mix(in srgb,var(--pdp-accent) 6%,#fff);border-left-color:color-mix(in srgb,var(--pdp-accent) 35%,#fff)}
+.pdp-info .product-specs,.pdp-info .product-specs div{border-color:color-mix(in srgb,var(--pdp-accent) 18%,var(--line))}
+.pdp-info .add-button{background:var(--ink);color:#fff}
+.pdp-info .add-button:not(:disabled):is(:hover,:focus-visible){background:var(--ink);color:#fff;box-shadow:inset 0 -3px 0 var(--pdp-accent)}
+.pdp-info .service-option{background:var(--paper)}
+.pdp-info .service-option input{accent-color:var(--ink)}
+.other-glove-card:hover{border-color:var(--ink)}
+.about-hero{background:radial-gradient(ellipse 52% 43% at 77% 20%,rgba(200,89,125,.14),transparent 75%),radial-gradient(ellipse 38% 27% at 35% 45%,rgba(216,131,156,.07),transparent 75%),var(--paper)}
+.origin,.founders-editorial{background:var(--white)}
+footer{background:var(--ink);color:#fff}
+.footer-grid .eyebrow{color:#bdbdbd;font-weight:700}
+.footer-grid a:hover{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.cart-drawer{background:var(--paper)}
+.cart-foot [data-checkout]{background:var(--ink);color:#fff}
+.cart-foot [data-checkout]:hover{background:#333}
+.commerce-notice{background:var(--ink);color:#fff}
+@media(max-width:760px){
+  .hero::after{background:linear-gradient(180deg,rgba(0,0,0,.66),rgba(0,0,0,.08) 60%,rgba(0,0,0,.5))}
+  .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
+  .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
+  .product-meta{padding:16px}
+  .page-intro{min-height:40svh}
+  .page-intro h1{font-size:clamp(78px,21vw,150px)}
+}
