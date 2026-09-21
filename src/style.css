@@ -46,6 +46,10 @@
 .founders-editorial .founder-bio ul{margin:22px 0 0;padding-left:18px}
 .founders-editorial .founder-bio li+li{margin-top:12px}
 
+@media(min-width:761px){
+  .origin>div>p,.founders-editorial .founder-bio,.philosophy .story-copy{font-size:16px}
+}
+
 .hero>picture{position:absolute;inset:0}
 .hero-copy{grid-column:1;grid-row:1}
 .hero-cta{grid-column:1;grid-row:2}
@@ -262,10 +266,10 @@ body{background:var(--paper)}
 .statement a{width:240px;padding:17px 18px;border:1px solid #fff;background:var(--ink);color:#fff;font-weight:800}
 .statement a:hover{background:#333}
 .statement a:focus-visible{outline:2px solid #fff;outline-offset:4px}
-.page-intro{position:relative;isolation:isolate;overflow:hidden;min-height:42vh;background:var(--paper);color:var(--ink)}
+.page-intro{position:relative;isolation:isolate;overflow:hidden;min-height:34vh;padding:48px 28px 32px;background:var(--paper);color:var(--ink)}
 .page-intro::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse 42% 75% at 74% 25%,rgba(37,96,174,.13),transparent 72%),radial-gradient(ellipse 39% 75% at 95% 88%,rgba(154,98,45,.12),transparent 72%),radial-gradient(ellipse 36% 72% at 48% 100%,rgba(173,57,57,.11),transparent 72%)}
 .page-intro .eyebrow{font-weight:700}
-.page-intro h1{margin-top:5vh;line-height:.9}
+.page-intro h1{margin-top:3vh;font-size:clamp(56px,8vw,120px);line-height:.9}
 .shop-products{padding-top:42px}
 .shop-products .product-image{background:radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--card-accent) 9%,#fff),#fff 76%)}
 .pdp-info{background:var(--white)}
@@ -280,10 +284,14 @@ body{background:var(--paper)}
 .other-glove-card:hover{border-color:var(--ink)}
 .about-hero{background:radial-gradient(ellipse 52% 43% at 77% 20%,rgba(200,89,125,.14),transparent 75%),radial-gradient(ellipse 38% 27% at 35% 45%,rgba(216,131,156,.07),transparent 75%),var(--paper)}
 .origin,.founders-editorial{background:var(--white)}
+.eyebrow,.pdp-info .eyebrow{font-size:12px}
+.collection .eyebrow{font-size:14px}
 footer{background:var(--ink);color:#fff;padding-top:40px}
 .footer-mark{padding-bottom:8px}
 .footer-grid{padding:10px 0 52px}
-.footer-grid .eyebrow{color:#bdbdbd;font-weight:700}
+.footer-grid .eyebrow{color:#bdbdbd;font-size:16px;font-weight:700}
+.footer-grid span,.footer-grid a{font-size:14px}
+.legal{font-size:14px}
 .footer-grid a:hover{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .cart-drawer{background:var(--paper)}
 .cart-foot [data-checkout]{background:var(--ink);color:#fff}
@@ -294,8 +302,8 @@ footer{background:var(--ink);color:#fff;padding-top:40px}
   .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
   .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
   .product-meta{padding:16px}
-  .page-intro{min-height:40svh}
-  .page-intro h1{font-size:clamp(78px,21vw,150px)}
+  .page-intro{min-height:30svh;padding:30px 16px 24px}
+  .page-intro h1{margin-top:4vh;font-size:clamp(54px,15vw,74px)}
   footer{padding-top:36px}
   .footer-mark{padding-bottom:6px}
   .footer-grid{padding:8px 0 44px}
