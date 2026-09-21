@@ -83,7 +83,7 @@ function commerceNotice() {
 function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
-    <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
+    <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
     <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
