@@ -83,7 +83,7 @@ function commerceNotice() {
 function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
-    <div><p class="eyebrow">Connect</p><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
+    <div><p class="eyebrow">Connect</p><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
     <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
@@ -163,13 +163,14 @@ function shippingPolicy() {
     <section><h2>Shipping Rates</h2><p>Shipping costs are calculated at checkout based on the destination and available shipping method.</p></section>
     <section><h2>Delivery Estimates</h2><p>After an order ships, estimated delivery is typically 3–7 business days.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
     <section><h2>Tracking</h2><p>When available, tracking information will be provided after the order ships.</p></section>
-    <section><h2>Incorrect or Damaged Orders</h2><p>If an order arrives damaged, defective, or incorrect, contact ANAWIN as soon as possible so the issue can be reviewed and resolved.</p></section>
+    <section><h2>Incorrect or Damaged Orders</h2><p>If an order arrives damaged, defective, or incorrect, email <a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a> as soon as possible so the issue can be reviewed and resolved.</p></section>
   </main>`;
 }
 
 function returnsPolicy() {
   return `<main class="policy-page"><h1>Returns &amp; Refunds Policy</h1>
     <section><h2>30-Day Returns</h2><p>Eligible items may be returned within 30 days of delivery.</p><p>To qualify for a return, the glove must be:</p><ul><li>unused or only lightly tried on</li><li>free from game or practice use</li><li>free from alterations or customer-caused damage</li></ul><p>Original packaging should be included when reasonably possible.</p></section>
+    <section><h2>Start a Return</h2><p>To request a return, email <a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a> with your order number and the reason for the return.</p></section>
     <section><h2>Break-In Service</h2><p>Gloves that receive ANAWIN Break-In Service remain eligible for return, provided they otherwise meet the return requirements above.</p></section>
     <section><h2>Return Shipping</h2><p>For eligible U.S. returns, ANAWIN will provide a prepaid return shipping label.</p></section>
     <section><h2>Original Shipping Charges</h2><p>Original shipping charges are non-refundable, except when the order was defective, damaged, or incorrect.</p></section>
@@ -179,7 +180,7 @@ function returnsPolicy() {
 }
 
 function warrantyPolicy() {
-  return `<main class="policy-page"><h1>Warranty</h1><section><h2>1-Year Limited Warranty</h2>${policyParagraphs(warrantyParagraphs)}</section></main>`;
+  return `<main class="policy-page"><h1>Warranty</h1><section><h2>1-Year Limited Warranty</h2>${policyParagraphs(warrantyParagraphs)}</section><section><h2>Make a Warranty Claim</h2><p>Email <a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a> with your order number, a description of the issue, and clear photos of the glove.</p></section></main>`;
 }
 
 function carePolicy() {
