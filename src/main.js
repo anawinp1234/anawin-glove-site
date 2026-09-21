@@ -138,7 +138,7 @@ function productPage(product) {
 }
 
 function about() {
-  return `<main><section class="about-hero"><p class="eyebrow">Company / ANAWIN</p><h1>ABOUT<br><em>ANAWIN.</em></h1><div class="about-image">${responsivePhoto('/images/cherry_pink.png', 'cherry_pink', [720, 1200, 1448], '100vw', 'Cherry-pink ANAWIN glove among flowers', 1448, 1086, 'eager')}</div></section>
+  return `<main><section class="about-hero"><h1>ABOUT<br><em>ANAWIN</em></h1><div class="about-image">${responsivePhoto('/images/cherry_pink.png', 'cherry_pink', [720, 1200, 1448], '100vw', 'Cherry-pink ANAWIN glove among flowers', 1448, 1086, 'eager')}</div></section>
     <section class="origin"><p class="eyebrow">Company</p><div><h2>HOW IT STARTED</h2><p>ANAWIN started with two best friends, over 10 years of friendship, and a shared love for baseball.</p><p>We created ANAWIN with a simple goal: bring more energy and attention back to the game we grew up loving. From the beginning, authenticity has been at the center of what we do. We shared the process, listened to feedback, and let the baseball community help shape what we were building.</p><p>ANAWIN was not just built for the baseball community. It was built with them.</p></div></section>
     <section class="founders founders-editorial" aria-labelledby="founders-heading">
       <div class="founders-heading"><p class="eyebrow">ANAWIN / Co-founders</p><h2 id="founders-heading"><em>FOUNDERS</em></h2></div>
