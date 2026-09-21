@@ -90,8 +90,8 @@ function footer() {
 
 function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
-  return `<article class="product-card reveal" style="--delay:${index * 80}ms">
-    <a href="/product/${product.id}" data-link class="product-image"><span class="product-index">0${index + 1}</span>${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
+  return `<article class="product-card reveal" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
+    <a href="/product/${product.id}" data-link class="product-image">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
     <div class="product-meta"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
