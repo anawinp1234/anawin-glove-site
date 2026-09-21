@@ -274,13 +274,15 @@ body{background:var(--paper)}
 .pdp-colorway{background:color-mix(in srgb,var(--pdp-accent) 6%,#fff);border-left-color:color-mix(in srgb,var(--pdp-accent) 35%,#fff)}
 .pdp-info .product-specs,.pdp-info .product-specs div{border-color:color-mix(in srgb,var(--pdp-accent) 18%,var(--line))}
 .pdp-info .add-button{background:var(--ink);color:#fff}
-.pdp-info .add-button:not(:disabled):is(:hover,:focus-visible){background:var(--ink);color:#fff;box-shadow:inset 0 -3px 0 var(--pdp-accent)}
+.pdp-info .add-button:not(:disabled):is(:hover,:focus-visible){background:var(--pdp-accent);color:#fff;box-shadow:none}
 .pdp-info .service-option{background:var(--paper)}
 .pdp-info .service-option input{accent-color:var(--ink)}
 .other-glove-card:hover{border-color:var(--ink)}
 .about-hero{background:radial-gradient(ellipse 52% 43% at 77% 20%,rgba(200,89,125,.14),transparent 75%),radial-gradient(ellipse 38% 27% at 35% 45%,rgba(216,131,156,.07),transparent 75%),var(--paper)}
 .origin,.founders-editorial{background:var(--white)}
-footer{background:var(--ink);color:#fff}
+footer{background:var(--ink);color:#fff;padding-top:40px}
+.footer-mark{padding-bottom:8px}
+.footer-grid{padding:10px 0 52px}
 .footer-grid .eyebrow{color:#bdbdbd;font-weight:700}
 .footer-grid a:hover{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .cart-drawer{background:var(--paper)}
@@ -294,4 +296,7 @@ footer{background:var(--ink);color:#fff}
   .product-meta{padding:16px}
   .page-intro{min-height:40svh}
   .page-intro h1{font-size:clamp(78px,21vw,150px)}
+  footer{padding-top:36px}
+  .footer-mark{padding-bottom:6px}
+  .footer-grid{padding:8px 0 44px}
 }
