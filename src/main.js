@@ -67,12 +67,17 @@ const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUr
   return parent?.productId === line.productId && parent.quantity === line.quantity;
 });
 
+function headerInfoMenus() {
+  return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
+    <details class="header-info"><summary>Care</summary><div class="header-info-links"><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-in Guide</a></div></details>`;
+}
+
 function header() {
   return `<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a>
-    <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></nav>
+    <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
-    <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><button type="button" data-cart>Cart</button></nav>
+    <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
     <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${cartCount()})</span></button>
   </header>`;
 }
@@ -285,10 +290,17 @@ function closeMobileMenu(returnFocus = false) {
   const toggle = document.querySelector('.mobile-menu-toggle');
   const menu = document.querySelector('#mobile-menu');
   if (!toggle || !menu || menu.hidden) return;
+  closeInfoMenus();
   menu.hidden = true;
   toggle.setAttribute('aria-expanded', 'false');
   toggle.setAttribute('aria-label', 'Open menu');
   if (returnFocus) toggle.focus();
+}
+
+function closeInfoMenus(returnFocus = false) {
+  const menus = [...document.querySelectorAll('.header-info[open]')];
+  menus.forEach(menu => { menu.open = false; });
+  if (returnFocus) menus.at(-1)?.querySelector('summary')?.focus();
 }
 
 function bindMobileGallery() {
@@ -431,7 +443,15 @@ document.addEventListener('keydown', event => {
   } else if (cartIsOpen) {
     if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
     else containTab(event, document.querySelector('.cart-drawer'), document.activeElement);
-  } else if (event.key === 'Escape') closeMobileMenu(true);
+  } else if (event.key === 'Escape') {
+    if (document.querySelector('.header-info[open]')) closeInfoMenus(true);
+    else closeMobileMenu(true);
+  }
+});
+document.addEventListener('click', event => {
+  document.querySelectorAll('.header-info[open]').forEach(menu => {
+    if (!menu.contains(event.target)) menu.open = false;
+  });
 });
 window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
