@@ -88,7 +88,7 @@
   .mobile-nav .header-info-links a{padding:13px 0;font-size:12px;white-space:normal}
   .cart-trigger{grid-column:3;padding:12px 0}
   .gallery-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px 18px}
-  .gallery-status{font-size:11px;letter-spacing:.04em;white-space:nowrap}
+  .gallery-status{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap;font-variant-numeric:tabular-nums}
   .gallery-dots{display:flex;align-items:center;gap:2px}
   .gallery-dot{display:grid;place-items:center;width:28px;height:32px;border:0;background:none;cursor:pointer}
   .gallery-dot::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--line)}

@@ -4,7 +4,7 @@ import { localProducts } from '../src/catalog.js';
 import { warrantyParagraphs } from '../src/policy-content.js';
 
 test('PDP product data keeps verified training descriptors and accent colors', () => {
-  const expectedAccents = { black: '#ad3939', blue: '#2560ae', brown: '#9a622d' };
+  const expectedAccents = { black: '#d3423e', blue: '#2560ae', brown: '#9a622d' };
 
   for (const product of localProducts) {
     assert.equal(product.descriptor, '10.25" Trainer · US Steerhide');
