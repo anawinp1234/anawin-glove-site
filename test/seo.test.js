@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { canonicalOrigin, normalizePath, routeMetadata, seoRoutes, socialImageAlt } from '../src/seo.js';
+import { canonicalOrigin, normalizePath, productPath, routeMetadata, seoRoutes, socialImageAlt } from '../src/seo.js';
+import { localProducts } from '../src/catalog.js';
 
 const paths = [
-  '/', '/shop', '/product/black', '/product/blue', '/product/brown',
+  '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
   '/about', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
@@ -25,17 +26,27 @@ test('metadata covers exactly the public routes with unique titles and descripti
 test('generic source HTML has no homepage canonical or og:url', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /rel="canonical"|property="og:url"/);
-  assert.match(html, /ANAWIN \| Training Baseball Gloves Built with the Community/);
+  assert.match(html, /ANAWIN \| Baseball Gloves/);
   assert.match(html, /property="og:image:alt"/);
   assert.match(html, /name="twitter:image:alt"/);
 });
 
 test('route lookup accepts one trailing slash but rejects invalid product subpaths', () => {
-  assert.equal(normalizePath('/product/black/'), '/product/black');
-  assert.equal(routeMetadata('/product/black/'), routeMetadata('/product/black'));
-  for (const path of ['/product/black/anything', '/product/unknown', '/missing', '/toString', '/__proto__']) {
+  assert.deepEqual(localProducts.map(productPath), ['/product/br16', '/product/ob16', '/product/cl16']);
+  assert.equal(normalizePath('/product/br16/'), '/product/br16');
+  assert.equal(routeMetadata('/product/br16/'), routeMetadata('/product/br16'));
+  for (const path of ['/product/black', '/product/blue', '/product/brown', '/product/br16/anything', '/product/unknown', '/missing', '/toString', '/__proto__']) {
     assert.equal(routeMetadata(path), null);
   }
+});
+
+test('old product URLs have exact permanent redirects', () => {
+  const redirects = readFileSync(new URL('../public/_redirects', import.meta.url), 'utf8').trim().split('\n');
+  assert.deepEqual(redirects, [
+    '/product/black /product/br16 301',
+    '/product/blue /product/ob16 301',
+    '/product/brown /product/cl16 301'
+  ]);
 });
 
 test('sitemap lists each canonical public URL once', () => {

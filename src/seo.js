@@ -2,6 +2,13 @@ import { localProducts } from './catalog.js';
 
 export const canonicalOrigin = 'https://anawinofficial.com';
 
+export const productPaths = Object.freeze({
+  black: '/product/br16',
+  blue: '/product/ob16',
+  brown: '/product/cl16'
+});
+export const productPath = product => productPaths[product.id];
+
 const homeImage = '/images/hero-background.jpg';
 const imageAlts = Object.freeze({
   [homeImage]: 'Black and red ANAWIN glove on grass',
@@ -13,30 +20,30 @@ export const socialImageAlt = imagePath => imageAlts[imagePath] || '';
 
 export const seoRoutes = Object.freeze({
   '/': {
-    title: 'ANAWIN | Training Baseball Gloves Built with the Community',
+    title: 'ANAWIN | Baseball Gloves',
     description: 'Explore ANAWIN training baseball gloves and the story of a brand built with the baseball community.',
     image: homeImage,
     type: 'website'
   },
   '/shop': {
-    title: 'Shop Training Baseball Gloves | ANAWIN',
+    title: 'Shop Baseball Gloves | ANAWIN',
     description: 'Explore ANAWIN BR16, OB16, and CL16 training baseball gloves: 10.25-inch gloves made with US steerhide leather.',
     image: homeImage,
     type: 'website'
   },
-  '/product/black': {
+  '/product/br16': {
     title: 'BR16 Black Training Baseball Glove | ANAWIN',
     description: 'Meet the BR16: a black, red, and gray 10.25-inch ANAWIN training glove made with US steerhide leather.',
     image: '/images/black1.PNG',
     type: 'product'
   },
-  '/product/blue': {
+  '/product/ob16': {
     title: 'OB16 Blue Training Baseball Glove | ANAWIN',
     description: 'Meet the OB16: a baby blue, royal, and navy 10.25-inch ANAWIN training glove made with US steerhide leather.',
     image: '/images/blue1.PNG',
     type: 'product'
   },
-  '/product/brown': {
+  '/product/cl16': {
     title: 'CL16 Brown Training Baseball Glove | ANAWIN',
     description: 'Meet the CL16: an olive brown, tan, and brown 10.25-inch ANAWIN training glove made with US steerhide leather.',
     image: '/images/brown1.PNG',
@@ -93,7 +100,7 @@ const escapeAttribute = value => String(value).replace(/[&<>"']/g, character => 
 export function productJsonLd(path) {
   const normalizedPath = normalizePath(path);
   if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
-  const product = localProducts.find(item => normalizedPath === `/product/${item.id}`);
+  const product = localProducts.find(item => normalizedPath === productPath(item));
   if (!product) return null;
   return {
     '@context': 'https://schema.org',
