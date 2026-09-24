@@ -427,3 +427,8 @@ body:has(.hero) .commerce-notice[role="status"]{position:absolute;top:76px;left:
   .collection .section-heading h2{margin-top:28px}
 }
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Keep the homepage emblem closer to the footer wordmark. */
+.statement{min-height:0;padding-bottom:40px;row-gap:24px}
+@media(max-width:760px){.statement{padding-bottom:24px;row-gap:20px}}
+.statement>a{transform:translateY(24px)}
