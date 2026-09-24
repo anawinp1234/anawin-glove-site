@@ -190,6 +190,7 @@ function bindCart() {
 
 function bind() {
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     const fromMobileMenu = Boolean(element.closest('.mobile-nav'));
     const fromFooter = Boolean(element.closest('footer'));
