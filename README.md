@@ -16,6 +16,13 @@ npm test
 npm run build
 ```
 
+`npm run build` runs Vite and then `scripts/prerender.mjs`. It writes static HTML
+for the 11 public routes plus `dist/404.html`; `npm test` builds first so its
+HTML checks work from a clean checkout. The generated product markup uses the
+approved $150 USD catalog price. Shopify continues to supply runtime prices,
+availability, cart state, and checkout links. Cloudflare serves slashless URLs
+from the generated `.html` files and returns the 404 page for unknown routes.
+
 ## Commerce modes
 
 The storefront defaults to local preview mode. Its confirmed product content lives in `src/catalog.js`, and the preview cart is stored in the browser. Checkout stays disabled in this mode.

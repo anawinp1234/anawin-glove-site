@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test"
+    "test": "npm run build && node --test"
   },
   "devDependencies": {
     "vite": "^7.1.5",

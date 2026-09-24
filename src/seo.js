@@ -1,3 +1,5 @@
+import { localProducts } from './catalog.js';
+
 export const canonicalOrigin = 'https://anawinofficial.com';
 
 const homeImage = '/images/hero-background.jpg';
@@ -84,6 +86,64 @@ export const routeMetadata = path => {
   return Object.hasOwn(seoRoutes, normalizedPath) ? seoRoutes[normalizedPath] : null;
 };
 
+const escapeAttribute = value => String(value).replace(/[&<>"']/g, character => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+})[character]);
+
+export function productJsonLd(path) {
+  const normalizedPath = normalizePath(path);
+  if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
+  const product = localProducts.find(item => normalizedPath === `/product/${item.id}`);
+  if (!product) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: routeMetadata(normalizedPath).description,
+    image: canonicalOrigin + product.images[0],
+    brand: { '@type': 'Brand', name: 'ANAWIN' },
+    url: canonicalOrigin + normalizedPath,
+    color: product.tone,
+    offers: {
+      '@type': 'Offer',
+      url: canonicalOrigin + normalizedPath,
+      priceCurrency: product.currencyCode,
+      price: Number(product.price).toFixed(2)
+    }
+  };
+}
+
+const serializeJsonLd = value => JSON.stringify(value).replace(/</g, '\\u003c');
+
+export function renderSeoHead(path) {
+  const normalizedPath = normalizePath(path);
+  const route = routeMetadata(normalizedPath);
+  const title = route?.title || 'Page Not Found | ANAWIN';
+  const description = route?.description || 'The requested ANAWIN page could not be found.';
+  const image = canonicalOrigin + (route?.image || homeImage);
+  const imageAlt = socialImageAlt(route?.image || homeImage);
+  const canonical = canonicalOrigin + normalizedPath;
+  const lines = [
+    `<meta name="description" content="${escapeAttribute(description)}" />`,
+    `<title>${escapeAttribute(title)}</title>`,
+    ...(route ? [`<link rel="canonical" href="${escapeAttribute(canonical)}" />`] : ['<meta name="robots" content="noindex" />']),
+    `<meta property="og:title" content="${escapeAttribute(title)}" />`,
+    `<meta property="og:description" content="${escapeAttribute(description)}" />`,
+    ...(route ? [`<meta property="og:url" content="${escapeAttribute(canonical)}" />`] : []),
+    `<meta property="og:type" content="${route?.type || 'website'}" />`,
+    `<meta property="og:image" content="${escapeAttribute(image)}" />`,
+    `<meta property="og:image:alt" content="${escapeAttribute(imageAlt)}" />`,
+    '<meta name="twitter:card" content="summary_large_image" />',
+    `<meta name="twitter:title" content="${escapeAttribute(title)}" />`,
+    `<meta name="twitter:description" content="${escapeAttribute(description)}" />`,
+    `<meta name="twitter:image" content="${escapeAttribute(image)}" />`,
+    `<meta name="twitter:image:alt" content="${escapeAttribute(imageAlt)}" />`
+  ];
+  const product = productJsonLd(normalizedPath);
+  if (product) lines.push(`<script type="application/ld+json" data-anawin-product>${serializeJsonLd(product)}</script>`);
+  return lines.join('\n    ');
+}
+
 function setMeta(document, selector, attributes, content) {
   const matches = [...document.head.querySelectorAll(selector)];
   const meta = matches.shift() || document.createElement('meta');
@@ -129,4 +189,15 @@ export function updateSeo(document, path) {
   const robots = [...document.head.querySelectorAll('meta[name="robots"]')];
   robots.forEach(meta => meta.remove());
   if (!route) setMeta(document, 'meta[name="robots"]', { name: 'robots' }, 'noindex');
+
+  const product = productJsonLd(normalizedPath);
+  const scripts = [...document.head.querySelectorAll('script[type="application/ld+json"][data-anawin-product]')];
+  if (product) {
+    const script = scripts.shift() || document.createElement('script');
+    script.setAttribute('type', 'application/ld+json');
+    script.setAttribute('data-anawin-product', '');
+    script.textContent = serializeJsonLd(product);
+    if (!script.isConnected) document.head.append(script);
+  }
+  scripts.forEach(script => script.remove());
 }
