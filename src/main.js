@@ -5,6 +5,7 @@ import { renderCartRow } from './cart-row.js';
 import { containTab } from './dialog.js';
 import { communityItems } from './community.js';
 import { warrantyParagraphs, careIntro, careInstructions, careSections, breakInIntro, breakInSections } from './policy-content.js';
+import { normalizePath, routeMetadata, updateSeo } from './seo.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -100,7 +101,7 @@ function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
     <a href="/product/${product.id}" data-link class="product-image">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
+    <div class="product-meta"><div><h3><a href="/product/${product.id}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
 
@@ -124,7 +125,7 @@ function home() {
     ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
 }
 
-const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products">${productGrid(true)}</section></main>`;
+const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="visually-hidden">Shop ANAWIN gloves</h2>${productGrid(true)}</section></main>`;
 
 function productPage(product) {
   if (!product) return notFound();
@@ -226,7 +227,8 @@ function cartDrawer() {
 }
 
 function route() {
-  const path = location.pathname.replace(/\/$/, '') || '/';
+  const path = normalizePath(location.pathname);
+  if (!routeMetadata(path)) return notFound();
   if (path === '/') return home();
   if (path === '/shop') return shop();
   if (path === '/about') return about();
@@ -235,7 +237,7 @@ function route() {
   if (path === '/warranty') return warrantyPolicy();
   if (path === '/care') return carePolicy();
   if (path === '/break-in') return breakInPolicy();
-  if (path.startsWith('/product/')) return productPage(products.find(product => product.id === path.split('/')[2]));
+  if (path === '/product/black' || path === '/product/blue' || path === '/product/brown') return productPage(products.find(product => product.id === path.split('/')[2]));
   return notFound();
 }
 
@@ -255,7 +257,7 @@ function fitHeroHeading() {
   }
 }
 
-function render() { app.innerHTML = header() + commerceNotice() + route() + footer(); fitHeroHeading(); bind(); window.scrollTo(0, 0); }
+function render() { updateSeo(document, location.pathname); app.innerHTML = header() + commerceNotice() + route() + footer(); fitHeroHeading(); bind(); window.scrollTo(0, 0); }
 function navigate(path) { history.pushState({}, '', path); render(); }
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;

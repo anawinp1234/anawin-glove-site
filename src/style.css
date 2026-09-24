@@ -386,3 +386,4 @@ footer{background:var(--ink);color:#fff;padding-top:40px}
   .footer-grid div:last-child{grid-column:1}
   .footer-grid a{overflow-wrap:anywhere}
 }
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
