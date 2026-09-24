@@ -13,7 +13,7 @@ export const socialImageAlt = imagePath => imageAlts[imagePath] || '';
 
 export const seoRoutes = Object.freeze({
   '/': {
-    title: 'ANAWIN | Training Baseball Gloves Built with the Community',
+    title: 'ANAWIN | Baseball Gloves',
     description: 'Explore ANAWIN training baseball gloves and the story of a brand built with the baseball community.',
     image: homeImage,
     type: 'website'

@@ -25,7 +25,7 @@ test('metadata covers exactly the public routes with unique titles and descripti
 test('generic source HTML has no homepage canonical or og:url', () => {
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /rel="canonical"|property="og:url"/);
-  assert.match(html, /ANAWIN \| Training Baseball Gloves Built with the Community/);
+  assert.match(html, /ANAWIN \| Baseball Gloves/);
   assert.match(html, /property="og:image:alt"/);
   assert.match(html, /name="twitter:image:alt"/);
 });
