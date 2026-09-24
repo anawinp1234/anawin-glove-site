@@ -1,7 +1,7 @@
 import { purchasePrice } from './catalog.js';
 import { communityItems } from './community.js';
 import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections } from './policy-content.js';
-import { normalizePath, routeMetadata } from './seo.js';
+import { normalizePath, productPath, routeMetadata } from './seo.js';
 
 export const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
@@ -68,8 +68,8 @@ function footer() {
 function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
-    <a href="/product/${product.id}" data-link class="product-image">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3><a href="/product/${product.id}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
+    <a href="${productPath(product)}" data-link class="product-image">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
 
@@ -81,7 +81,7 @@ function communitySection() {
   return `<section class="community" aria-labelledby="community-heading"><div class="community-heading"><p class="eyebrow">ANAWIN / Community</p><h2 id="community-heading">COMMUNITY</h2></div><div class="community-grid">${entries.map(item => {
     const image = `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.alt)}" loading="lazy" />`;
     const product = item.productId && products.find(product => product.id === item.productId);
-    const photo = product ? `<a href="/product/${escapeHtml(product.id)}" data-link aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(item.alt)}">${image}</a>` : image;
+    const photo = product ? `<a href="${productPath(product)}" data-link aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(item.alt)}">${image}</a>` : image;
     const caption = item.quote || item.displayName ? `<figcaption>${item.quote ? `<p>${escapeHtml(item.quote)}</p>` : ''}${item.displayName ? `<span>${escapeHtml(item.displayName)}</span>` : ''}</figcaption>` : '';
     return `<figure class="community-item">${photo}${caption}</figure>`;
   }).join('')}</div></section>`;
@@ -112,7 +112,7 @@ function productPage(product) {
       <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. U.S. shipping is calculated at checkout, with estimated delivery 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
       <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(warrantyParagraphs[0])}</p><div class="pdp-policy-links"><a href="/warranty" data-link>Full Warranty</a></div></details>
-    </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="/product/${escapeHtml(other.id)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
+    </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="${productPath(other)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
 function about() {
@@ -182,7 +182,8 @@ function route(pathname) {
   if (path === '/warranty') return warrantyPolicy();
   if (path === '/care') return carePolicy();
   if (path === '/break-in') return breakInPolicy();
-  if (path === '/product/black' || path === '/product/blue' || path === '/product/brown') return productPage(products.find(product => product.id === path.split('/')[2]));
+  const product = products.find(item => productPath(item) === path);
+  if (product) return productPage(product);
   return notFound();
 }
 

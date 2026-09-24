@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { localProducts } from '../src/catalog.js';
-import { canonicalOrigin, seoRoutes } from '../src/seo.js';
+import { canonicalOrigin, productPath, seoRoutes } from '../src/seo.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = path => readFileSync(join(root, path), 'utf8');
@@ -28,13 +28,15 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
     assert.equal(matches(html, /<h1\b/g).length, 1, path);
     assert.ok(html.includes('<main') && html.includes('<a href="/shop"'), path);
     assert.ok(!html.includes('anawin:app') && !html.includes('anawin:seo'), path);
+    assert.doesNotMatch(html, /(?:href|content)="(?:https:\/\/anawinofficial\.com)?\/product\/(?:black|blue|brown)"/, path);
   }
 });
 
 test('each PDP has one self-contained Product and minimal approved Offer', () => {
   for (const product of localProducts) {
-    const path = `/product/${product.id}`;
+    const path = productPath(product);
     const html = htmlFor(path);
+    assert.ok(existsSync(join(root, `dist/${path.slice(1)}.html`)), path);
     const scripts = matches(html, /<script type="application\/ld\+json" data-anawin-product>(.*?)<\/script>/g);
     assert.equal(scripts.length, 1, path);
     const data = JSON.parse(scripts[0][1]);
@@ -59,6 +61,13 @@ test('each PDP has one self-contained Product and minimal approved Offer', () =>
       assert.equal(data.offers[forbidden], undefined, `${path}: ${forbidden}`);
     }
   }
+});
+
+test('old product pages are absent from the build and redirects are deployed', () => {
+  for (const id of ['black', 'blue', 'brown']) {
+    assert.equal(existsSync(join(root, `dist/product/${id}.html`)), false);
+  }
+  assert.equal(read('dist/_redirects'), read('public/_redirects'));
 });
 
 test('non-product routes have no Product JSON-LD and 404 is noindex', () => {
