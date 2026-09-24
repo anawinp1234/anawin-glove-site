@@ -19,7 +19,7 @@ export const seoRoutes = Object.freeze({
     type: 'website'
   },
   '/shop': {
-    title: 'Shop Training Baseball Gloves | ANAWIN',
+    title: 'Shop Baseball Gloves | ANAWIN',
     description: 'Explore ANAWIN BR16, OB16, and CL16 training baseball gloves: 10.25-inch gloves made with US steerhide leather.',
     image: homeImage,
     type: 'website'
