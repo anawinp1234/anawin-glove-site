@@ -95,7 +95,7 @@ test('Shopify request surfaces HTTP and GraphQL errors', async () => {
 
 function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, rekeyOnAdd = false,
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
-  subtotalOverride = null } = {}) {
+  subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {} } = {}) {
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: 'break-in'
@@ -120,9 +120,12 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
   const response = data => ({ ok: true, json: async () => ({ data }) });
   const snapshot = () => ({
     id: 'gid://cart/1', checkoutUrl: 'https://store.myshopify.com/checkouts/1',
+    discountCodes: structuredClone(discountCodes), discountApplications: structuredClone(discountApplications),
     cost: { subtotalAmount: { amount: String(subtotalOverride ?? lines.reduce((sum, line) =>
       sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle)), 0)), currencyCode: 'USD' } },
-    lines: { nodes: structuredClone(lines).map(line => ({ ...line, cost: { amountPerQuantity: {
+    lines: { nodes: structuredClone(lines).map(line => ({ ...line,
+      allDiscountAllocations: structuredClone(discountAllocations[line.merchandise.product.handle] || []),
+      cost: { amountPerQuantity: {
       amount: linePrice(line.merchandise.product.handle),
       currencyCode: currencies[line.merchandise.product.handle] || 'USD'
     }, subtotalAmount: {
@@ -206,7 +209,10 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
       } });
     }
     assert.match(query, /parentRelationship/);
-    assert.match(query, /cost \{ amountPerQuantity \{ amount currencyCode \} totalAmount \{ amount currencyCode \} \}/);
+    assert.match(query, /discountCodes \{ code applicable \}/);
+    assert.match(query, /discountApplications \{/);
+    assert.match(query, /subtotalAmount \{ amount currencyCode \} totalAmount \{ amount currencyCode \}/);
+    assert.match(query, /discountAllocations\(lineLevelOnly: false\)/);
     assert.match(query, /attributes \{ key value \}/);
     assert.match(query, /canUpdateQuantity/);
     if (query.includes('query Cart(')) return response({ cart: cartExists ? snapshot() : null });
@@ -395,6 +401,31 @@ test('line total uses Shopify discounts and cart prices rather than variant pric
   assert.equal(cart.lines.find(line => line.isBreakIn).lineTotal.amount, 18);
   assert.deepEqual(entryTotal(cart, parent.remoteLineId), { amount: 163, currencyCode: 'USD' });
   assert.equal(cart.subtotal, 999);
+});
+
+test('Shopify cart query normalizes code applicability and separate glove/service allocations', async () => {
+  const { commerce, requests } = shopifyFixture({
+    discountedPrices: { br16: '135.00' },
+    discountCodes: [{ code: 'LAUNCH10', applicable: true }, { code: 'EXPIRED', applicable: false }],
+    discountApplications: [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', value: {
+      __typename: 'PricingPercentageValue', percentage: 10
+    } }],
+    discountAllocations: { br16: [{ discountedAmount: { amount: '15.00', currencyCode: 'USD' },
+      targetType: 'LINE_ITEM', sourceDiscountApplication: { code: 'LAUNCH10' } }] }
+  });
+  await commerce.listProducts();
+  const cart = await commerce.addProduct('black', true);
+  assert.deepEqual(cart.discountCodes, [{ code: 'LAUNCH10', applicable: true }, { code: 'EXPIRED', applicable: false }]);
+  assert.deepEqual(cart.discountApplications, [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', percentage: 10 }]);
+  const parent = cart.lines.find(line => !line.isBreakIn);
+  const child = cart.lines.find(line => line.isBreakIn);
+  assert.deepEqual(parent.lineSubtotal, { amount: 150, currencyCode: 'USD' });
+  assert.deepEqual(parent.lineTotal, { amount: 135, currencyCode: 'USD' });
+  assert.deepEqual(parent.allDiscountAllocations, [{ amount: { amount: 15, currencyCode: 'USD' },
+    targetType: 'LINE_ITEM', code: 'LAUNCH10' }]);
+  assert.deepEqual(child.allDiscountAllocations, []);
+  assert.equal(cart.subtotal, 155);
+  assert.ok(requests.some(({ query }) => query.includes('sourceDiscountApplication')));
 });
 
 test('line total currency mismatch blocks checkout without combining money', async () => {

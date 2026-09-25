@@ -127,11 +127,23 @@ const PRODUCT_QUERY = `query ProductByHandle($handle: String!) {
 const CART_FIELDS = `
   id checkoutUrl
   cost { subtotalAmount { amount currencyCode } }
+  discountCodes { code applicable }
+  discountApplications {
+    ... on CartCodeDiscountApplication {
+      code targetType
+      value { __typename ... on PricingPercentageValue { percentage } }
+    }
+  }
   lines(first: 50) {
     pageInfo { hasNextPage }
     nodes {
       id quantity attributes { key value }
-      cost { amountPerQuantity { amount currencyCode } totalAmount { amount currencyCode } }
+      cost { amountPerQuantity { amount currencyCode } subtotalAmount { amount currencyCode } totalAmount { amount currencyCode } }
+      allDiscountAllocations: discountAllocations(lineLevelOnly: false) {
+        discountedAmount { amount currencyCode }
+        targetType
+        sourceDiscountApplication { ... on CartCodeDiscountApplication { code } }
+      }
       ... on CartLine {
         instructions { canRemove canUpdateQuantity }
         parentRelationship { parent { id merchandise { ... on ProductVariant { id product { handle } } } } }
@@ -175,6 +187,14 @@ function normalizeMoney(value) {
   };
 }
 
+function normalizeAllocations(allocations) {
+  return (allocations || []).map(allocation => ({
+    amount: normalizeMoney(allocation.discountedAmount),
+    targetType: allocation.targetType,
+    code: allocation.sourceDiscountApplication?.code || null
+  }));
+}
+
 function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   if (!cart) return emptyCart();
   const lines = cart.lines.nodes.map(line => {
@@ -188,7 +208,9 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
       productId: handle === breakInHandle ? handleToProductId[parentHandle] : handleToProductId[handle],
       quantity: line.quantity,
       unitPrice: normalizeMoney(line.cost?.amountPerQuantity),
+      lineSubtotal: normalizeMoney(line.cost?.subtotalAmount),
       lineTotal: normalizeMoney(line.cost?.totalAmount),
+      allDiscountAllocations: normalizeAllocations(line.allDiscountAllocations),
       isBreakIn: handle === breakInHandle,
       attributes: line.attributes || [],
       serviceConfiguration: (line.attributes || []).find(attribute => attribute.key === SERVICE_ATTRIBUTE)?.value || null,
@@ -200,6 +222,12 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
     checkoutUrl: cart.checkoutUrl,
     subtotal: Number(cart.cost.subtotalAmount.amount),
     currencyCode: cart.cost.subtotalAmount.currencyCode,
+    discountCodes: (cart.discountCodes || []).map(discount => ({ code: discount.code, applicable: discount.applicable === true })),
+    discountApplications: (cart.discountApplications || []).filter(application => application.code).map(application => ({
+      code: application.code,
+      targetType: application.targetType,
+      percentage: application.value?.__typename === 'PricingPercentageValue' ? application.value.percentage : null
+    })),
     incomplete: lines.length !== cart.lines.nodes.length || Boolean(cart.lines.pageInfo?.hasNextPage),
     lines
   };

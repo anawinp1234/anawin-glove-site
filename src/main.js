@@ -3,6 +3,7 @@ import { breakInService as localBreakInService, localProducts, purchasePrice } f
 import { createStorefrontRenderer, money, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
+import { renderCartDiscounts } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { updateSeo } from './seo.js';
 
@@ -55,7 +56,7 @@ function cartDrawer() {
       product, line, service, mode: commerce.mode, serviceProduct: breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot"><div><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div><p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscounts(cart, commerce.mode, money, escapeHtml)}<p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
