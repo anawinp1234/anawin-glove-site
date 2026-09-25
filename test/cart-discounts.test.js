@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cartDiscountSummary, renderCartDiscounts } from '../src/cart-discounts.js';
+import { cartDiscountSummary, renderCartDiscounts, renderDiscountEntry } from '../src/cart-discounts.js';
 import { renderCartRow } from '../src/cart-row.js';
 
 const money = (amount, currency) => new Intl.NumberFormat('en-US', {
@@ -25,6 +25,7 @@ const cart = (lines, subtotal, codes = [], applications = []) => ({
 const applied = [{ code: 'LAUNCH10', applicable: true }];
 const percentage = [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', percentage: 10 }];
 const totals = value => renderCartDiscounts(value, 'shopify', money, escapeHtml);
+const entry = value => renderDiscountEntry({ id: 'gid://cart/1', ...value }, {}, escapeHtml);
 const row = (line, child = null) => renderCartRow({
   product: { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] },
   line, service: child, mode: 'shopify', serviceProduct: { price: 20, currencyCode: 'USD', available: true },
@@ -42,7 +43,7 @@ test('no discount keeps the original subtotal and line price', () => {
 test('applicable percentage code shows the configured percentage and Shopify savings', () => {
   const value = cart([glove(1, 150, 135, [allocation(15)])], 135, applied, percentage);
   const html = totals(value);
-  assert.match(html, /LAUNCH10 applied — 10% off/);
+  assert.match(entry(value), /LAUNCH10 applied/);
   assert.match(html, /Merchandise subtotal<\/span><span>\$150/);
   assert.match(html, /Discount \(LAUNCH10\)<\/span><span>−\$15/);
   assert.match(html, /Total before shipping\/tax<\/span><strong>\$135/);
@@ -58,7 +59,7 @@ test('an inapplicable code is never shown as applied', () => {
 test('a fixed code omits a percentage and keeps cart-level allocation separate from Shopify subtotal', () => {
   const value = cart([glove(1, 150, 150, [allocation(15, 'SAVE15')])], 150,
     [{ code: 'SAVE15', applicable: true }], [{ code: 'SAVE15', targetType: 'LINE_ITEM', percentage: null }]);
-  assert.match(totals(value), /SAVE15 applied<\/p>/);
+  assert.match(entry(value), /SAVE15 applied/);
   assert.doesNotMatch(totals(value), /% off/);
   assert.match(totals(value), /Discount \(SAVE15\)<\/span><span>−\$15/);
   assert.match(totals(value), /Total before shipping\/tax<\/span><strong>\$135/);
@@ -68,7 +69,7 @@ test('a fixed code omits a percentage and keeps cart-level allocation separate f
 test('a shipping-only code is applied without claiming a merchandise percentage or savings', () => {
   const value = cart([glove()], 150, [{ code: 'FREESHIP', applicable: true }],
     [{ code: 'FREESHIP', targetType: 'SHIPPING_LINE', percentage: 100 }]);
-  assert.match(totals(value), /FREESHIP applied<\/p>/);
+  assert.match(entry(value), /FREESHIP applied/);
   assert.doesNotMatch(totals(value), /% off|Discount \(|cart-final-total/);
   assert.match(totals(value), /<span>Subtotal<\/span><strong>\$150/);
 });
@@ -100,6 +101,28 @@ test('quantities above one use extended Shopify line amounts', () => {
 test('code names are escaped and mismatched allocation currency does not invent savings', () => {
   const bad = glove(1, 150, 150, [{ amount: { amount: 15, currencyCode: 'CAD' }, code: '<SAVE>', targetType: 'LINE_ITEM' }]);
   const value = cart([bad], 150, [{ code: '<SAVE>', applicable: true }]);
-  assert.match(totals(value), /&lt;SAVE&gt; applied/);
+  assert.match(entry(value), /&lt;SAVE&gt; applied/);
   assert.doesNotMatch(totals(value), /−\$15|Total before shipping\/tax/);
+});
+
+test('discount form is labeled, submits with Enter, and announces non-applicable status', () => {
+  const value = cart([glove()], 150, [{ code: 'NOPE', applicable: false }]);
+  const html = renderDiscountEntry({ id: 'gid://cart/1', ...value },
+    { input: 'NOPE', message: 'Discount code isn’t valid for this cart.', error: true }, escapeHtml);
+  assert.match(html, /<label[^>]*for="cart-discount-input"/);
+  assert.match(html, /<form data-discount-form>/);
+  assert.match(html, /type="submit"/);
+  assert.match(html, /NOPE not applicable/);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /data-remove-discount="NOPE"/);
+  assert.doesNotMatch(html, /NOPE applied/);
+});
+
+test('discount controls disable during an update and escape input and code attributes', () => {
+  const value = cart([glove()], 150, [{ code: '<SAVE>', applicable: true }]);
+  const html = renderDiscountEntry({ id: 'gid://cart/1', ...value }, { busy: true, input: '"<test>' }, escapeHtml);
+  assert.match(html, /value="&quot;&lt;test&gt;" disabled/);
+  assert.match(html, /Applying…/);
+  assert.match(html, /data-remove-discount="&lt;SAVE&gt;" disabled/);
+  assert.match(html, /&lt;SAVE&gt; applied/);
 });

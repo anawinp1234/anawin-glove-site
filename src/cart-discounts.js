@@ -1,6 +1,17 @@
 const rounded = amount => Math.round((amount + Number.EPSILON) * 1000) / 1000;
 const validMoney = (value, currency) => Number.isFinite(value?.amount) && value.amount >= 0 && value.currencyCode === currency;
-const codeKey = code => code.trim().toLocaleLowerCase('en-US');
+export const codeKey = code => code.trim().toLocaleLowerCase('en-US');
+
+export function discountCodeList(cart) {
+  const seen = new Set();
+  return (cart.discountCodes || []).map(item => item.code).filter(code => {
+    if (typeof code !== 'string' || !code.trim()) return false;
+    const key = codeKey(code);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 export function applicableDiscountCodes(cart) {
   const seen = new Set();
@@ -84,17 +95,24 @@ export function cartDiscountSummary(cart) {
   return { codes, original, final, savings, discounts };
 }
 
+export function renderDiscountEntry(cart, { busy = false, input = '', message = '', error = false } = {}, escapeHtml) {
+  if (!cart.id || !cart.lines?.length) return '';
+  const codes = discountCodeList(cart);
+  return `<section class="cart-discount-entry" aria-labelledby="discount-heading">
+    <label id="discount-heading" for="cart-discount-input">Discount code</label>
+    <form data-discount-form><input id="cart-discount-input" name="discountCode" type="text" autocomplete="off" placeholder="Enter code" value="${escapeHtml(input)}" ${busy ? 'disabled' : ''} aria-describedby="cart-discount-message"><button type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Applying…' : 'Apply'}</button></form>
+    ${codes.length ? `<div class="cart-discount-code-list">${codes.map(code => {
+      const applicable = cart.discountCodes.find(item => codeKey(item.code) === codeKey(code))?.applicable === true;
+      return `<div class="cart-discount-code"><span>${applicable ? '<span aria-hidden="true">✓</span> ' : ''}${escapeHtml(code)} ${applicable ? 'applied' : 'not applicable'}</span><button type="button" data-remove-discount="${escapeHtml(code)}" ${busy ? 'disabled' : ''}>${busy ? 'Updating…' : 'Remove'}</button></div>`;
+    }).join('')}</div>` : ''}
+    <p id="cart-discount-message" class="cart-discount-message${error ? ' cart-error' : ''}" role="${error ? 'alert' : 'status'}">${escapeHtml(message)}</p>
+  </section>`;
+}
+
 export function renderCartDiscounts(cart, mode, money, escapeHtml) {
   if (mode !== 'shopify') return `<div class="cart-total-row"><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div>`;
   const { codes, original, final, savings, discounts } = cartDiscountSummary(cart);
-  const badges = codes.length ? `<div class="cart-discount-codes">${codes.map(({ code }) => {
-    const application = (cart.discountApplications || []).find(item => codeKey(item.code) === codeKey(code));
-    const percentage = application?.targetType === 'LINE_ITEM' && Number.isFinite(application.percentage) &&
-      application.percentage > 0 && application.percentage <= 100
-      ? ` — ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(application.percentage)}% off` : '';
-    return `<p>${escapeHtml(code)} applied${percentage}</p>`;
-  }).join('')}</div>` : '';
-  if (!savings) return `${badges}<div class="cart-total-row"><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div>`;
+  if (!savings) return `<div class="cart-total-row"><span>Subtotal</span><strong>${money(cart.subtotal, cart.currencyCode)}</strong></div>`;
   const rows = discounts.map(({ code, amount }) => `<div class="cart-total-row cart-discount-row"><span>${code ? `Discount (${escapeHtml(code)})` : 'Other discounts'}</span><span>−${money(amount.amount, amount.currencyCode)}</span></div>`).join('');
-  return `${badges}<div class="cart-total-row"><span>Merchandise subtotal</span><span>${money(original.amount, original.currencyCode)}</span></div>${rows}<div class="cart-total-row cart-final-total"><span>Total before shipping/tax</span><strong>${money(final.amount, final.currencyCode)}</strong></div>`;
+  return `<div class="cart-total-row"><span>Merchandise subtotal</span><span>${money(original.amount, original.currencyCode)}</span></div>${rows}<div class="cart-total-row cart-final-total"><span>Total before shipping/tax</span><strong>${money(final.amount, final.currencyCode)}</strong></div>`;
 }

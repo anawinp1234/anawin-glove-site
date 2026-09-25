@@ -95,7 +95,8 @@ test('Shopify request surfaces HTTP and GraphQL errors', async () => {
 
 function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, rekeyOnAdd = false,
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
-  subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {} } = {}) {
+  subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
+  discountScenario = null, discountWarnings = [] } = {}) {
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: 'break-in'
@@ -105,7 +106,7 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     cl16: ['gid://variant/cl16', prices.cl16 || '150.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']
   };
   const linePrice = handle => cartPrices[handle] || variants[handle][1];
-  const finalUnitPrice = handle => discountedPrices[handle] || linePrice(handle);
+  const finalUnitPrice = (handle, currentPrices = discountedPrices) => currentPrices[handle] || linePrice(handle);
   const storage = new MemoryStorage();
   const requests = [];
   let lines = [];
@@ -118,13 +119,17 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
   let mutationCount = 0;
   let mutationObserver = null;
   const response = data => ({ ok: true, json: async () => ({ data }) });
-  const snapshot = () => ({
+  const snapshot = () => {
+    const state = discountScenario?.(discountCodes.map(item => item.code)) || {};
+    const currentPrices = state.discountedPrices || discountedPrices;
+    const currentAllocations = state.discountAllocations || discountAllocations;
+    return ({
     id: 'gid://cart/1', checkoutUrl: 'https://store.myshopify.com/checkouts/1',
-    discountCodes: structuredClone(discountCodes), discountApplications: structuredClone(discountApplications),
-    cost: { subtotalAmount: { amount: String(subtotalOverride ?? lines.reduce((sum, line) =>
-      sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle)), 0)), currencyCode: 'USD' } },
+    discountCodes: structuredClone(state.discountCodes || discountCodes), discountApplications: structuredClone(state.discountApplications || discountApplications),
+    cost: { subtotalAmount: { amount: String(state.subtotalOverride ?? subtotalOverride ?? lines.reduce((sum, line) =>
+      sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle, currentPrices)), 0)), currencyCode: 'USD' } },
     lines: { nodes: structuredClone(lines).map(line => ({ ...line,
-      allDiscountAllocations: structuredClone(discountAllocations[line.merchandise.product.handle] || []),
+      allDiscountAllocations: structuredClone(currentAllocations[line.merchandise.product.handle] || []),
       cost: { amountPerQuantity: {
       amount: linePrice(line.merchandise.product.handle),
       currencyCode: currencies[line.merchandise.product.handle] || 'USD'
@@ -132,10 +137,11 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
       amount: String(line.quantity * Number(linePrice(line.merchandise.product.handle))),
       currencyCode: currencies[line.merchandise.product.handle] || 'USD'
     }, totalAmount: {
-      amount: String(line.quantity * Number(finalUnitPrice(line.merchandise.product.handle))),
+      amount: String(line.quantity * Number(finalUnitPrice(line.merchandise.product.handle, currentPrices))),
       currencyCode: currencies[line.merchandise.product.handle] || 'USD'
     } } })) }
   });
+  };
   const makeLine = (handle, quantity, parentId = null, attributes = []) => ({
     id: `line-${nextId++}`, quantity,
     attributes: structuredClone(attributes),
@@ -218,12 +224,14 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     if (query.includes('query Cart(')) return response({ cart: cartExists ? snapshot() : null });
     if (apiError) return { ok: false, status: 503 };
     const field = query.includes('CreateCart') ? 'cartCreate' : query.includes('AddLines') ? 'cartLinesAdd' :
-      query.includes('UpdateLines') ? 'cartLinesUpdate' : 'cartLinesRemove';
+      query.includes('UpdateLines') ? 'cartLinesUpdate' : query.includes('UpdateDiscountCodes') ? 'cartDiscountCodesUpdate' : 'cartLinesRemove';
     mutationCount++;
     mutationObserver?.({ field, variables, storage });
     if (failMutationAt === mutationCount) return response({ [field]: { userErrors: [{ message: 'Partial mutation failed' }], cart: snapshot() } });
     if (userError) return response({ [field]: { userErrors: [{ message: userError }], cart: snapshot() } });
-    if (field === 'cartCreate' || field === 'cartLinesAdd') {
+    if (field === 'cartDiscountCodesUpdate') {
+      discountCodes = variables.discountCodes.map(code => ({ code, applicable: true }));
+    } else if (field === 'cartCreate' || field === 'cartLinesAdd') {
       add(field === 'cartCreate' ? variables.input.lines : variables.lines);
       cartExists = true;
       if (rekeyOnAdd) rekeyLines();
@@ -251,7 +259,7 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
       lines = lines.filter(line => !variables.lineIds.includes(line.id) && !variables.lineIds.includes(line.parentRelationship?.parent.id));
     }
     if (failAfterMutationAt === mutationCount) return { ok: false, status: 503 };
-    return response({ [field]: { userErrors: [], cart: snapshot() } });
+    return response({ [field]: { userErrors: [], warnings: field === 'cartDiscountCodesUpdate' ? discountWarnings : [], cart: snapshot() } });
   };
   const commerce = createShopifyCommerce(config, storage, fetchImpl);
   return { commerce, storage, requests, restore: () => createShopifyCommerce(config, storage, fetchImpl),
@@ -966,4 +974,97 @@ test('Shopify user errors leave the cart intact', async () => {
   fixture.setUserError('Quantity unavailable');
   await assert.rejects(fixture.commerce.setQuantity('black', 2), /Quantity unavailable/);
   assert.equal((await fixture.commerce.getCart()).subtotal, 150);
+});
+
+const discountMoney = amount => ({ amount: String(amount), currencyCode: 'USD' });
+const discountScenario = codes => {
+  const launch = codes.some(code => code.toLowerCase() === 'launch10');
+  const extra = codes.some(code => code.toLowerCase() === 'extra');
+  const amount = (launch ? 15 : 0) + (extra ? 5 : 0);
+  return {
+    discountCodes: codes.map(code => ({ code, applicable: ['launch10', 'extra'].includes(code.toLowerCase()) })),
+    discountApplications: codes.filter(code => ['launch10', 'extra'].includes(code.toLowerCase()))
+      .map(code => ({ code, targetType: 'LINE_ITEM', value: { __typename: 'PricingPercentageValue', percentage: 10 } })),
+    discountedPrices: { br16: String(150 - amount) },
+    discountAllocations: amount ? { br16: codes.filter(code => ['launch10', 'extra'].includes(code.toLowerCase()))
+      .map(code => ({ discountedAmount: discountMoney(code.toLowerCase() === 'extra' ? 5 : 15),
+        targetType: 'LINE_ITEM', sourceDiscountApplication: { code } })) } : {}
+  };
+};
+
+test('applying and removing a code use Shopify cart prices and preserve checkout URL', async () => {
+  const fixture = shopifyFixture({ discountScenario });
+  await fixture.commerce.listProducts();
+  const before = await fixture.commerce.addProduct('black', false);
+  const applied = await fixture.commerce.applyDiscountCode('  LAUNCH10  ');
+  assert.equal(applied.discountCodes[0].applicable, true);
+  assert.equal(applied.lines[0].lineTotal.amount, 135);
+  assert.equal(applied.checkoutUrl, before.checkoutUrl);
+  assert.deepEqual(fixture.requests.find(item => item.query.includes('UpdateDiscountCodes')).variables,
+    { cartId: before.id, discountCodes: ['LAUNCH10'] });
+  const restored = await fixture.commerce.removeDiscountCode('launch10');
+  assert.deepEqual(restored.discountCodes, []);
+  assert.equal(restored.lines[0].lineTotal.amount, 150);
+  assert.equal(restored.checkoutUrl, before.checkoutUrl);
+});
+
+test('non-applicable code is retained as non-applicable without altering Shopify prices', async () => {
+  const fixture = shopifyFixture({ discountScenario });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const cart = await fixture.commerce.applyDiscountCode('NOPE');
+  assert.deepEqual(cart.discountCodes, [{ code: 'NOPE', applicable: false }]);
+  assert.equal(cart.lines[0].lineTotal.amount, 150);
+  assert.equal(cart.subtotal, 150);
+  assert.equal((await fixture.commerce.removeDiscountCode('NOPE')).discountCodes.length, 0);
+});
+
+test('existing codes survive additions and removing one preserves the other', async () => {
+  const fixture = shopifyFixture({ discountScenario });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  await fixture.commerce.applyDiscountCode('LAUNCH10');
+  const two = await fixture.commerce.applyDiscountCode('EXTRA');
+  assert.deepEqual(two.discountCodes.map(item => item.code), ['LAUNCH10', 'EXTRA']);
+  assert.equal(two.lines[0].lineTotal.amount, 130);
+  const one = await fixture.commerce.removeDiscountCode('launch10');
+  assert.deepEqual(one.discountCodes.map(item => item.code), ['EXTRA']);
+  assert.equal(one.lines[0].lineTotal.amount, 145);
+  const mutationVariables = fixture.requests.filter(item => item.query.includes('UpdateDiscountCodes')).map(item => item.variables.discountCodes);
+  assert.deepEqual(mutationVariables, [['LAUNCH10'], ['LAUNCH10', 'EXTRA'], ['EXTRA']]);
+});
+
+test('duplicate codes are ignored regardless of case or surrounding spaces', async () => {
+  const fixture = shopifyFixture({ discountScenario });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  await fixture.commerce.applyDiscountCode('LAUNCH10');
+  const duplicate = await fixture.commerce.applyDiscountCode('  launch10 ');
+  assert.equal(duplicate.discountCodes.length, 1);
+  assert.equal(fixture.requests.filter(item => item.query.includes('UpdateDiscountCodes')).length, 1);
+});
+
+test('discount user errors and API failures are surfaced without invented savings', async () => {
+  const fixture = shopifyFixture({ discountScenario });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.setUserError('Discount unavailable');
+  await assert.rejects(fixture.commerce.applyDiscountCode('LAUNCH10'), /Discount unavailable/);
+  fixture.setUserError('');
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.applyDiscountCode('LAUNCH10'), /503/);
+  fixture.setApiError(false);
+  const cart = await fixture.commerce.getCart();
+  assert.equal(cart.subtotal, 150);
+  assert.deepEqual(cart.discountCodes, []);
+});
+
+test('Shopify discount warnings remain available alongside the returned cart', async () => {
+  const fixture = shopifyFixture({ discountScenario,
+    discountWarnings: [{ code: 'DISCOUNT_CODE_NOT_HONOURED', message: 'Some discounts were not honored.' }] });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const cart = await fixture.commerce.applyDiscountCode('NOPE');
+  assert.equal(cart.discountCodes[0].applicable, false);
+  assert.deepEqual(cart.discountWarnings, ['Some discounts were not honored.']);
 });
