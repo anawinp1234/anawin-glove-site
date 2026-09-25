@@ -247,6 +247,8 @@ body.lightbox-open{overflow:hidden}
   --image-surface:#f1f1ef;
 }
 body{background:var(--paper)}
+.announcement-bar{display:flex;min-height:34px;align-items:center;justify-content:center;padding:7px 16px;background:var(--ink);color:#fff;text-align:center}
+.announcement-bar p{width:100%;min-width:0;margin:0;font-size:11px;font-weight:700;line-height:1.4;letter-spacing:.07em;text-transform:uppercase;overflow-wrap:break-word}
 .site-header{background:var(--paper);border-bottom-color:var(--line)}
 .site-header nav a,.cart-trigger,.mobile-menu-toggle{font-weight:700}
 .site-header a:hover,.site-header button:hover{color:var(--ink);opacity:.62}
@@ -314,7 +316,10 @@ footer{background:var(--ink);color:#fff;padding-top:40px}
 .cart-foot [data-checkout]:hover{background:#333}
 .commerce-notice{background:var(--ink);color:#fff}
 body:has(.hero) .commerce-notice[role="status"]{position:absolute;top:76px;left:0;right:0;z-index:4}
+body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 @media(max-width:760px){
+  .announcement-bar{padding:8px 16px}
+  .announcement-bar p{font-size:10px;line-height:1.45;letter-spacing:.04em}
   .hero::after{background:linear-gradient(180deg,rgba(0,0,0,.57),rgba(0,0,0,.08) 60%,rgba(0,0,0,.43))}
   .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
   .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
