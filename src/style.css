@@ -199,6 +199,16 @@ body.lightbox-open{overflow:hidden}
 .cart-item-info{min-width:0}
 .cart-item-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:12px;min-width:0;text-align:right}
 .cart-line-price{font-size:16px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cart-line-original{color:var(--muted);font-size:12px;line-height:1.1;white-space:nowrap}
+.cart-price-pair{display:flex;align-items:baseline;justify-content:flex-end;flex-wrap:wrap;gap:4px 7px}
+.cart-service s{color:var(--muted)}
+.cart-foot .cart-discount-codes{display:block;margin-bottom:16px;padding:10px 12px;border:1px solid var(--line);font-size:11px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
+.cart-discount-codes p{margin:0;color:var(--ink)}
+.cart-discount-codes p+p{margin-top:4px}
+.cart-foot .cart-total-row{display:flex;justify-content:space-between;align-items:baseline;gap:14px;font-size:14px;line-height:1.45}
+.cart-total-row span:last-child,.cart-total-row strong{flex-shrink:0;font-variant-numeric:tabular-nums}
+.cart-foot .cart-discount-row{margin-top:6px;color:var(--muted);font-size:13px}
+.cart-foot .cart-final-total{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:16px}
 .cart-item-side .remove{align-self:flex-end}
 @media(min-width:761px){
   .cart-item h3{font-size:22px}
@@ -217,6 +227,7 @@ body.lightbox-open{overflow:hidden}
   .cart-item{grid-template-columns:72px minmax(0,1fr) max-content;gap:12px}
   .cart-item img{width:72px}
   .cart-item-side{max-width:88px}
+  .cart-price-pair{flex-direction:column;align-items:flex-end;gap:2px}
   .cart-line-price{white-space:normal}
 }
 
