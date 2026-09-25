@@ -116,3 +116,7 @@ export function renderCartDiscounts(cart, mode, money, escapeHtml) {
   const rows = discounts.map(({ code, amount }) => `<div class="cart-total-row cart-discount-row"><span>${code ? `Discount (${escapeHtml(code)})` : 'Other discounts'}</span><span>−${money(amount.amount, amount.currencyCode)}</span></div>`).join('');
   return `<div class="cart-total-row"><span>Merchandise subtotal</span><span>${money(original.amount, original.currencyCode)}</span></div>${rows}<div class="cart-total-row cart-final-total"><span>Total before shipping/tax</span><strong>${money(final.amount, final.currencyCode)}</strong></div>`;
 }
+
+export function renderCartDiscountSection(cart, mode, state, money, escapeHtml) {
+  return `${mode === 'shopify' ? renderDiscountEntry(cart, state, escapeHtml) : ''}${renderCartDiscounts(cart, mode, money, escapeHtml)}`;
+}

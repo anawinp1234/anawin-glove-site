@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cartDiscountSummary, renderCartDiscounts, renderDiscountEntry } from '../src/cart-discounts.js';
+import { cartDiscountSummary, renderCartDiscounts, renderCartDiscountSection, renderDiscountEntry } from '../src/cart-discounts.js';
 import { renderCartRow } from '../src/cart-row.js';
 
 const money = (amount, currency) => new Intl.NumberFormat('en-US', {
@@ -125,4 +125,25 @@ test('discount controls disable during an update and escape input and code attri
   assert.match(html, /Applying…/);
   assert.match(html, /data-remove-discount="&lt;SAVE&gt;" disabled/);
   assert.match(html, /&lt;SAVE&gt; applied/);
+});
+
+test('an applied code keeps the input, Apply, and its own Remove control above totals', () => {
+  const value = { id: 'gid://cart/1', ...cart([glove(1, 150, 135, [allocation(15)])], 135, applied, percentage) };
+  const html = renderCartDiscountSection(value, 'shopify', {}, money, escapeHtml);
+  assert.match(html, /<form data-discount-form><input[^>]+placeholder="Enter code"[^>]*><button type="submit"[^>]*>Apply<\/button><\/form>/);
+  assert.match(html, /LAUNCH10 applied<\/span><button type="button" data-remove-discount="LAUNCH10"[^>]*>Remove<\/button>/);
+  assert.ok(html.indexOf('data-discount-form') < html.indexOf('LAUNCH10 applied'));
+  assert.ok(html.indexOf('LAUNCH10 applied') < html.indexOf('Merchandise subtotal'));
+  assert.match(html, /Total before shipping\/tax<\/span><strong>\$135/);
+});
+
+test('another code can be entered while multiple applied codes each retain Remove', () => {
+  const value = { id: 'gid://cart/1', ...cart([glove()], 150,
+    [{ code: 'LAUNCH10', applicable: true }, { code: 'EXTRA', applicable: true }]) };
+  const html = renderCartDiscountSection(value, 'shopify', { input: 'NEXTCODE' }, money, escapeHtml);
+  assert.match(html, /value="NEXTCODE"/);
+  assert.match(html, /<button type="submit"[^>]*>Apply<\/button>/);
+  assert.equal((html.match(/data-remove-discount=/g) || []).length, 2);
+  assert.match(html, /data-remove-discount="LAUNCH10"/);
+  assert.match(html, /data-remove-discount="EXTRA"/);
 });
