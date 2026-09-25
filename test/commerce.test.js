@@ -1006,6 +1006,8 @@ test('applying and removing a code use Shopify cart prices and preserve checkout
   assert.deepEqual(restored.discountCodes, []);
   assert.equal(restored.lines[0].lineTotal.amount, 150);
   assert.equal(restored.checkoutUrl, before.checkoutUrl);
+  assert.deepEqual(fixture.requests.filter(item => item.query.includes('UpdateDiscountCodes')).at(-1).variables,
+    { cartId: before.id, discountCodes: [] });
 });
 
 test('non-applicable code is retained as non-applicable without altering Shopify prices', async () => {
