@@ -1,4 +1,5 @@
 import { breakInService, localProducts, productHandleMap } from './catalog.js';
+import { codeKey, discountCodeList } from './cart-discounts.js';
 
 const LOCAL_CART_KEY = 'anawin-cart';
 const SHOPIFY_CART_KEY = 'anawin-shopify-cart-id';
@@ -338,6 +339,23 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
   }`, { cartId, lineIds }, 'cartLinesRemove');
 
+  async function updateDiscountCodes(cartId, discountCodes) {
+    const data = await request(`mutation UpdateDiscountCodes($cartId: ID!, $discountCodes: [String!]!) {
+      cartDiscountCodesUpdate(cartId: $cartId, discountCodes: $discountCodes) {
+        cart { ${CART_FIELDS} }
+        userErrors { message }
+        warnings { code message }
+      }
+    }`, { cartId, discountCodes });
+    const payload = data.cartDiscountCodesUpdate;
+    if (!payload) throw new Error('Shopify did not return a discount update.');
+    const updated = assertCartPayload(payload);
+    if (updated.id !== cartId) throw new Error('Shopify returned a different cart.');
+    const normalized = applySafety(normalizeShopifyCart(updated, handleToProductId, config.breakInHandle));
+    normalized.discountWarnings = (payload.warnings || []).map(warning => warning.message).filter(Boolean);
+    return normalized;
+  }
+
   async function createCart(lines) {
     return mutateCart(`mutation CreateCart($input: CartInput!) {
       cartCreate(input: $input) { cart { ${CART_FIELDS} } userErrors { message } }
@@ -530,6 +548,22 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     },
     async getBreakInService() { return remoteBreakInService; },
     getCart,
+    async applyDiscountCode(input) {
+      const code = input.trim();
+      if (!code) throw new Error('Enter a discount code.');
+      const current = await getCart();
+      if (!current.id || current.incomplete) throw new Error('The Shopify cart is unavailable. Please reload it before applying a code.');
+      const codes = discountCodeList(current);
+      if (codes.some(existing => codeKey(existing) === codeKey(code))) return current;
+      return updateDiscountCodes(current.id, [...codes, code]);
+    },
+    async removeDiscountCode(code) {
+      const current = await getCart();
+      if (!current.id || current.incomplete) throw new Error('The Shopify cart is unavailable. Please reload it before removing a code.');
+      const codes = discountCodeList(current);
+      if (!codes.some(existing => codeKey(existing) === codeKey(code))) return current;
+      return updateDiscountCodes(current.id, codes.filter(existing => codeKey(existing) !== codeKey(code)));
+    },
     async addProduct(productId, includeBreakIn) {
       const product = products.find(item => item.id === productId);
       if (!product?.merchandiseId || !product.available) throw new Error('This glove is not currently available from Shopify.');

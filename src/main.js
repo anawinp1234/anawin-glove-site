@@ -3,7 +3,7 @@ import { breakInService as localBreakInService, localProducts, purchasePrice } f
 import { createStorefrontRenderer, money, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
-import { renderCartDiscounts } from './cart-discounts.js';
+import { codeKey, renderCartDiscounts, renderDiscountEntry } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { updateSeo } from './seo.js';
 
@@ -22,6 +22,10 @@ let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl:
 let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
 let cartError = '';
+let discountInput = '';
+let discountBusy = false;
+let discountMessage = '';
+let discountError = false;
 let cartIsOpen = false;
 let cartReturnFocus = null;
 let cartCloseTimer = null;
@@ -56,7 +60,7 @@ function cartDrawer() {
       product, line, service, mode: commerce.mode, serviceProduct: breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscounts(cart, commerce.mode, money, escapeHtml)}<p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${commerce.mode === 'shopify' ? renderDiscountEntry(cart, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, escapeHtml) : ''}${renderCartDiscounts(cart, commerce.mode, money, escapeHtml)}<p>Taxes and shipping calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
@@ -162,7 +166,72 @@ async function cartAction(action, opener = null) {
   finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
 }
 
+async function discountAction(action, code = '', removingCode = '') {
+  if (cartBusy || discountBusy) return;
+  cartBusy = true;
+  discountBusy = true;
+  discountMessage = '';
+  discountError = false;
+  openCart();
+  try {
+    cart = await action();
+    if (code) {
+      const applied = cart.discountCodes?.find(item => codeKey(item.code) === codeKey(code))?.applicable === true;
+      if (applied) {
+        discountInput = '';
+        discountMessage = `${code} applied.`;
+      }
+      else {
+        discountMessage = 'Discount code isn’t valid for this cart.';
+        discountError = true;
+      }
+    }
+    if (removingCode) {
+      if (cart.discountCodes?.some(item => codeKey(item.code) === codeKey(removingCode))) {
+        discountMessage = 'The discount code could not be removed. Please try again.';
+        discountError = true;
+      } else discountMessage = 'Discount code removed.';
+    }
+    if (!discountError && cart.discountWarnings?.length) discountMessage = [discountMessage, ...cart.discountWarnings].filter(Boolean).join(' ');
+  } catch (error) {
+    discountMessage = error.message || 'Discount update failed. Please try again.';
+    discountError = true;
+    try { cart = await commerce.getCart(); }
+    catch { cart = { ...cart, checkoutUrl: null }; }
+  } finally {
+    discountBusy = false;
+    cartBusy = false;
+    syncCartCount();
+    if (cartIsOpen) {
+      openCart();
+      document.querySelector('#cart-discount-input')?.focus();
+    }
+  }
+}
+
 function bindCart() {
+  const discountForm = document.querySelector('[data-discount-form]');
+  discountForm?.querySelector('input')?.addEventListener('input', event => {
+    discountInput = event.target.value;
+    const message = document.querySelector('#cart-discount-message');
+    if (message) message.textContent = '';
+    discountMessage = '';
+    discountError = false;
+  });
+  discountForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    const code = discountInput.trim();
+    if (!code) {
+      discountMessage = 'Enter a discount code.';
+      discountError = true;
+      openCart();
+      document.querySelector('#cart-discount-input')?.focus();
+      return;
+    }
+    discountAction(() => commerce.applyDiscountCode(code), code);
+  });
+  document.querySelectorAll('[data-remove-discount]').forEach(button => button.addEventListener('click', () =>
+    discountAction(() => commerce.removeDiscountCode(button.dataset.removeDiscount), '', button.dataset.removeDiscount)));
   document.querySelectorAll('[data-close-cart]').forEach(element => element.addEventListener('click', closeCart));
   document.querySelectorAll('[data-remove]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeProduct(element.dataset.remove))));
   document.querySelectorAll('[data-remove-line]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeLine(element.dataset.removeLine))));
