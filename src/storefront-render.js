@@ -1,4 +1,5 @@
 import { purchasePrice } from './catalog.js';
+import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections } from './policy-content.js';
 import { normalizePath, productPath, routeMetadata } from './seo.js';
@@ -35,14 +36,17 @@ function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, 
   const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}" /></picture>`;
 }
-export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0 }) {
+export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0, announcement = defaultAnnouncement }) {
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
     <details class="header-info"><summary>Care</summary><div class="header-info-links"><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-in Guide</a></div></details>`;
 }
 
 function header() {
-  return `<header class="site-header">
+  const announcementBar = announcement.enabled === true
+    ? `<aside class="announcement-bar" aria-label="Store announcement"><p>${escapeHtml(announcement.message)}</p></aside>`
+    : '';
+  return `${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
