@@ -436,8 +436,11 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 /* Three-model discovery and compact PDP switching. */
 .collection-cue{margin:10px 0 0;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 .shop-products>.collection-cue{margin:0 0 18px}
-.product-card[data-product="black"] .product-image img{object-fit:contain;transform:scale(1.08)}
-.product-card[data-product="black"] .product-image:hover img{transform:scale(1.09)}
+.product-card .product-image picture{position:absolute;top:50%;left:50%;width:100%;height:auto;aspect-ratio:1;transform:translate(-50%,-50%)}
+.product-card .product-image img{object-fit:contain}
+.product-card[data-product="blue"] .product-image picture{width:93%}
+.product-card[data-product="brown"] .product-image picture{width:105%}
+.product-card[data-product="black"] .product-image img{clip-path:inset(0 0 1% 0)}
 .model-switcher{margin:0 0 18px}
 .model-switcher-label{display:block;margin-bottom:8px;color:var(--muted);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
 .model-switcher-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
