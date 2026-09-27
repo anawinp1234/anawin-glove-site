@@ -1,12 +1,14 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
-import { createStorefrontRenderer, money, escapeHtml, arrow } from './storefront-render.js';
+import { createStorefrontRenderer, newsletterPopupMarkup, money, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { updateSeo } from './seo.js';
 import { createNewsletterSignup } from './newsletter.js';
+import { bindNewsletterForm } from './newsletter-form.js';
+import { createNewsletterPopupController, installNewsletterDialog } from './newsletter-popup.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -32,6 +34,10 @@ let cartReturnFocus = null;
 let cartCloseTimer = null;
 let lightboxOverlay = null;
 let lightboxReturnFocus = null;
+const newsletterSignup = createNewsletterSignup();
+let newsletterPopup = null;
+let newsletterDialog = null;
+let newsletterPopupUi = null;
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
@@ -85,6 +91,32 @@ function render() {
   updateSeo(document, location.pathname);
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
   fitHeroHeading(); bind(); window.scrollTo(0, 0);
+}
+function handleNewsletterResult(result) {
+  newsletterPopupUi?.accept();
+  if (result.status === 'success') newsletterPopup?.subscribe();
+  if (result.status === 'pending') newsletterPopup?.pending();
+}
+
+function setupNewsletterPopup() {
+  document.body.insertAdjacentHTML('beforeend', newsletterPopupMarkup());
+  newsletterDialog = document.querySelector('.newsletter-dialog');
+  newsletterPopup = createNewsletterPopupController({ onOpen: () => newsletterPopupUi.open() });
+  newsletterPopupUi = installNewsletterDialog({
+    dialog: newsletterDialog,
+    closeButton: newsletterDialog.querySelector('[data-newsletter-close]'),
+    documentRef: document,
+    canOpen: () => {
+      const inline = document.querySelector('.newsletter')?.getBoundingClientRect();
+      const inlineVisible = inline && inline.top < window.innerHeight && inline.bottom > 0;
+      return !document.hidden && !cartIsOpen && !lightboxOverlay && !inlineVisible && !document.activeElement?.closest('[data-newsletter-form]');
+    },
+    onDismiss: () => newsletterPopup.dismiss(),
+    fallbackFocus: () => document.querySelector('.cart-trigger')
+  });
+  bindNewsletterForm(newsletterDialog.querySelector('[data-newsletter-form]'), newsletterSignup, handleNewsletterResult);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) newsletterPopup.schedule(); });
+  newsletterPopup.schedule();
 }
 function navigate(path) { history.pushState({}, '', path); render(); }
 function openCart(opener = null) {
@@ -260,41 +292,8 @@ function bindCart() {
 }
 
 function bind() {
-  const newsletterForm = document.querySelector('[data-newsletter-form]');
-  if (newsletterForm) {
-    const signup = createNewsletterSignup();
-    const email = newsletterForm.elements.email;
-    const consent = newsletterForm.elements.consent;
-    const button = newsletterForm.querySelector('button[type="submit"]');
-    const message = newsletterForm.querySelector('#newsletter-message');
-    for (const control of [email, consent]) control.addEventListener('input', () => {
-      control.removeAttribute('aria-invalid');
-      message.textContent = '';
-      message.removeAttribute('role');
-    });
-    newsletterForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      if (signup.busy) return;
-      message.textContent = '';
-      message.removeAttribute('role');
-      email.removeAttribute('aria-invalid');
-      consent.removeAttribute('aria-invalid');
-      const resultPromise = signup.submit(email.value, consent.checked);
-      if (signup.busy) { button.disabled = true; button.textContent = 'SIGNING UP…'; }
-      const result = await resultPromise;
-      button.disabled = false;
-      button.textContent = 'SIGN UP';
-      if (result.status === 'busy') return;
-      if (result.status === 'invalid' || result.status === 'error') message.setAttribute('role', 'alert');
-      message.textContent = result.message;
-      if (result.status === 'invalid') {
-        const control = result.field === 'email' ? email : consent;
-        control.setAttribute('aria-invalid', 'true');
-        control.focus();
-      }
-      if (result.status === 'success' || result.status === 'pending') newsletterForm.reset();
-    });
-  }
+  const newsletterForm = app.querySelector('.newsletter [data-newsletter-form]');
+  if (newsletterForm) bindNewsletterForm(newsletterForm, newsletterSignup, handleNewsletterResult);
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -359,6 +358,7 @@ function closeLightbox() {
 
 async function boot() {
   render();
+  setupNewsletterPopup();
   try {
     products = await commerce.listProducts();
     [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
@@ -368,6 +368,7 @@ async function boot() {
 }
 
 document.addEventListener('keydown', event => {
+  if (newsletterDialog?.open) return;
   if (lightboxOverlay) {
     if (event.key === 'Escape') { event.preventDefault(); closeLightbox(); }
     else containTab(event, lightboxOverlay, document.activeElement);

@@ -20,7 +20,7 @@
 .founders-editorial .founders-heading .eyebrow{padding-top:8px}
 .founders-editorial h2{font-family:var(--font-display);font-size:clamp(56px,7.5vw,112px);font-stretch:condensed;font-weight:900;line-height:.88;letter-spacing:-.055em;margin:0}
 .founders-editorial h2 em{font-weight:900}
-.founders-editorial .founders-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,4vw,64px)}
+.founders-editorial .founders-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,4vw,64px);max-width:1020px;margin-inline:auto}
 .founders-editorial .founder-profile{min-width:0}
 .founders-editorial .founder-portrait{position:relative;width:min(100%,420px);background:var(--image-surface)}
 .founders-editorial .founder-portrait picture{height:auto}
@@ -37,8 +37,8 @@
   .founders-editorial .founders-heading{grid-template-columns:1fr;gap:18px;margin-bottom:28px}
   .founders-editorial .founders-heading .eyebrow{padding-top:0}
   .founders-editorial h2{font-size:clamp(46px,12vw,88px)}
-  .founders-editorial .founders-layout{grid-template-columns:1fr;gap:42px}
-  .founders-editorial .founder-portrait{width:min(100%,300px)}
+  .founders-editorial .founders-layout{grid-template-columns:1fr;gap:42px;max-width:360px}
+  .founders-editorial .founder-portrait{width:min(100%,300px);margin-inline:auto}
   .founders-editorial .founder-photo-label{top:18px;left:18px}
   .founders-editorial h3{font-size:clamp(24px,6.5vw,40px)}
   .founders-editorial .founder-details{padding-top:18px}
@@ -445,22 +445,33 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 .product-card[data-product="black"] .product-image img{clip-path:inset(0 0 1% 0)}
 
 /* Homepage email signup. */
-.newsletter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,480px);align-items:end;gap:48px;padding:88px 28px 92px;background:var(--paper)}
+.newsletter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,480px);align-items:end;gap:48px;padding:88px 28px 92px;background:var(--ink);color:#fff}
 .newsletter-copy{min-width:0}
 .newsletter h2{margin:22px 0 20px;font-family:var(--font-display);font-size:clamp(52px,7vw,104px);font-weight:900;letter-spacing:-.06em;line-height:.85}
-.newsletter-copy>p:last-child{max-width:400px;margin:0;font-size:16px;line-height:1.55}
+.newsletter-copy>p:last-child{max-width:400px;margin:0;font-size:16px;line-height:1.55;color:#d1d1d1}
 .newsletter-form{min-width:0;width:100%}
 .newsletter-controls{display:flex;min-width:0;gap:8px}
-.newsletter-controls input{flex:1;min-width:0;height:56px;padding:0 16px;border:1px solid var(--ink);border-radius:0;background:#fff;color:var(--ink);font:inherit;font-size:16px}
+.newsletter-controls input{flex:1;min-width:0;height:56px;padding:0 16px;border:1px solid #c7caca;border-radius:0;background:#fff;color:var(--ink);font:inherit;font-size:16px}
 .newsletter-controls input::placeholder{color:#666a6a;opacity:1}
-.newsletter-controls button{flex:0 0 132px;min-height:56px;padding:12px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:12px;font-weight:800;letter-spacing:.08em;cursor:pointer}
-.newsletter-controls button:hover{background:#333}
+.newsletter-controls button{flex:0 0 132px;min-height:56px;padding:12px;border:1px solid #fff;background:#fff;color:#000;font-size:12px;font-weight:800;letter-spacing:.08em;cursor:pointer}
+.newsletter-controls button:hover{background:#dedede;border-color:#dedede}
 .newsletter-controls button:disabled{cursor:wait;opacity:.72}
-.newsletter :is(input,button):focus-visible{outline:2px solid var(--ink);outline-offset:3px}
-.newsletter-consent{display:flex;align-items:flex-start;gap:12px;margin-top:18px;font-size:13px;line-height:1.45;cursor:pointer}
-.newsletter-consent input{flex:0 0 20px;width:20px;height:20px;margin:0;accent-color:var(--ink);cursor:pointer}
+.newsletter :is(input,button):focus-visible,.newsletter-dialog :is(input,button):focus-visible{outline:2px solid #fff;outline-offset:3px}
+.newsletter-consent{display:flex;align-items:flex-start;gap:12px;margin-top:18px;font-size:13px;line-height:1.45;color:#d1d1d1;cursor:pointer}
+.newsletter-consent input{flex:0 0 20px;width:20px;height:20px;margin:0;accent-color:#fff;cursor:pointer}
 .newsletter-message{min-height:1.5em;margin:12px 0 0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
-.newsletter-message[role="alert"]{color:#8a1f1f;font-weight:700}
+.newsletter-message[role="alert"]{color:#ffb4a9;font-weight:700}
+.newsletter-dialog{width:min(560px,calc(100% - 32px));max-width:calc(100% - 32px);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);margin:auto;padding:0;border:1px solid #646464;background:#0b0b0b;color:#fff;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 24px 72px rgba(0,0,0,.34)}
+.newsletter-dialog::backdrop{background:rgba(0,0,0,.76)}
+.newsletter-dialog-inner{padding:36px}
+.newsletter-dialog-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.newsletter-dialog-top .eyebrow{color:#d1d1d1}
+.newsletter-dialog-close{flex:0 0 auto;min-width:64px;min-height:44px;padding:8px;border:1px solid #777;background:transparent;color:#fff;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer}
+.newsletter-dialog-close:hover{background:#252525}
+.newsletter-dialog h2{margin:24px 0 18px;font-family:var(--font-display);font-size:clamp(50px,7vw,72px);font-weight:900;letter-spacing:-.06em;line-height:.86}
+.newsletter-dialog-copy{max-width:400px;margin:0;color:#d1d1d1;font-size:15px;line-height:1.55}
+.newsletter-dialog .newsletter-form{margin-top:28px}
+body.newsletter-open{overflow:hidden}
 @media(max-width:1100px){.newsletter{grid-template-columns:minmax(0,1fr);gap:32px}.newsletter-form{max-width:540px}}
 @media(max-width:760px){
   .newsletter{gap:28px;padding:58px 16px 54px}
@@ -470,6 +481,10 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
   .newsletter-controls input{flex:auto;width:100%;height:52px}
   .newsletter-controls button{flex:auto;width:100%;min-height:52px}
   .newsletter-consent{margin-top:16px}
+  .newsletter-dialog-inner{padding:24px}
+  .newsletter-dialog h2{font-size:clamp(40px,11.5vw,60px);margin:20px 0 16px}
+  .newsletter-dialog-copy{font-size:14px}
+  .newsletter-dialog .newsletter-form{margin-top:24px}
 }
 
 /* About page proportions and section rhythm. */
