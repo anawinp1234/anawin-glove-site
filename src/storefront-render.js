@@ -17,6 +17,13 @@ const careItem = item => {
 const carePageContent = () => careSections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2>${section.intro ? `<p>${escapeHtml(section.intro)}</p>` : ''}${section.paragraphs ? policyParagraphs(section.paragraphs) : `<ul>${section.items.map(careItem).join('')}</ul>`}</section>`).join('');
 const breakInPageContent = () => breakInSections.map(section => `<section><h2>${escapeHtml(section.heading)}</h2>${section.paragraphs ? section.paragraphs.map((paragraph, index) => `<p>${section.emphasis === index ? `<strong>${escapeHtml(paragraph)}</strong>` : escapeHtml(paragraph)}</p>`).join('') : ''}${section.items ? policyList(section.items) : ''}${section.after ? policyParagraphs(section.after) : ''}</section>`).join('');
 export const arrow = () => `<svg class="link-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M2 10 10 2M4 2h6v6" /></svg>`;
+export function newsletterFormMarkup(prefix) {
+  return `<form class="newsletter-form" data-newsletter-form novalidate><label class="visually-hidden" for="${prefix}-email">Email address</label><div class="newsletter-controls"><input id="${prefix}-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="Email address" required aria-describedby="${prefix}-message"><button type="submit">SIGN UP</button></div>
+    <label class="newsletter-consent"><input id="${prefix}-consent" name="consent" type="checkbox" required aria-describedby="${prefix}-message"><span>I agree to receive marketing emails from ANAWIN. I can unsubscribe at any time.</span></label><p id="${prefix}-message" class="newsletter-message" aria-live="polite"></p></form>`;
+}
+export function newsletterPopupMarkup() {
+  return `<dialog class="newsletter-dialog" aria-labelledby="newsletter-popup-heading" aria-describedby="newsletter-popup-copy"><div class="newsletter-dialog-inner"><div class="newsletter-dialog-top"><p class="eyebrow">ANAWIN / Email</p><button type="button" class="newsletter-dialog-close" data-newsletter-close aria-label="Close newsletter signup">CLOSE</button></div><h2 id="newsletter-popup-heading">JOIN OUR<br>COMMUNITY</h2><p id="newsletter-popup-copy" class="newsletter-dialog-copy">Be the first to hear about new gloves, releases, and what’s next.</p>${newsletterFormMarkup('newsletter-popup')}</div></dialog>`;
+}
 const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 3)';
 const galleryImageSizes = '(max-width: 760px) 90vw, 30vw';
 const colorwaySwatches = product => product.id === 'brown'
@@ -94,7 +101,8 @@ function communitySection() {
 function home() {
   return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [640, 960, 1350], '(max-width: 760px) 150vw, 100vw', '', 1350, 1800, 'eager', 'hero-background')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
-    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section></main>`;
+    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
+    <section class="newsletter" aria-labelledby="newsletter-heading"><div class="newsletter-copy"><p class="eyebrow">ANAWIN / Email</p><h2 id="newsletter-heading">JOIN OUR<br>COMMUNITY</h2><p>Be the first to hear about new gloves, releases, and what’s next.</p></div>${newsletterFormMarkup('newsletter')}</section></main>`;
 }
 
 const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="visually-hidden">Shop ANAWIN gloves</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section></main>`;
@@ -132,11 +140,11 @@ function about() {
       <div class="founders-heading"><p class="eyebrow">ANAWIN / Co-founders</p><h2 id="founders-heading"><em>FOUNDERS</em></h2></div>
       <div class="founders-layout">
         <article class="founder-profile" aria-labelledby="founder-ray">
-          <div class="founder-portrait">${responsivePhoto('/images/ray_headshot.png', 'ray_headshot', [480, 960, 1778], '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 2)', 'Ray Lopez, co-founder of ANAWIN', 1778, 1812, 'lazy')}</div>
+          <div class="founder-portrait">${responsivePhoto('/images/ray_headshot.png', 'ray_headshot', [480, 960, 1778], '(max-width: 760px) min(300px, calc(100vw - 32px)), min(420px, calc((100vw - 80px) / 2))', 'Ray Lopez, co-founder of ANAWIN', 1778, 1812, 'lazy')}</div>
           <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-ray">RAY LOPEZ</h3><div class="founder-bio"><p>Growing up with a father who played professional baseball, Ray developed a love for the game that eventually led him to start ANAWIN.</p><ul><li>Finance and Sports Business student at Arizona State University</li><li>Former Finance Intern with the Arizona Diamondbacks</li><li>Building ANAWIN alongside the baseball community, with their ideas helping shape each product</li></ul></div></div>
         </article>
         <article class="founder-profile" aria-labelledby="founder-anawin">
-          <div class="founder-portrait">${responsivePhoto('/images/anawin_headshot-gray.png', 'anawin_headshot-gray', [480, 960, 1254], '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80px) / 2)', 'Anawin Pikulthong, co-founder of ANAWIN', 1254, 1254, 'lazy')}</div>
+          <div class="founder-portrait">${responsivePhoto('/images/anawin_headshot-gray.png', 'anawin_headshot-gray', [480, 960, 1254], '(max-width: 760px) min(300px, calc(100vw - 32px)), min(420px, calc((100vw - 80px) / 2))', 'Anawin Pikulthong, co-founder of ANAWIN', 1254, 1254, 'lazy')}</div>
           <div class="founder-details"><p class="founder-role">CO-FOUNDER</p><h3 id="founder-anawin">ANAWIN PIKULTHONG</h3><div class="founder-bio"><p>With a background in competitive golf, Anawin brings a mix of athlete experience and a passion for equipment to building ANAWIN.</p><ul><li>Data Science student at Arizona State University</li><li>Former Marketing Analytics Intern at TaylorMade Golf</li><li>Former Division 1 Golfer at Arizona State University</li></ul></div></div>
         </article>
       </div>
