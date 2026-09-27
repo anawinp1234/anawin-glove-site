@@ -22,6 +22,7 @@ function timers() {
 function element(documentRef = null) {
   const listeners = new Map();
   const attrs = new Map();
+  const classes = new Set();
   return {
     isConnected: true,
     textContent: '',
@@ -30,6 +31,7 @@ function element(documentRef = null) {
     setAttribute: (key, value) => attrs.set(key, value),
     removeAttribute: key => attrs.delete(key),
     getAttribute: key => attrs.get(key),
+    classList: { add: name => classes.add(name), contains: name => classes.has(name) },
     getClientRects: () => [1],
     focus() { if (documentRef) documentRef.activeElement = this; }
   };
@@ -40,12 +42,19 @@ function formFixture() {
   const consent = element(); consent.checked = true;
   const button = element(); button.textContent = 'SIGN UP';
   const message = element();
+  const fields = element(); fields.hidden = false;
+  const success = element(); success.hidden = true;
+  const heading = element(); heading.id = 'test-success-heading';
+  const copy = element(); copy.id = 'test-success-copy';
+  success.querySelector = selector => selector === 'h3' ? heading : copy;
+  const container = element(); container.matches = () => false;
   const form = element();
   form.elements = { email, consent };
-  form.querySelector = selector => selector === '.newsletter-message' ? message : button;
+  form.querySelector = selector => ({ '.newsletter-message': message, '.newsletter-fields': fields, '.newsletter-success': success })[selector] || button;
+  form.closest = () => container;
   form.reset = () => { email.value = ''; consent.checked = false; };
   form.submit = () => form.fire('submit', { preventDefault() {} });
-  return { form, email, consent, button, message };
+  return { form, email, consent, button, message, fields, success, heading, container };
 }
 
 test('popup and inline markup use the same labeled, unchecked newsletter form with unique IDs', () => {
@@ -57,12 +66,31 @@ test('popup and inline markup use the same labeled, unchecked newsletter form wi
   assert.match(popup, /Be the first to hear about new gloves, releases, and what’s next\./);
   assert.match(inline, /for="newsletter-email"/);
   assert.match(popup, /for="newsletter-popup-email"/);
+  assert.match(popup, /id="newsletter-popup-success-heading"/);
+  assert.match(inline, /id="newsletter-success-heading"/);
   for (const markup of [inline, popup]) {
     assert.match(markup, /data-newsletter-form/);
     assert.match(markup, /type="email"[^>]*required/);
     assert.match(markup, /type="checkbox"[^>]*required/);
     assert.doesNotMatch(markup, /type="checkbox"[^>]*checked/);
+    assert.match(markup, /class="newsletter-success" hidden/);
+    assert.match(markup, /THANK YOU FOR JOINING OUR COMMUNITY/);
+    assert.match(markup, /You’re signed up\. Keep an eye on your inbox\./);
   }
+});
+
+test('confirmed popup signup shows the shared success panel and updates dialog labeling', async () => {
+  const popup = formFixture();
+  popup.container.matches = selector => selector === '.newsletter-dialog';
+  const signup = createNewsletterSignup({ fetchImpl: async () => ({ ok: true, json: async () => ({ marketingState: 'SUBSCRIBED' }) }) });
+  bindNewsletterForm(popup.form, signup);
+  await popup.form.submit();
+  assert.equal(popup.fields.hidden, true);
+  assert.equal(popup.success.hidden, false);
+  assert.equal(popup.container.getAttribute('aria-labelledby'), 'test-success-heading');
+  assert.equal(popup.container.getAttribute('aria-describedby'), 'test-success-copy');
+  assert.equal(popup.message.getAttribute('role'), 'status');
+  assert.equal(popup.message.textContent, 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.');
 });
 
 test('popup waits ten seconds and never opens immediately', () => {
@@ -173,12 +201,20 @@ test('popup and inline bindings share one Shopify signup controller and preserve
   bindNewsletterForm(inline.form, signup, result => results.push(result.status));
   bindNewsletterForm(popup.form, signup, result => results.push(result.status));
   await inline.form.submit();
+  assert.equal(inline.fields.hidden, true);
+  assert.equal(inline.success.hidden, false);
+  assert.equal(inline.container.getAttribute('aria-labelledby'), 'test-success-heading');
+  assert.equal(inline.form.classList.contains('is-success'), true);
   await popup.form.submit();
   assert.equal(popup.message.textContent, 'Check your email to confirm your signup.');
+  assert.equal(popup.fields.hidden, false);
+  assert.equal(popup.success.hidden, true);
   popup.email.value = 'hello@example.com'; popup.consent.checked = true;
   await popup.form.submit();
   assert.deepEqual(results, ['success', 'pending']);
-  assert.equal(inline.message.textContent, 'YOU’RE IN. WELCOME TO THE COMMUNITY.');
+  assert.equal(inline.message.textContent, 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.');
+  assert.equal(inline.message.getAttribute('role'), 'status');
+  assert.equal(inline.message.classList.contains('visually-hidden'), true);
   assert.equal(popup.message.getAttribute('role'), 'alert');
   assert.match(popup.message.textContent, /try again later/);
   assert.equal(requests.length, 3);

@@ -40,7 +40,7 @@ export function createNewsletterSignup({ fetchImpl = fetch, endpoint = '/api/new
           throw new Error('Signup request failed.');
         }
         const result = await response.json();
-        if (result?.marketingState === 'SUBSCRIBED') return { status: 'success', message: 'YOU’RE IN. WELCOME TO THE COMMUNITY.' };
+        if (result?.marketingState === 'SUBSCRIBED') return { status: 'success', message: 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.' };
         if (result?.marketingState === 'PENDING') return { status: 'pending', message: 'Check your email to confirm your signup.' };
         throw new Error('Shopify did not confirm your signup.');
       } catch {

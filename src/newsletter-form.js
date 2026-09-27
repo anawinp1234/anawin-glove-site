@@ -3,6 +3,8 @@ export function bindNewsletterForm(form, signup, onResult = () => {}) {
   const consent = form.elements.consent;
   const button = form.querySelector('button[type="submit"]');
   const message = form.querySelector('.newsletter-message');
+  const fields = form.querySelector('.newsletter-fields');
+  const success = form.querySelector('.newsletter-success');
 
   for (const control of [email, consent]) control.addEventListener('input', () => {
     control.removeAttribute('aria-invalid');
@@ -33,6 +35,17 @@ export function bindNewsletterForm(form, signup, onResult = () => {}) {
     }
     if (result.status === 'success' || result.status === 'pending') {
       form.reset();
+      if (result.status === 'success') {
+        fields.hidden = true;
+        success.hidden = false;
+        form.classList.add('is-success');
+        const container = form.closest('.newsletter, .newsletter-dialog');
+        container?.classList.add('is-success');
+        container?.setAttribute('aria-labelledby', success.querySelector('h3').id);
+        if (container?.matches('.newsletter-dialog')) container.setAttribute('aria-describedby', success.querySelector('p').id);
+        message.classList.add('visually-hidden');
+        success.querySelector('h3').focus({ preventScroll: true });
+      }
       onResult(result);
     }
   });
