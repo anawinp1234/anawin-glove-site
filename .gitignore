@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 coverage/
+.wrangler/
 
 # Local tooling and logs
 *.log

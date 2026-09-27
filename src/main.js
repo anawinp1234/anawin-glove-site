@@ -6,6 +6,7 @@ import { renderCartRow } from './cart-row.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { updateSeo } from './seo.js';
+import { createNewsletterSignup } from './newsletter.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -259,6 +260,41 @@ function bindCart() {
 }
 
 function bind() {
+  const newsletterForm = document.querySelector('[data-newsletter-form]');
+  if (newsletterForm) {
+    const signup = createNewsletterSignup();
+    const email = newsletterForm.elements.email;
+    const consent = newsletterForm.elements.consent;
+    const button = newsletterForm.querySelector('button[type="submit"]');
+    const message = newsletterForm.querySelector('#newsletter-message');
+    for (const control of [email, consent]) control.addEventListener('input', () => {
+      control.removeAttribute('aria-invalid');
+      message.textContent = '';
+      message.removeAttribute('role');
+    });
+    newsletterForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (signup.busy) return;
+      message.textContent = '';
+      message.removeAttribute('role');
+      email.removeAttribute('aria-invalid');
+      consent.removeAttribute('aria-invalid');
+      const resultPromise = signup.submit(email.value, consent.checked);
+      if (signup.busy) { button.disabled = true; button.textContent = 'SIGNING UP…'; }
+      const result = await resultPromise;
+      button.disabled = false;
+      button.textContent = 'SIGN UP';
+      if (result.status === 'busy') return;
+      if (result.status === 'invalid' || result.status === 'error') message.setAttribute('role', 'alert');
+      message.textContent = result.message;
+      if (result.status === 'invalid') {
+        const control = result.field === 'email' ? email : consent;
+        control.setAttribute('aria-invalid', 'true');
+        control.focus();
+      }
+      if (result.status === 'success' || result.status === 'pending') newsletterForm.reset();
+    });
+  }
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
