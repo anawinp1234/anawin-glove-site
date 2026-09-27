@@ -450,6 +450,15 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 .newsletter h2{margin:22px 0 20px;font-family:var(--font-display);font-size:clamp(52px,7vw,104px);font-weight:900;letter-spacing:-.06em;line-height:.85}
 .newsletter-copy>p:last-child{max-width:400px;margin:0;font-size:16px;line-height:1.55;color:#d1d1d1}
 .newsletter-form{min-width:0;width:100%}
+.newsletter.is-success{grid-template-columns:minmax(0,1fr)}
+.newsletter.is-success .newsletter-copy,.newsletter-dialog.is-success :is(#newsletter-popup-heading,#newsletter-popup-copy){display:none}
+.newsletter-success{max-width:680px;padding:4px 0 10px;border-top:1px solid #777}
+.newsletter-success[hidden],.newsletter-fields[hidden]{display:none}
+.newsletter-success h3{max-width:640px;margin:24px 0 18px;font-family:var(--font-display);font-size:clamp(30px,4.5vw,56px);font-weight:900;letter-spacing:-.05em;line-height:1.02;overflow-wrap:break-word}
+.newsletter-success h3:focus{outline:none}
+.newsletter-success h3:focus-visible{outline:2px solid #fff;outline-offset:5px}
+.newsletter-success p{margin:0;color:#d1d1d1;font-size:16px;line-height:1.55}
+.newsletter-dialog.is-success .newsletter-form{margin-top:36px}
 .newsletter-controls{display:flex;min-width:0;gap:8px}
 .newsletter-controls input{flex:1;min-width:0;height:56px;padding:0 16px;border:1px solid #c7caca;border-radius:0;background:#fff;color:var(--ink);font:inherit;font-size:16px}
 .newsletter-controls input::placeholder{color:#666a6a;opacity:1}
