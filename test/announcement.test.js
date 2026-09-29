@@ -10,16 +10,17 @@ const renderer = config => createStorefrontRenderer({
   announcement: config
 });
 
-test('the configured launch announcement appears above the header', () => {
-  const html = renderer(announcement).header();
+test('the launch announcement appears above the header when enabled', () => {
+  const html = renderer({ ...announcement, enabled: true }).header();
   assert.ok(html.startsWith('<aside class="announcement-bar"'));
   assert.ok(html.indexOf(announcement.message) < html.indexOf('<header class="site-header">'));
   assert.equal(announcement.code, 'LAUNCH10');
 });
 
-test('disabling the announcement removes its markup without changing the header', () => {
-  const enabled = renderer(announcement).header();
-  const disabled = renderer({ ...announcement, enabled: false }).header();
+test('the disabled announcement removes its markup without changing the header', () => {
+  const enabled = renderer({ ...announcement, enabled: true }).header();
+  const disabled = renderer(announcement).header();
+  assert.equal(announcement.enabled, false);
   assert.ok(disabled.startsWith('<header class="site-header">'));
   assert.equal(disabled, enabled.slice(enabled.indexOf('<header class="site-header">')));
 });
