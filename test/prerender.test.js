@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { localProducts } from '../src/catalog.js';
@@ -30,6 +30,40 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
     assert.ok(!html.includes('anawin:app') && !html.includes('anawin:seo'), path);
     assert.doesNotMatch(html, /(?:href|content)="(?:https:\/\/anawinofficial\.com)?\/product\/(?:black|blue|brown)"/, path);
   }
+});
+
+test('prerendered shipping pages and the cart bundle carry the confirmed rates', () => {
+  const shipping = htmlFor('/shipping');
+  assert.match(shipping, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+  assert.match(shipping, /<meta name="description" content="Standard U\.S\. shipping is \$9, or free on orders \$225\+/);
+  for (const product of localProducts) {
+    const html = htmlFor(productPath(product));
+    assert.match(html, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+    assert.doesNotMatch(html, /U\.S\. shipping is calculated at checkout/i);
+  }
+  const bundles = readdirSync(join(root, 'dist/assets')).filter(name => /^index-.*\.js$/.test(name));
+  assert.equal(bundles.length, 1);
+  const bundle = read(`dist/assets/${bundles[0]}`);
+  assert.match(bundle, /<p>Standard U\.S\. shipping is \$9, or free on orders \$225\+\. Taxes are calculated at checkout\.<\/p>/);
+  assert.doesNotMatch(bundle, /U\.S\. shipping is calculated at checkout|shipping costs are calculated at checkout|Taxes and shipping calculated at checkout/i);
+});
+
+test('every prerendered footer links to the exact published legal policies', () => {
+  const privacy = '<a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a>';
+  const terms = '<a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a>';
+  for (const path of [...Object.keys(seoRoutes), '/404']) {
+    const html = path === '/404' ? read('dist/404.html') : htmlFor(path);
+    const footer = html.match(/<footer>.*?<\/footer>/s)?.[0];
+    assert.ok(footer, path);
+    assert.equal(footer.split(privacy).length - 1, 1, path);
+    assert.equal(footer.split(terms).length - 1, 1, path);
+    assert.ok(footer.includes('<a href="/shipping" data-link>Shipping Policy</a>'), path);
+    assert.ok(footer.includes('<a href="/returns" data-link>Returns &amp; Refunds Policy</a>'), path);
+  }
+  assert.equal(seoRoutes['/privacy'], undefined);
+  assert.equal(seoRoutes['/terms'], undefined);
+  assert.equal(existsSync(join(root, 'dist/privacy.html')), false);
+  assert.equal(existsSync(join(root, 'dist/terms.html')), false);
 });
 
 test('each PDP has one self-contained Product and minimal approved Offer', () => {
