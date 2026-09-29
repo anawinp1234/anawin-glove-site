@@ -41,3 +41,25 @@ test('PDPs show price before fixed facts and link purchase policies near the CTA
     }
   }
 });
+
+test('Shipping Policy states the confirmed U.S. rate, threshold, and delivery timing', () => {
+  const html = createStorefrontRenderer({ products: localProducts, breakInService }).route('/shipping');
+  assert.match(html, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+  assert.match(html, /Orders without Break-In Service are processed within 1–3 business days\./);
+  assert.match(html, /Orders that include Break-In Service require an additional 2–5 business days of processing before shipment\./);
+  assert.match(html, /After an order ships, estimated delivery is typically 3–7 business days\./);
+  assert.doesNotMatch(html, /shipping costs are calculated at checkout/i);
+});
+
+test('all PDP shipping accordions retain timing and returns with the confirmed rates', () => {
+  for (const product of localProducts) {
+    const html = renderProduct(product);
+    const accordion = html.match(/<details><summary>Shipping & returns .*?<\/details>/)?.[0];
+    assert.ok(accordion, product.name);
+    assert.match(accordion, /Standard orders process in 1–3 business days\. Break-In Service adds 2–5 business days\./);
+    assert.match(accordion, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+    assert.match(accordion, /Estimated delivery is 3–7 business days after shipment\./);
+    assert.match(accordion, /Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label\./);
+    assert.doesNotMatch(accordion, /shipping is calculated at checkout/i);
+  }
+});
