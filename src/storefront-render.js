@@ -2,6 +2,8 @@ import { purchasePrice } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
+import { shopifyProductId } from './judgeme.js';
+import { validProductReviewLink } from './review-links.js';
 import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections } from './policy-content.js';
 import { normalizePath, productPath, routeMetadata } from './seo.js';
 
@@ -116,17 +118,12 @@ function reviewEntry(review, product) {
 function productReviewsSection(product) {
   const summary = reviewSummary(product);
   const start = `<section class="pdp-reviews" data-review-product="${escapeHtml(product.name.toLowerCase())}" aria-labelledby="customer-reviews-heading"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h2 id="customer-reviews-heading">CUSTOMER REVIEWS</h2>`;
-  const writeUrl = (() => {
-    try {
-      const url = new URL(summary.writeReviewUrl);
-      return url.protocol === 'https:' && url.hostname === 'judge.me' && /^\/product_reviews\/[^/]+\/new$/.test(url.pathname) ? url.toString() : null;
-    } catch { return null; }
-  })();
+  const writeUrl = validProductReviewLink(summary.writeReviewUrl, shopifyProductId(product.shopifyProductGid));
   const action = writeUrl ? `<a class="review-write-link" href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer">WRITE A REVIEW</a>` : '';
-  if (summary.status === 'loading') return `${start}<div class="pdp-reviews-empty"><p>Loading customer reviews…</p></div></section>`;
-  if (summary.status === 'unavailable') return `${start}<div class="pdp-reviews-empty"><p>Reviews are temporarily unavailable.</p></div></section>`;
+  if (summary.status === 'loading') return `${start}<div class="pdp-reviews-empty"><p>Loading customer reviews…</p>${action}</div></section>`;
+  if (summary.status === 'unavailable') return `${start}<div class="pdp-reviews-empty"><p>Reviews are temporarily unavailable.</p>${action}</div></section>`;
   if (!summary.count) return `${start}<div class="pdp-reviews-empty"><p>No reviews yet.</p><p>Be the first to review this glove.</p>${action}</div></section>`;
-  if (summary.detailUnavailable) return `${start}<div class="pdp-reviews-empty"><p>Review details are temporarily unavailable.</p></div></section>`;
+  if (summary.detailUnavailable) return `${start}<div class="pdp-reviews-empty"><p>Review details are temporarily unavailable.</p>${action}</div></section>`;
   const breakdown = summary.distribution && [5, 4, 3, 2, 1].map(rating => {
     const count = summary.distribution[rating];
     const percent = Math.round(count / summary.count * 100);

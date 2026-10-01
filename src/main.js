@@ -10,6 +10,7 @@ import { createNewsletterSignup } from './newsletter.js';
 import { bindNewsletterForm } from './newsletter-form.js';
 import { createNewsletterPopupController, installNewsletterDialog } from './newsletter-popup.js';
 import { createJudgeMeService, shopifyProductId } from './judgeme.js';
+import { productReviewLinks } from './review-links.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -40,13 +41,12 @@ let newsletterPopup = null;
 let newsletterDialog = null;
 let newsletterPopupUi = null;
 const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
-const judgeMeReviewLinks = {
-  br16: import.meta.env.VITE_JUDGEME_BR16_REVIEW_URL || '',
-  ob16: import.meta.env.VITE_JUDGEME_OB16_REVIEW_URL || '',
-  cl16: import.meta.env.VITE_JUDGEME_CL16_REVIEW_URL || ''
-};
+let judgeMeReviewLinks = productReviewLinks(products);
 const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
-const reviewData = Object.fromEntries(localProducts.map(product => [product.name.toLowerCase(), { status: judgeMePublicToken && commerce.mode === 'shopify' ? 'loading' : 'unavailable' }]));
+const reviewData = Object.fromEntries(localProducts.map(product => {
+  const handle = product.name.toLowerCase();
+  return [handle, { status: judgeMePublicToken && commerce.mode === 'shopify' ? 'loading' : 'unavailable', writeReviewUrl: judgeMeReviewLinks[handle] }];
+}));
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
@@ -126,11 +126,14 @@ function loadReviews() {
       const next = result.products[handle] || { status: 'unavailable' };
       if (reviewData[handle]?.status === 'ready' && next.status === 'unavailable') continue;
       if (reviewData[handle]?.hasWidget && !next.hasWidget && next.status === 'ready') continue;
-      reviewData[handle] = { ...next, writeReviewUrl: next.writeReviewUrl || judgeMeReviewLinks[handle] };
+      reviewData[handle] = { ...next, writeReviewUrl: judgeMeReviewLinks[handle] || next.writeReviewUrl };
     }
     refreshReviewMarkup();
   }).catch(() => {
-    for (const product of products) reviewData[product.name.toLowerCase()] = { status: 'unavailable' };
+    for (const product of products) {
+      const handle = product.name.toLowerCase();
+      reviewData[handle] = { status: 'unavailable', writeReviewUrl: judgeMeReviewLinks[handle] };
+    }
     refreshReviewMarkup();
   });
 }
@@ -403,6 +406,11 @@ async function boot() {
   setupNewsletterPopup();
   try {
     products = await commerce.listProducts();
+    judgeMeReviewLinks = productReviewLinks(products);
+    for (const product of products) {
+      const handle = product.name.toLowerCase();
+      reviewData[handle] = { ...reviewData[handle], writeReviewUrl: judgeMeReviewLinks[handle] };
+    }
     loadReviews();
     [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
   }

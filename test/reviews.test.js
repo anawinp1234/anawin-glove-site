@@ -98,7 +98,7 @@ test('optional approved media renders only on its own review', () => {
 
 test('Judge.me summaries drive both views and only a valid Judge.me review link appears', () => {
   const reviewData = {
-    br16: { status: 'ready', count: 2, average: 4.5, distribution: { 5: 1, 4: 1, 3: 0, 2: 0, 1: 0 }, reviews: fixtures.slice(0, 2), writeReviewUrl: 'https://judge.me/product_reviews/abc-123/new?source=shareable-link' },
+    br16: { status: 'ready', count: 2, average: 4.5, distribution: { 5: 1, 4: 1, 3: 0, 2: 0, 1: 0 }, reviews: fixtures.slice(0, 2), writeReviewUrl: 'https://judge.me/product_reviews/abc-123/new?id=123&source=shareable-link' },
     ob16: { status: 'ready', count: 0, average: null, reviews: [] },
     cl16: { status: 'unavailable' }
   };
@@ -109,7 +109,7 @@ test('Judge.me summaries drive both views and only a valid Judge.me review link 
   const br = storefront.route('/product/br16');
   assert.match(br, /Based on 2 reviews/);
   assert.match(br, /WRITE A REVIEW/);
-  assert.match(br, /href="https:\/\/judge\.me\/product_reviews\/abc-123\/new\?source=shareable-link"/);
+  assert.match(br, /href="https:\/\/judge\.me\/product_reviews\/abc-123\/new\?id=123&amp;source=shareable-link"/);
   assert.doesNotMatch(storefront.route('/product/ob16'), /rating-stars|WRITE A REVIEW/);
   assert.match(storefront.route('/product/cl16'), /Reviews are temporarily unavailable\./);
   reviewData.br16.writeReviewUrl = 'https://example.com/not-a-review';
