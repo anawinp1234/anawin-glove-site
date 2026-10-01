@@ -277,6 +277,7 @@ test('adds a glove without service using Shopify price and checkout', async () =
   assert.equal(product.wornOnHand, 'Left');
   assert.equal(product.accentColor, localProducts[0].accentColor);
   assert.equal(product.accentBackground, localProducts[0].accentBackground);
+  assert.equal(product.shopifyProductGid, 'gid://product/br16');
   const cart = await commerce.addProduct('black', false);
   assert.equal(cart.subtotal, 150);
   assert.equal(cart.checkoutUrl, 'https://store.myshopify.com/checkouts/1');

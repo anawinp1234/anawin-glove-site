@@ -1,6 +1,7 @@
 import { purchasePrice } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
+import { customerReviews, productReviewSummary } from './reviews.js';
 import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections } from './policy-content.js';
 import { normalizePath, productPath, routeMetadata } from './seo.js';
 
@@ -43,7 +44,8 @@ function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, 
   const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}" /></picture>`;
 }
-export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0, announcement = defaultAnnouncement }) {
+export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
+const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
     <details class="header-info"><summary>Care</summary><div class="header-info-links"><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-in Guide</a></div></details>`;
@@ -80,11 +82,58 @@ function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
     <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(product.tone)} glove">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p><div data-review-slot="${escapeHtml(product.name.toLowerCase())}"${reviewSummary(product).status === 'loading' ? ' class="review-slot-loading"' : ''}>${productCardRatingMarkup(product)}</div>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
 
 const productGrid = (eagerFirst = false) => `<div class="product-grid">${products.map((product, index) => productCard(product, index, eagerFirst)).join('')}</div>`;
+
+function ratingStars(rating) {
+  const filled = Math.round(rating);
+  return `<span class="rating-stars" role="img" aria-label="${rating.toFixed(1)} out of 5 stars"><span aria-hidden="true">${'★'.repeat(filled)}</span><span class="rating-stars-empty" aria-hidden="true">${'★'.repeat(5 - filled)}</span></span>`;
+}
+
+function productCardRatingMarkup(product) {
+  const summary = reviewSummary(product);
+  if (!summary.count || !Number.isFinite(summary.average)) return '';
+  return `<p class="product-card-rating" aria-label="${summary.average.toFixed(1)} out of 5 stars, based on ${summary.count} ${summary.count === 1 ? 'review' : 'reviews'}">${ratingStars(summary.average)} <span>${summary.average.toFixed(1)} (${summary.count})</span></p>`;
+}
+
+function reviewMedia(media = []) {
+  const safeUrl = url => typeof url === 'string' && (/^https:\/\//.test(url) || /^\/(?!\/)/.test(url));
+  const items = media.filter(item => safeUrl(item.url)).map(item => item.type === 'image'
+    ? `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt || 'Customer review photo')}" loading="lazy">`
+    : item.type === 'video' ? `<video controls preload="none" aria-label="${escapeHtml(item.alt || 'Customer review video')}"${safeUrl(item.poster) ? ` poster="${escapeHtml(item.poster)}"` : ''}><source src="${escapeHtml(item.url)}"></video>` : '').filter(Boolean);
+  return items.length ? `<div class="customer-review-media">${items.join('')}</div>` : '';
+}
+
+function reviewEntry(review, product) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(review.date) && !Number.isNaN(Date.parse(`${review.date}T00:00:00Z`))
+    ? `<time datetime="${review.date}">${new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${review.date}T00:00:00Z`))}</time>` : '';
+  return `<li class="customer-review"><article>${ratingStars(review.rating)}<div class="customer-review-meta">${review.customer ? `<strong>${escapeHtml(review.customer)}</strong>` : ''}${review.verified === true ? '<span>Verified purchase</span>' : ''}${date}</div>${review.title ? `<h3>${escapeHtml(review.title)}</h3>` : ''}<p class="customer-review-body">${escapeHtml(review.body || '')}</p><p class="customer-review-product">${escapeHtml(product.name)}</p>${reviewMedia(review.media)}</article></li>`;
+}
+
+function productReviewsSection(product) {
+  const summary = reviewSummary(product);
+  const start = `<section class="pdp-reviews" data-review-product="${escapeHtml(product.name.toLowerCase())}" aria-labelledby="customer-reviews-heading"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h2 id="customer-reviews-heading">CUSTOMER REVIEWS</h2>`;
+  const writeUrl = (() => {
+    try {
+      const url = new URL(summary.writeReviewUrl);
+      return url.protocol === 'https:' && url.hostname === 'judge.me' && /^\/product_reviews\/[^/]+\/new$/.test(url.pathname) ? url.toString() : null;
+    } catch { return null; }
+  })();
+  const action = writeUrl ? `<a class="review-write-link" href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer">WRITE A REVIEW</a>` : '';
+  if (summary.status === 'loading') return `${start}<div class="pdp-reviews-empty"><p>Loading customer reviews…</p></div></section>`;
+  if (summary.status === 'unavailable') return `${start}<div class="pdp-reviews-empty"><p>Reviews are temporarily unavailable.</p></div></section>`;
+  if (!summary.count) return `${start}<div class="pdp-reviews-empty"><p>No reviews yet.</p><p>Be the first to review this glove.</p>${action}</div></section>`;
+  if (summary.detailUnavailable) return `${start}<div class="pdp-reviews-empty"><p>Review details are temporarily unavailable.</p></div></section>`;
+  const breakdown = summary.distribution && [5, 4, 3, 2, 1].map(rating => {
+    const count = summary.distribution[rating];
+    const percent = Math.round(count / summary.count * 100);
+    return `<li><span>${rating} stars</span><progress value="${count}" max="${summary.count}" aria-label="${rating} stars: ${count} ${count === 1 ? 'review' : 'reviews'} (${percent}%)"></progress><span>${count}</span></li>`;
+  }).join('');
+  return `${start}${action}<div class="pdp-review-summary"><div class="pdp-review-average"><strong>${summary.average.toFixed(1)} <span>out of 5</span></strong>${ratingStars(summary.average)}<p>Based on ${summary.count} ${summary.count === 1 ? 'review' : 'reviews'}</p></div>${breakdown ? `<div class="pdp-review-breakdown"><h3>Rating breakdown</h3><ul>${breakdown}</ul></div>` : ''}</div>${summary.reviews?.length ? `<ol class="customer-review-list">${summary.reviews.map(review => reviewEntry(review, product)).join('')}</ol>` : ''}${summary.moreAvailable ? '<p class="review-list-note">Showing recent reviews.</p>' : ''}</section>`;
+}
 
 function communitySection() {
   const entries = communityItems.filter(item => item.approved === true && item.image && item.alt);
@@ -130,7 +179,7 @@ function productPage(product) {
       <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. Standard shipping within the United States is $9. Standard shipping is free on orders $225 or more. Estimated delivery is 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
       <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(warrantyParagraphs[0])}</p><div class="pdp-policy-links"><a href="/warranty" data-link>Full Warranty</a></div></details>
-    </aside></div>${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="${productPath(other)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
+    </aside></div>${productReviewsSection(product)}${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="${productPath(other)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
 
 function about() {
@@ -205,5 +254,5 @@ function route(pathname) {
   return notFound();
 }
 
-  return { header, commerceNotice, footer, route, notFound };
+  return { header, commerceNotice, footer, route, notFound, productCardRatingMarkup, productReviewsSection };
 }

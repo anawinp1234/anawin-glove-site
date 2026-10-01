@@ -542,7 +542,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       products = localProducts.map(local => {
         const remote = entries.find(([id]) => id === local.id)[1];
         const variant = remote.variants.nodes[0];
-        return { ...local, handle: remote.handle, merchandiseId: variant.id, price: Number(variant.price.amount), currencyCode: variant.price.currencyCode, available: variant.availableForSale };
+        return { ...local, handle: remote.handle, shopifyProductGid: remote.id, merchandiseId: variant.id, price: Number(variant.price.amount), currencyCode: variant.price.currencyCode, available: variant.availableForSale };
       });
       return products;
     },

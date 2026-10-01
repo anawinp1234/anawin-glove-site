@@ -127,6 +127,54 @@
   .other-glove-card img{width:92px}
 }
 
+/* Product ratings and customer reviews share the same product-specific data. */
+.rating-stars{display:inline-block;color:var(--ink);font-size:15px;letter-spacing:.06em;white-space:nowrap}
+.rating-stars-empty{color:#a9adad}
+.review-slot-loading{min-height:18px}
+.product-meta .product-card-rating{display:flex;align-items:center;gap:8px;margin:11px 0 0;color:var(--ink);font-size:12px;font-weight:700;line-height:1.3}
+.product-card-rating .rating-stars{font-size:13px}
+.pdp-reviews{padding:100px 28px 110px;border-top:1px solid var(--line);background:var(--white)}
+.pdp-reviews .eyebrow{font-weight:700}
+.pdp-reviews h2{margin:28px 0 50px;font-family:var(--font-display);font-size:clamp(48px,7vw,96px);font-weight:900;letter-spacing:-.055em;line-height:.9}
+.pdp-reviews-empty{max-width:640px;padding-top:26px;border-top:1px solid var(--line)}
+.pdp-reviews-empty p:first-child{margin:0 0 10px;font-size:22px;font-weight:700}
+.pdp-reviews-empty p+p{margin:0;color:var(--muted);font-size:15px;line-height:1.55}
+.review-write-link{display:inline-block;margin:22px 0 28px;padding:13px 18px;border:1px solid var(--ink);font-size:11px;font-weight:700;letter-spacing:.1em}
+.review-write-link:hover{background:var(--ink);color:#fff}
+.review-write-link:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.pdp-review-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;max-width:1100px;padding:28px 0 50px;border-top:1px solid var(--line)}
+.pdp-review-average strong{display:block;font-family:var(--font-display);font-size:clamp(50px,6vw,80px);line-height:1;letter-spacing:-.05em}
+.pdp-review-average strong span{font-family:var(--font-sans);font-size:16px;font-weight:400;letter-spacing:0}
+.pdp-review-average .rating-stars{margin-top:16px;font-size:22px}
+.pdp-review-average p{margin:10px 0 0;color:var(--muted);font-size:14px}
+.pdp-review-breakdown h3{margin:0 0 18px;font-size:11px;letter-spacing:.13em;text-transform:uppercase}
+.pdp-review-breakdown ul{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.pdp-review-breakdown li{display:grid;grid-template-columns:50px minmax(0,1fr) 26px;align-items:center;gap:13px;font-size:12px}
+.pdp-review-breakdown li span:last-child{text-align:right}
+.pdp-review-breakdown progress{width:100%;height:8px;appearance:none;border:0;background:var(--paper)}
+.pdp-review-breakdown progress::-webkit-progress-bar{background:var(--paper)}
+.pdp-review-breakdown progress::-webkit-progress-value{background:var(--ink)}
+.pdp-review-breakdown progress::-moz-progress-bar{background:var(--ink)}
+.customer-review-list{max-width:1100px;margin:0;padding:0;list-style:none}
+.customer-review{padding:32px 0;border-top:1px solid var(--line)}
+.customer-review article{max-width:850px}
+.customer-review-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-top:14px;font-size:12px}
+.customer-review-meta span,.customer-review-meta time{color:var(--muted)}
+.customer-review h3{margin:24px 0 8px;font-family:var(--font-display);font-size:26px;line-height:1.1}
+.customer-review-body{margin:20px 0 0;font-size:15px;line-height:1.65;overflow-wrap:anywhere}
+.customer-review h3+.customer-review-body{margin-top:0}
+.customer-review-product{margin:22px 0 0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.review-list-note{margin:24px 0 0;color:var(--muted);font-size:13px}
+.customer-review-media{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.customer-review-media img,.customer-review-media video{display:block;width:min(180px,100%);height:180px;object-fit:cover;background:var(--paper)}
+@media(max-width:760px){
+  .pdp-reviews{padding:68px 16px 80px}
+  .pdp-reviews h2{margin:22px 0 36px;font-size:clamp(44px,11.5vw,76px)}
+  .pdp-review-summary{grid-template-columns:1fr;gap:38px;padding:26px 0 42px}
+  .pdp-review-average strong{font-size:58px}
+  .pdp-review-breakdown li{gap:10px}
+  .customer-review{padding:28px 0}
+}
 /* Approved community photography appears only when entries are supplied. */
 .community{padding:100px 28px;border-top:1px solid var(--line)}
 .community-heading{display:flex;justify-content:space-between;align-items:start;gap:24px;margin-bottom:40px}

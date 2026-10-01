@@ -5,10 +5,11 @@ import { createCommerce } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
-import { updateSeo } from './seo.js';
+import { updateSeo, productPath } from './seo.js';
 import { createNewsletterSignup } from './newsletter.js';
 import { bindNewsletterForm } from './newsletter-form.js';
 import { createNewsletterPopupController, installNewsletterDialog } from './newsletter-popup.js';
+import { createJudgeMeService, shopifyProductId } from './judgeme.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -38,6 +39,14 @@ const newsletterSignup = createNewsletterSignup();
 let newsletterPopup = null;
 let newsletterDialog = null;
 let newsletterPopupUi = null;
+const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
+const judgeMeReviewLinks = {
+  br16: import.meta.env.VITE_JUDGEME_BR16_REVIEW_URL || '',
+  ob16: import.meta.env.VITE_JUDGEME_OB16_REVIEW_URL || '',
+  cl16: import.meta.env.VITE_JUDGEME_CL16_REVIEW_URL || ''
+};
+const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
+const reviewData = Object.fromEntries(localProducts.map(product => [product.name.toLowerCase(), { status: judgeMePublicToken && commerce.mode === 'shopify' ? 'loading' : 'unavailable' }]));
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
@@ -87,10 +96,43 @@ function fitHeroHeading() {
 }
 
 function render() {
-  const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, cartCount });
+  const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, cartCount, reviewData });
   updateSeo(document, location.pathname);
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
   fitHeroHeading(); bind(); window.scrollTo(0, 0);
+}
+function refreshReviewMarkup() {
+  const views = createStorefrontRenderer({ products, breakInService, reviewData });
+  for (const slot of document.querySelectorAll('[data-review-slot]')) {
+    const product = products.find(item => item.name.toLowerCase() === slot.dataset.reviewSlot);
+    if (!product) continue;
+    slot.innerHTML = views.productCardRatingMarkup(product);
+    slot.classList.toggle('review-slot-loading', reviewData[slot.dataset.reviewSlot]?.status === 'loading');
+  }
+  const section = document.querySelector('[data-review-product]');
+  if (section) {
+    const product = products.find(item => item.name.toLowerCase() === section.dataset.reviewProduct);
+    if (product) section.outerHTML = views.productReviewsSection(product);
+  }
+}
+function loadReviews() {
+  if (commerce.mode !== 'shopify' || !judgeMePublicToken) return;
+  const currentProduct = products.find(product => productPath(product) === location.pathname);
+  const widgetId = currentProduct && shopifyProductId(currentProduct.shopifyProductGid);
+  if (!products.some(product => shopifyProductId(product.shopifyProductGid))) return;
+  void reviewService.load(products, widgetId).then(result => {
+    for (const product of products) {
+      const handle = product.name.toLowerCase();
+      const next = result.products[handle] || { status: 'unavailable' };
+      if (reviewData[handle]?.status === 'ready' && next.status === 'unavailable') continue;
+      if (reviewData[handle]?.hasWidget && !next.hasWidget && next.status === 'ready') continue;
+      reviewData[handle] = { ...next, writeReviewUrl: next.writeReviewUrl || judgeMeReviewLinks[handle] };
+    }
+    refreshReviewMarkup();
+  }).catch(() => {
+    for (const product of products) reviewData[product.name.toLowerCase()] = { status: 'unavailable' };
+    refreshReviewMarkup();
+  });
 }
 function handleNewsletterResult(result) {
   newsletterPopupUi?.accept();
@@ -118,7 +160,7 @@ function setupNewsletterPopup() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) newsletterPopup.schedule(); });
   newsletterPopup.schedule();
 }
-function navigate(path) { history.pushState({}, '', path); render(); }
+function navigate(path) { history.pushState({}, '', path); render(); loadReviews(); }
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
   cartIsOpen = true;
@@ -361,9 +403,13 @@ async function boot() {
   setupNewsletterPopup();
   try {
     products = await commerce.listProducts();
+    loadReviews();
     [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
   }
-  catch (error) { commerceError = error.message || 'Unable to connect to Shopify.'; }
+  catch (error) {
+    commerceError = error.message || 'Unable to connect to Shopify.';
+    for (const product of products) reviewData[product.name.toLowerCase()] = { status: 'unavailable' };
+  }
   finally { commerceLoading = false; render(); if (cartIsOpen) openCart(); }
 }
 
@@ -388,6 +434,6 @@ document.addEventListener('click', event => {
 window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
 });
-window.addEventListener('popstate', render);
+window.addEventListener('popstate', () => { render(); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
 boot();
