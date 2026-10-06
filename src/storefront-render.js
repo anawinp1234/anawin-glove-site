@@ -33,12 +33,12 @@ const colorwaySwatches = product => product.id === 'brown'
   ? ['#6f6843', ...(product.swatches || [])]
   : (product.swatches || []);
 
-function productImage(src, alt, sizes, loading) {
+function productImage(src, alt, sizes, loading, card = false) {
   const name = src.split('/').pop().replace(/\.PNG$/, '');
   const fullWidth = name === 'black1' ? 1045 : 1254;
   const fullHeight = name === 'black1' ? 1044 : 1254;
   const optimized = width => `/images/optimized/${name}-${width}.webp`;
-  const srcset = [480, 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
+  const srcset = [480, ...(card ? [768] : []), 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${fullWidth}" height="${fullHeight}" loading="${loading}" /></picture>`;
 }
 
@@ -48,7 +48,7 @@ function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, 
 }
 
 function wordmark(sizes, loading = 'eager') {
-  const widths = [160, 320, 480, 960, 1193];
+  const widths = [160, 320, 480, 720, 960, 1193];
   const srcset = widths.map(width => `/images/optimized/anawin-wordmark-${width}.webp ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="/images/anawin-wordmark.png" alt="ANAWIN" width="1193" height="141" loading="${loading}" /></picture>`;
 }
@@ -89,7 +89,7 @@ function footer() {
 function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
-    <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(product.tone)} glove">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy')}<span class="view-product">View ${arrow()}</span></a>
+    <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(product.tone)} glove">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy', true)}<span class="view-product">View ${arrow()}</span></a>
     <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p><div data-review-slot="${escapeHtml(product.name.toLowerCase())}"${reviewSummary(product).status === 'loading' ? ' class="review-slot-loading"' : ''}>${productCardRatingMarkup(product)}</div>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
