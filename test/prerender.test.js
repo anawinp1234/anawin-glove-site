@@ -32,19 +32,19 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
   }
 });
 
-test('prerendered shipping pages and the cart bundle carry the confirmed rates', () => {
+test('prerendered shipping pages and the cart bundle restrict free shipping to U.S. orders', () => {
   const shipping = htmlFor('/shipping');
-  assert.match(shipping, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
-  assert.match(shipping, /<meta name="description" content="Standard U\.S\. shipping is \$9, or free on orders \$225\+/);
+  assert.match(shipping, /Free standard shipping on all U\.S\. orders\./);
+  assert.match(shipping, /<meta name="description" content="Free standard shipping on all U\.S\. orders\./);
   for (const product of localProducts) {
     const html = htmlFor(productPath(product));
-    assert.match(html, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+    assert.match(html, /Free standard shipping on all U\.S\. orders\./);
     assert.doesNotMatch(html, /U\.S\. shipping is calculated at checkout/i);
   }
   const bundles = readdirSync(join(root, 'dist/assets')).filter(name => /^index-.*\.js$/.test(name));
   assert.equal(bundles.length, 1);
   const bundle = read(`dist/assets/${bundles[0]}`);
-  assert.match(bundle, /<p>Standard U\.S\. shipping is \$9, or free on orders \$225\+\. Taxes are calculated at checkout\.<\/p>/);
+  assert.match(bundle, /<p>Free standard shipping on all U\.S\. orders\. Taxes are calculated at checkout\.<\/p>/);
   assert.doesNotMatch(bundle, /U\.S\. shipping is calculated at checkout|shipping costs are calculated at checkout|Taxes and shipping calculated at checkout/i);
 });
 
@@ -88,7 +88,7 @@ test('each PDP has one self-contained Product and minimal approved Offer', () =>
       '@type': 'Offer',
       url: canonicalOrigin + path,
       priceCurrency: 'USD',
-      price: '150.00'
+      price: '155.00'
     });
     for (const forbidden of ['review', 'aggregateRating', 'sku', 'gtin', 'mpn', 'availability', 'inventoryLevel']) {
       assert.equal(data[forbidden], undefined, `${path}: ${forbidden}`);

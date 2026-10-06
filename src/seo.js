@@ -57,7 +57,7 @@ export const seoRoutes = Object.freeze({
   },
   '/shipping': {
     title: 'Shipping Policy | ANAWIN',
-    description: 'Standard U.S. shipping is $9, or free on orders $225+. Read ANAWIN processing times, delivery estimates, and tracking information.',
+    description: 'Free standard shipping on all U.S. orders. Read ANAWIN processing times, delivery estimates, and tracking information.',
     image: homeImage,
     type: 'website'
   },

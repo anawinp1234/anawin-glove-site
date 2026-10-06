@@ -19,7 +19,7 @@ npm run build
 `npm run build` runs Vite and then `scripts/prerender.mjs`. It writes static HTML
 for the 11 public routes plus `dist/404.html`; `npm test` builds first so its
 HTML checks work from a clean checkout. The generated product markup uses the
-approved $150 USD catalog price. Shopify continues to supply runtime prices,
+approved $155 USD catalog price. Shopify continues to supply runtime prices,
 availability, cart state, and checkout links. Cloudflare serves slashless URLs
 from the generated `.html` files and returns the 404 page for unknown routes.
 
@@ -40,7 +40,7 @@ In Shopify mode, Shopify owns prices, availability, cart totals, and the hosted 
 
 ## Catalog and content
 
-Product names, specifications, and local imagery remain in the storefront so its confirmed presentation is preserved. Shopify replaces price, availability, merchandise identity, and cart totals after connection. Founder content, shipping terms, and return terms still need to be supplied by ANAWIN.
+Product names, specifications, and local imagery remain in the storefront so its confirmed presentation is preserved. Shopify replaces price, availability, merchandise identity, and cart totals after connection. Founder content, shipping terms, and return terms remain in storefront content.
 
 The repository does not contain the licensed DIN Nxt 79 Cn font. The design uses condensed system fallbacks and the `--display` CSS custom property is ready to point at licensed local font files later.
 

@@ -15,17 +15,17 @@ test('PDPs disable Break-In while inventory loads or fails, then enable it when 
     const loading = renderProduct(product, { commerceLoading: true });
     assert.match(loading, /data-break-in[^>]* disabled/);
     assert.match(loading, /Checking glove and Break-In Service availability/);
-    assert.match(loading, /disabled>Checking availability… <span data-add-price>\$150/);
+    assert.match(loading, /disabled>Checking availability… <span data-add-price>\$155/);
 
     const error = renderProduct(product, { commerceError: 'Inventory connection failed.' });
     assert.match(error, /data-break-in[^>]* disabled/);
     assert.match(error, /class="purchase-status purchase-status-error">Unable to confirm availability/);
-    assert.match(error, /disabled>Unavailable <span data-add-price>\$150/);
+    assert.match(error, /disabled>Unavailable <span data-add-price>\$155/);
 
     const ready = renderProduct(product);
     assert.doesNotMatch(ready, /data-break-in[^>]* disabled/);
     assert.match(ready, /\+\$20/);
-    assert.match(ready, />Add to cart <span data-add-price>\$150/);
+    assert.match(ready, />Add to cart <span data-add-price>\$155/);
   }
 });
 
@@ -42,9 +42,9 @@ test('PDPs show price before fixed facts and link purchase policies near the CTA
   }
 });
 
-test('Shipping Policy states the confirmed U.S. rate, threshold, and delivery timing', () => {
+test('Shipping Policy states free standard shipping for U.S. orders and delivery timing', () => {
   const html = createStorefrontRenderer({ products: localProducts, breakInService }).route('/shipping');
-  assert.match(html, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+  assert.match(html, /Free standard shipping on all U\.S\. orders\./);
   assert.match(html, /Orders without Break-In Service are processed within 1–3 business days\./);
   assert.match(html, /Orders that include Break-In Service require an additional 2–5 business days of processing before shipment\./);
   assert.match(html, /After an order ships, estimated delivery is typically 3–7 business days\./);
@@ -57,7 +57,7 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     const accordion = html.match(/<details><summary>Shipping & returns .*?<\/details>/)?.[0];
     assert.ok(accordion, product.name);
     assert.match(accordion, /Standard orders process in 1–3 business days\. Break-In Service adds 2–5 business days\./);
-    assert.match(accordion, /Standard shipping within the United States is \$9\. Standard shipping is free on orders \$225 or more\./);
+    assert.match(accordion, /Free standard shipping on all U\.S\. orders\./);
     assert.match(accordion, /Estimated delivery is 3–7 business days after shipment\./);
     assert.match(accordion, /Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label\./);
     assert.doesNotMatch(accordion, /shipping is calculated at checkout/i);

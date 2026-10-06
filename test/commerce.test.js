@@ -28,11 +28,11 @@ test('each glove has product-level hand orientation', () => {
 
 test('purchase price follows each glove and the selected service price', () => {
   for (const product of localProducts) {
-    assert.equal(purchasePrice(product, breakInService, false), 150);
-    assert.equal(purchasePrice(product, breakInService, true), 170);
-    assert.equal(purchasePrice(product, breakInService, false), 150);
+    assert.equal(purchasePrice(product, breakInService, false), 155);
+    assert.equal(purchasePrice(product, breakInService, true), 175);
+    assert.equal(purchasePrice(product, breakInService, false), 155);
   }
-  assert.equal(purchasePrice({ price: 155 }, { price: 25 }, true), 180);
+  assert.equal(purchasePrice({ price: 160 }, { price: 25 }, true), 185);
 });
 
 test('migrates the original local cart and caps unsafe quantities', () => {
@@ -46,11 +46,11 @@ test('local cart keeps break-in quantity synchronized when quantity changes', as
   const storage = new MemoryStorage();
   const commerce = createLocalCommerce(storage);
   let cart = await commerce.addProduct('black', true);
-  assert.equal(cart.subtotal, 170);
+  assert.equal(cart.subtotal, 175);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 1);
 
   cart = await commerce.setQuantity('black', 3);
-  assert.equal(cart.subtotal, 510);
+  assert.equal(cart.subtotal, 525);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 3);
 
   cart = await commerce.removeProduct('black');
@@ -102,8 +102,8 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: 'break-in'
   };
   const variants = {
-    br16: ['gid://variant/br16', prices.br16 || '150.00'], ob16: ['gid://variant/ob16', prices.ob16 || '150.00'],
-    cl16: ['gid://variant/cl16', prices.cl16 || '150.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']
+    br16: ['gid://variant/br16', prices.br16 || '155.00'], ob16: ['gid://variant/ob16', prices.ob16 || '155.00'],
+    cl16: ['gid://variant/cl16', prices.cl16 || '155.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']
   };
   const linePrice = handle => cartPrices[handle] || variants[handle][1];
   const finalUnitPrice = (handle, currentPrices = discountedPrices) => currentPrices[handle] || linePrice(handle);
@@ -279,7 +279,7 @@ test('adds a glove without service using Shopify price and checkout', async () =
   assert.equal(product.accentBackground, localProducts[0].accentBackground);
   assert.equal(product.shopifyProductGid, 'gid://product/br16');
   const cart = await commerce.addProduct('black', false);
-  assert.equal(cart.subtotal, 150);
+  assert.equal(cart.subtotal, 155);
   assert.equal(cart.checkoutUrl, 'https://store.myshopify.com/checkouts/1');
   assert.equal(cart.lines.length, 1);
   assert.deepEqual(requests.find(item => item.query.includes('CreateCart')).variables.input.lines,
@@ -292,7 +292,7 @@ test('adds a native nested Break-in line and restores its parent relationship', 
   assert.equal(products[0].merchandiseId, 'gid://variant/br16');
   assert.equal((await commerce.getBreakInService()).price, 20);
   const cart = await commerce.addProduct('black', true);
-  assert.equal(cart.subtotal, 170);
+  assert.equal(cart.subtotal, 175);
   assert.equal(cart.lines.length, 2);
   assert.equal(cart.lines.find(line => line.isBreakIn).productId, 'black');
   assert.equal(cart.lines.find(line => line.isBreakIn).parentLineId, cart.lines.find(line => !line.isBreakIn).remoteLineId);
@@ -309,7 +309,7 @@ test('updates a parent, follows Shopify child quantity, and removes only parents
   await commerce.listProducts();
   await commerce.addProduct('black', true);
   let cart = await commerce.setQuantity('black', 3);
-  assert.equal(cart.subtotal, 510);
+  assert.equal(cart.subtotal, 525);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 3);
   assert.equal(requests.filter(item => item.query.includes('UpdateLines')).length, 1);
   cart = await commerce.removeProduct('black');
@@ -322,7 +322,7 @@ test('updates a child only when Shopify leaves it out of sync and permits it', a
   await commerce.listProducts();
   await commerce.addProduct('black', true);
   const cart = await commerce.setQuantity('black', 2);
-  assert.equal(cart.subtotal, 340);
+  assert.equal(cart.subtotal, 350);
   assert.equal(requests.filter(item => item.query.includes('UpdateLines')).length, 2);
 });
 
@@ -336,7 +336,7 @@ test('repeated additions keep same-choice lines together and different choices s
   assert.equal(cart.lines.filter(line => !line.isBreakIn).length, 2);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 2);
   assert.equal(cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 4);
-  assert.equal(cart.subtotal, 640);
+  assert.equal(cart.subtotal, 660);
   assert.equal(requests.filter(item => item.query.includes('AddLines')).length, 3);
   await assert.rejects(commerce.setQuantity('black', 3), /specific glove cart entry/);
 });
@@ -378,12 +378,12 @@ test('Shopify cart entry totals cover one and two gloves with and without servic
     await commerce.listProducts();
     const first = await commerce.addProduct('black', withService);
     const parentId = first.lines.find(line => !line.isBreakIn).remoteLineId;
-    assert.deepEqual(entryTotal(first, parentId), { amount: withService ? 170 : 150, currencyCode: 'USD' });
+    assert.deepEqual(entryTotal(first, parentId), { amount: withService ? 175 : 155, currencyCode: 'USD' });
     const second = await commerce.setLineQuantity(parentId, 2);
-    assert.deepEqual(entryTotal(second, parentId), { amount: withService ? 340 : 300, currencyCode: 'USD' });
-    assert.equal(second.subtotal, withService ? 340 : 300);
+    assert.deepEqual(entryTotal(second, parentId), { amount: withService ? 350 : 310, currencyCode: 'USD' });
+    assert.equal(second.subtotal, withService ? 350 : 310);
     const backToOne = await commerce.setLineQuantity(parentId, 1);
-    assert.equal(entryTotal(backToOne, parentId).amount, withService ? 170 : 150);
+    assert.equal(entryTotal(backToOne, parentId).amount, withService ? 175 : 155);
   }
 });
 
@@ -392,20 +392,20 @@ test('Shopify entry total refreshes after whole-line service changes', async () 
   await commerce.listProducts();
   const plain = await commerce.addProduct('black', false);
   const parentId = plain.lines[0].remoteLineId;
-  assert.equal(entryTotal(plain, parentId).amount, 150);
+  assert.equal(entryTotal(plain, parentId).amount, 155);
   const serviced = await commerce.addBreakIn(parentId);
-  assert.equal(entryTotal(serviced, parentId).amount, 170);
+  assert.equal(entryTotal(serviced, parentId).amount, 175);
   const removed = await commerce.removeBreakIn(parentId);
-  assert.equal(entryTotal(removed, parentId).amount, 150);
+  assert.equal(entryTotal(removed, parentId).amount, 155);
 });
 
 test('line total uses Shopify discounts and cart prices rather than variant prices', async () => {
-  const { commerce } = shopifyFixture({ cartPrices: { br16: '155.00', 'break-in': '25.00' },
+  const { commerce } = shopifyFixture({ cartPrices: { br16: '160.00', 'break-in': '25.00' },
     discountedPrices: { br16: '145.00', 'break-in': '18.00' }, subtotalOverride: 999 });
   await commerce.listProducts();
   const cart = await commerce.addProduct('black', true);
   const parent = cart.lines.find(line => !line.isBreakIn);
-  assert.equal(parent.unitPrice.amount, 155);
+  assert.equal(parent.unitPrice.amount, 160);
   assert.equal(parent.lineTotal.amount, 145);
   assert.equal(cart.lines.find(line => line.isBreakIn).lineTotal.amount, 18);
   assert.deepEqual(entryTotal(cart, parent.remoteLineId), { amount: 163, currencyCode: 'USD' });
@@ -414,7 +414,7 @@ test('line total uses Shopify discounts and cart prices rather than variant pric
 
 test('Shopify cart query normalizes code applicability and separate glove/service allocations', async () => {
   const { commerce, requests } = shopifyFixture({
-    discountedPrices: { br16: '135.00' },
+    discountedPrices: { br16: '140.00' },
     discountCodes: [{ code: 'LAUNCH10', applicable: true }, { code: 'EXPIRED', applicable: false }],
     discountApplications: [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', value: {
       __typename: 'PricingPercentageValue', percentage: 10
@@ -428,12 +428,12 @@ test('Shopify cart query normalizes code applicability and separate glove/servic
   assert.deepEqual(cart.discountApplications, [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', percentage: 10 }]);
   const parent = cart.lines.find(line => !line.isBreakIn);
   const child = cart.lines.find(line => line.isBreakIn);
-  assert.deepEqual(parent.lineSubtotal, { amount: 150, currencyCode: 'USD' });
-  assert.deepEqual(parent.lineTotal, { amount: 135, currencyCode: 'USD' });
+  assert.deepEqual(parent.lineSubtotal, { amount: 155, currencyCode: 'USD' });
+  assert.deepEqual(parent.lineTotal, { amount: 140, currencyCode: 'USD' });
   assert.deepEqual(parent.allDiscountAllocations, [{ amount: { amount: 15, currencyCode: 'USD' },
     targetType: 'LINE_ITEM', code: 'LAUNCH10' }]);
   assert.deepEqual(child.allDiscountAllocations, []);
-  assert.equal(cart.subtotal, 155);
+  assert.equal(cart.subtotal, 160);
   assert.ok(requests.some(({ query }) => query.includes('sourceDiscountApplication')));
 });
 
@@ -453,7 +453,7 @@ test('unserviced glove unit price comes from its Shopify cart line', async () =>
   const { commerce } = shopifyFixture();
   await commerce.listProducts();
   const cart = await commerce.addProduct('black', false);
-  assert.deepEqual(entryUnitPrice(cart, cart.lines[0].remoteLineId), { amount: 150, currencyCode: 'USD' });
+  assert.deepEqual(entryUnitPrice(cart, cart.lines[0].remoteLineId), { amount: 155, currencyCode: 'USD' });
   assert.equal(cart.incomplete, false);
 });
 
@@ -462,9 +462,9 @@ test('serviced glove unit price combines its Shopify parent and child prices', a
   await commerce.listProducts();
   const cart = await commerce.addProduct('black', true);
   const parent = cart.lines.find(line => !line.isBreakIn);
-  assert.deepEqual(parent.unitPrice, { amount: 150, currencyCode: 'USD' });
+  assert.deepEqual(parent.unitPrice, { amount: 155, currencyCode: 'USD' });
   assert.deepEqual(cart.lines.find(line => line.isBreakIn).unitPrice, { amount: 20, currencyCode: 'USD' });
-  assert.deepEqual(entryUnitPrice(cart, parent.remoteLineId), { amount: 170, currencyCode: 'USD' });
+  assert.deepEqual(entryUnitPrice(cart, parent.remoteLineId), { amount: 175, currencyCode: 'USD' });
 });
 
 test('adding service updates the selected glove unit price after Shopify confirms it', async () => {
@@ -472,10 +472,10 @@ test('adding service updates the selected glove unit price after Shopify confirm
   await commerce.listProducts();
   const before = await commerce.addProduct('black', false);
   const parentId = before.lines[0].remoteLineId;
-  assert.equal(entryUnitPrice(before, parentId).amount, 150);
+  assert.equal(entryUnitPrice(before, parentId).amount, 155);
   const after = await commerce.addBreakIn(parentId);
-  assert.equal(entryUnitPrice(after, parentId).amount, 170);
-  assert.equal(after.subtotal, 170);
+  assert.equal(entryUnitPrice(after, parentId).amount, 175);
+  assert.equal(after.subtotal, 175);
 });
 
 test('removing service updates the selected glove unit price after Shopify confirms it', async () => {
@@ -483,10 +483,10 @@ test('removing service updates the selected glove unit price after Shopify confi
   await commerce.listProducts();
   const before = await commerce.addProduct('black', true);
   const parentId = before.lines.find(line => !line.isBreakIn).remoteLineId;
-  assert.equal(entryUnitPrice(before, parentId).amount, 170);
+  assert.equal(entryUnitPrice(before, parentId).amount, 175);
   const after = await commerce.removeBreakIn(parentId);
-  assert.equal(entryUnitPrice(after, parentId).amount, 150);
-  assert.equal(after.subtotal, 150);
+  assert.equal(entryUnitPrice(after, parentId).amount, 155);
+  assert.equal(after.subtotal, 155);
 });
 
 test('quantity two keeps the Shopify unit price rather than the extended total', async () => {
@@ -497,27 +497,27 @@ test('quantity two keeps the Shopify unit price rather than the extended total',
   const cart = await commerce.setLineQuantity(parentId, 2);
   assert.equal(cart.lines.find(line => line.remoteLineId === parentId).quantity, 2);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 2);
-  assert.equal(entryUnitPrice(cart, parentId).amount, 170);
-  assert.equal(cart.subtotal, 340);
+  assert.equal(entryUnitPrice(cart, parentId).amount, 175);
+  assert.equal(cart.subtotal, 350);
 });
 
 test('mixed serviced and unserviced entries use only their own child prices', async () => {
   const { cart, servicedId, unservicedId } = await mixedCartFixture();
-  assert.equal(entryUnitPrice(cart, servicedId).amount, 170);
-  assert.equal(entryUnitPrice(cart, unservicedId).amount, 150);
-  assert.equal(cart.subtotal, 320);
+  assert.equal(entryUnitPrice(cart, servicedId).amount, 175);
+  assert.equal(entryUnitPrice(cart, unservicedId).amount, 155);
+  assert.equal(cart.subtotal, 330);
 });
 
 test('nonstandard Shopify cart prices determine the displayed unit price', async () => {
-  const { commerce } = shopifyFixture({ cartPrices: { br16: '155.00', 'break-in': '25.00' } });
+  const { commerce } = shopifyFixture({ cartPrices: { br16: '160.00', 'break-in': '25.00' } });
   await commerce.listProducts();
   assert.equal((await commerce.getBreakInService()).price, 20);
   const unserviced = await commerce.addProduct('black', false);
-  assert.equal(entryUnitPrice(unserviced, unserviced.lines[0].remoteLineId).amount, 155);
+  assert.equal(entryUnitPrice(unserviced, unserviced.lines[0].remoteLineId).amount, 160);
   const cart = await commerce.addProduct('black', true);
   const serviced = cart.lines.find(line => !line.isBreakIn && line.serviceConfiguration === 'break-in');
-  assert.equal(entryUnitPrice(cart, serviced.remoteLineId).amount, 180);
-  assert.equal(cart.subtotal, 335);
+  assert.equal(entryUnitPrice(cart, serviced.remoteLineId).amount, 185);
+  assert.equal(cart.subtotal, 345);
 });
 
 test('currency mismatch leaves the combined price unavailable and blocks checkout', async () => {
@@ -530,14 +530,14 @@ test('currency mismatch leaves the combined price unavailable and blocks checkou
   const cart = await commerce.getCart();
   assert.equal(entryUnitPrice(cart, parentId), null);
   assert.equal(cart.incomplete, true);
-  assert.equal(cart.subtotal, 170);
+  assert.equal(cart.subtotal, 175);
 });
 
 test('one serviced and one unserviced BR16 have separate parent cart-line identities', async () => {
   const { cart, servicedId, unservicedId } = await mixedCartFixture();
   assert.notEqual(servicedId, unservicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 1, service: 1 });
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
 });
 
 test('adding unserviced then serviced BR16 keeps distinct Shopify parent attributes', async () => {
@@ -548,7 +548,7 @@ test('adding unserviced then serviced BR16 keeps distinct Shopify parent attribu
   const parents = cart.lines.filter(line => !line.isBreakIn);
   assert.equal(parents.length, 2);
   assert.deepEqual(parents.map(line => line.serviceConfiguration), ['none', 'break-in']);
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
   assert.equal(cart.lines.find(line => line.isBreakIn).parentLineId, parents[1].remoteLineId);
   assert.equal(requests.filter(item => item.query.includes('AddLines'))[0].variables.lines[0].attributes[0].value, 'break-in');
   assert.equal((await restore().getCart()).incomplete, false);
@@ -560,7 +560,7 @@ test('adding serviced then unserviced BR16 keeps distinct Shopify parent attribu
   await commerce.addProduct('black', true);
   const cart = await commerce.addProduct('black', false);
   assert.deepEqual(cart.lines.filter(line => !line.isBreakIn).map(line => line.serviceConfiguration), ['break-in', 'none']);
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
   assert.equal((await restore().getCart()).incomplete, false);
 });
 
@@ -572,7 +572,7 @@ test('repeated unserviced additions combine by attribute without a service child
   assert.equal(cart.lines.length, 1);
   assert.equal(cart.lines[0].quantity, 2);
   assert.equal(cart.lines[0].serviceConfiguration, 'none');
-  assert.equal(cart.subtotal, 300);
+  assert.equal(cart.subtotal, 310);
 });
 
 test('repeated serviced additions combine with matching nested child quantity', async () => {
@@ -583,14 +583,14 @@ test('repeated serviced additions combine with matching nested child quantity', 
   assert.equal(cart.lines.filter(line => !line.isBreakIn).length, 1);
   assert.equal(cart.lines.find(line => !line.isBreakIn).quantity, 2);
   assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 2);
-  assert.equal(cart.subtotal, 340);
+  assert.equal(cart.subtotal, 350);
 });
 
 test('incrementing the serviced BR16 changes only its parent and nested child', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture({ autoSyncChild: false });
   const cart = await commerce.setLineQuantity(servicedId, 2);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 2, unserviced: 1, service: 2 });
-  assert.equal(cart.subtotal, 490);
+  assert.equal(cart.subtotal, 505);
   assert.deepEqual(requests.filter(item => item.query.includes('UpdateLines')).map(item => item.variables.lines[0].id), [servicedId, 'line-2']);
 });
 
@@ -598,7 +598,7 @@ test('incrementing the unserviced BR16 never updates Break-in Service', async ()
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.setLineQuantity(unservicedId, 2);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 2, service: 1 });
-  assert.equal(cart.subtotal, 470);
+  assert.equal(cart.subtotal, 485);
   assert.deepEqual(requests.filter(item => item.query.includes('UpdateLines')).map(item => item.variables.lines[0].id), [unservicedId]);
 });
 
@@ -607,7 +607,7 @@ test('decrementing the serviced BR16 synchronizes only its nested child', async 
   await commerce.setLineQuantity(servicedId, 2);
   const cart = await commerce.setLineQuantity(servicedId, 1);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 1, service: 1 });
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
 });
 
 test('decrementing the unserviced BR16 leaves the serviced line unchanged', async () => {
@@ -615,14 +615,14 @@ test('decrementing the unserviced BR16 leaves the serviced line unchanged', asyn
   await commerce.setLineQuantity(unservicedId, 2);
   const cart = await commerce.setLineQuantity(unservicedId, 1);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 1, service: 1 });
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
 });
 
 test('removing the serviced parent cascades its child and retains unserviced BR16', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.removeLine(servicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 0, unserviced: 1, service: 0 });
-  assert.equal(cart.subtotal, 150);
+  assert.equal(cart.subtotal, 155);
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, [servicedId]);
 });
 
@@ -630,7 +630,7 @@ test('removing the unserviced parent retains serviced BR16 and its child', async
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.removeLine(unservicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 0, service: 1 });
-  assert.equal(cart.subtotal, 170);
+  assert.equal(cart.subtotal, 175);
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, [unservicedId]);
 });
 
@@ -648,8 +648,8 @@ test('removing service from one glove retains it and uses Shopify subtotal', asy
   const parent = before.lines.find(line => !line.isBreakIn);
   const child = before.lines.find(line => line.isBreakIn);
   const after = await commerce.removeBreakIn(parent.remoteLineId);
-  assert.equal(before.subtotal, 170);
-  assert.equal(after.subtotal, 150);
+  assert.equal(before.subtotal, 175);
+  assert.equal(after.subtotal, 155);
   assert.equal(after.lines.find(line => !line.isBreakIn).quantity, 1);
   assert.equal(after.lines.some(line => line.isBreakIn), false);
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, [child.remoteLineId]);
@@ -661,9 +661,9 @@ test('removing service from two gloves changes only one glove', async () => {
   const first = await commerce.addProduct('black', true);
   const parentId = first.lines.find(line => !line.isBreakIn).remoteLineId;
   const before = await commerce.setLineQuantity(parentId, 2);
-  assert.equal(before.subtotal, 340);
+  assert.equal(before.subtotal, 350);
   const after = await commerce.removeBreakIn(parentId);
-  assert.equal(after.subtotal, 320);
+  assert.equal(after.subtotal, 330);
   assert.deepEqual(after.lines.filter(line => !line.isBreakIn).map(line => [line.serviceConfiguration, line.quantity]),
     [['break-in', 1], ['none', 1]]);
   assert.equal(after.lines.find(line => line.isBreakIn).quantity, 1);
@@ -676,8 +676,8 @@ test('adding service to one existing glove uses parent.lineId and Shopify subtot
   const before = await commerce.addProduct('black', false);
   const parentId = before.lines[0].remoteLineId;
   const after = await commerce.addBreakIn(parentId);
-  assert.equal(before.subtotal, 150);
-  assert.equal(after.subtotal, 170);
+  assert.equal(before.subtotal, 155);
+  assert.equal(after.subtotal, 175);
   assert.equal(after.lines.find(line => line.isBreakIn).parentLineId, parentId);
   assert.deepEqual(requests.filter(item => item.query.includes('AddLines')).at(-1).variables.lines,
     [{ merchandiseId: 'gid://variant/service', quantity: 1, parent: { lineId: parentId } }]);
@@ -690,9 +690,9 @@ test('adding service to two existing gloves changes only one glove', async () =>
   const first = await commerce.addProduct('black', false);
   const parentId = first.lines[0].remoteLineId;
   const before = await commerce.setLineQuantity(parentId, 2);
-  assert.equal(before.subtotal, 300);
+  assert.equal(before.subtotal, 310);
   const after = await commerce.addBreakIn(parentId);
-  assert.equal(after.subtotal, 320);
+  assert.equal(after.subtotal, 330);
   assert.equal(after.lines.find(line => line.isBreakIn).quantity, 1);
   assert.deepEqual(requests.filter(item => item.query.includes('AddLines')).at(-1).variables.lines,
     [{ merchandiseId: 'gid://variant/service', quantity: 1,
@@ -705,7 +705,7 @@ test('adding service targets only the chosen unserviced BR16 parent', async () =
   const children = after.lines.filter(line => line.isBreakIn);
   assert.equal(children.reduce((sum, line) => sum + line.quantity, 0), 2);
   assert.equal(after.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 2);
-  assert.equal(after.subtotal, 340);
+  assert.equal(after.subtotal, 350);
   assert.ok(requests.some(item => item.query.includes('UpdateLines') &&
     item.variables.lines[0].id === unservicedId &&
     item.variables.lines[0].attributes[0].value === 'break-in'));
@@ -715,7 +715,7 @@ test('adding service targets only the chosen unserviced BR16 parent', async () =
 test('removing service targets only the chosen serviced BR16 parent', async () => {
   const { commerce, servicedId, unservicedId } = await mixedCartFixture();
   const after = await commerce.removeBreakIn(servicedId);
-  assert.equal(after.subtotal, 300);
+  assert.equal(after.subtotal, 310);
   assert.equal(after.lines.some(line => line.isBreakIn), false);
   assert.equal(after.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 2);
   assert.equal(after.lines.some(line => line.remoteLineId === unservicedId), true);
@@ -724,7 +724,7 @@ test('removing service targets only the chosen serviced BR16 parent', async () =
 test('service removal accepts Shopify merging equivalent unserviced parents', async () => {
   const { commerce, restore, servicedId } = await mixedCartFixture();
   const after = await commerce.removeBreakIn(servicedId);
-  assert.equal(after.subtotal, 300);
+  assert.equal(after.subtotal, 310);
   assert.equal(after.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 2);
   assert.equal(after.lines.some(line => line.isBreakIn), false);
   assert.deepEqual((await restore().getCart()).lines, after.lines);
@@ -733,7 +733,7 @@ test('service removal accepts Shopify merging equivalent unserviced parents', as
 test('service addition accepts Shopify merging the selected parent into an equivalent serviced entry', async () => {
   const { commerce, restore, unservicedId } = await mixedCartFixture();
   const after = await commerce.addBreakIn(unservicedId);
-  assert.equal(after.subtotal, 340);
+  assert.equal(after.subtotal, 350);
   assert.equal(after.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 2);
   assert.equal(after.lines.find(line => line.isBreakIn).quantity, 2);
   assert.deepEqual((await restore().getCart()).lines, after.lines);
@@ -756,7 +756,7 @@ test('service addition re-reads a re-keyed parent ID before attaching its child'
 test('service removal re-reads a re-keyed parent and may consolidate unserviced lines', async () => {
   const { commerce, servicedId, restore } = await mixedCartFixture({ rekeyOnAttributeUpdate: true });
   const after = await commerce.removeBreakIn(servicedId);
-  assert.equal(after.subtotal, 300);
+  assert.equal(after.subtotal, 310);
   assert.equal(after.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 2);
   assert.equal(after.lines.some(line => line.isBreakIn), false);
   assert.equal((await restore().getCart()).incomplete, false);
@@ -797,9 +797,9 @@ test('serviced quantity two splits into one serviced and one unserviced glove', 
     [['break-in', 1], ['none', 1]]);
   assertServiceChildrenMatch(after);
   assert.equal(gloveCount(before), gloveCount(after));
-  assert.equal(after.subtotal, 320);
-  assert.equal(entryTotal(after, after.lines.find(line => line.serviceConfiguration === 'break-in').remoteLineId).amount, 170);
-  assert.equal(entryTotal(after, after.lines.find(line => line.serviceConfiguration === 'none').remoteLineId).amount, 150);
+  assert.equal(after.subtotal, 330);
+  assert.equal(entryTotal(after, after.lines.find(line => line.serviceConfiguration === 'break-in').remoteLineId).amount, 175);
+  assert.equal(entryTotal(after, after.lines.find(line => line.serviceConfiguration === 'none').remoteLineId).amount, 155);
   assert.ok(markerAtMutation.every(value => value === after.id));
   assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), null);
   assert.equal((await fixture.restore().getCart()).incomplete, false);
@@ -814,7 +814,7 @@ test('unserviced quantity two splits into one unserviced and one serviced glove'
     [['none', 1], ['break-in', 1]]);
   assertServiceChildrenMatch(after);
   assert.equal(gloveCount(before), gloveCount(after));
-  assert.equal(after.subtotal, 320);
+  assert.equal(after.subtotal, 330);
   assert.ok(markerAtMutation.every(value => value === after.id));
   assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), null);
   assert.equal((await fixture.restore().getCart()).incomplete, false);
@@ -827,7 +827,7 @@ test('serviced quantity three removes service from exactly one glove', async () 
   assert.equal(after.lines.find(line => line.serviceConfiguration === 'none').quantity, 1);
   assertServiceChildrenMatch(after);
   assert.equal(gloveCount(after), 3);
-  assert.equal(after.subtotal, 490);
+  assert.equal(after.subtotal, 505);
 });
 
 test('split destination keeps source merchandise and non-service attributes', async () => {
@@ -863,7 +863,7 @@ test('one serviced glove merges into an existing compatible unserviced line', as
   assert.equal(after.lines.find(line => line.serviceConfiguration === 'break-in').quantity, 1);
   assertServiceChildrenMatch(after);
   assert.equal(gloveCount(after), 3);
-  assert.equal(after.subtotal, 470);
+  assert.equal(after.subtotal, 485);
 });
 
 test('one unserviced glove merges into an existing compatible serviced line', async () => {
@@ -877,7 +877,7 @@ test('one unserviced glove merges into an existing compatible serviced line', as
   assert.equal(after.lines.find(line => line.serviceConfiguration === 'none').quantity, 1);
   assertServiceChildrenMatch(after);
   assert.equal(gloveCount(after), 3);
-  assert.equal(after.subtotal, 490);
+  assert.equal(after.subtotal, 505);
 });
 
 for (const withService of [false, true]) {
@@ -964,7 +964,7 @@ test('service mutations surface Shopify user and API errors without changing car
   await assert.rejects(fixture.commerce.addBreakIn(fixture.unservicedId), /503/);
   await assert.rejects(fixture.commerce.removeBreakIn(fixture.servicedId), /503/);
   const cart = await fixture.commerce.getCart();
-  assert.equal(cart.subtotal, 320);
+  assert.equal(cart.subtotal, 330);
   assert.deepEqual(mixedQuantities(cart, fixture.servicedId, fixture.unservicedId), { serviced: 1, unserviced: 1, service: 1 });
 });
 
@@ -974,7 +974,7 @@ test('Shopify user errors leave the cart intact', async () => {
   await fixture.commerce.addProduct('black', false);
   fixture.setUserError('Quantity unavailable');
   await assert.rejects(fixture.commerce.setQuantity('black', 2), /Quantity unavailable/);
-  assert.equal((await fixture.commerce.getCart()).subtotal, 150);
+  assert.equal((await fixture.commerce.getCart()).subtotal, 155);
 });
 
 const discountMoney = amount => ({ amount: String(amount), currencyCode: 'USD' });
@@ -986,7 +986,7 @@ const discountScenario = codes => {
     discountCodes: codes.map(code => ({ code, applicable: ['launch10', 'extra'].includes(code.toLowerCase()) })),
     discountApplications: codes.filter(code => ['launch10', 'extra'].includes(code.toLowerCase()))
       .map(code => ({ code, targetType: 'LINE_ITEM', value: { __typename: 'PricingPercentageValue', percentage: 10 } })),
-    discountedPrices: { br16: String(150 - amount) },
+    discountedPrices: { br16: String(155 - amount) },
     discountAllocations: amount ? { br16: codes.filter(code => ['launch10', 'extra'].includes(code.toLowerCase()))
       .map(code => ({ discountedAmount: discountMoney(code.toLowerCase() === 'extra' ? 5 : 15),
         targetType: 'LINE_ITEM', sourceDiscountApplication: { code } })) } : {}
@@ -999,13 +999,13 @@ test('applying and removing a code use Shopify cart prices and preserve checkout
   const before = await fixture.commerce.addProduct('black', false);
   const applied = await fixture.commerce.applyDiscountCode('  LAUNCH10  ');
   assert.equal(applied.discountCodes[0].applicable, true);
-  assert.equal(applied.lines[0].lineTotal.amount, 135);
+  assert.equal(applied.lines[0].lineTotal.amount, 140);
   assert.equal(applied.checkoutUrl, before.checkoutUrl);
   assert.deepEqual(fixture.requests.find(item => item.query.includes('UpdateDiscountCodes')).variables,
     { cartId: before.id, discountCodes: ['LAUNCH10'] });
   const restored = await fixture.commerce.removeDiscountCode('launch10');
   assert.deepEqual(restored.discountCodes, []);
-  assert.equal(restored.lines[0].lineTotal.amount, 150);
+  assert.equal(restored.lines[0].lineTotal.amount, 155);
   assert.equal(restored.checkoutUrl, before.checkoutUrl);
   assert.deepEqual(fixture.requests.filter(item => item.query.includes('UpdateDiscountCodes')).at(-1).variables,
     { cartId: before.id, discountCodes: [] });
@@ -1017,8 +1017,8 @@ test('non-applicable code is retained as non-applicable without altering Shopify
   await fixture.commerce.addProduct('black', false);
   const cart = await fixture.commerce.applyDiscountCode('NOPE');
   assert.deepEqual(cart.discountCodes, [{ code: 'NOPE', applicable: false }]);
-  assert.equal(cart.lines[0].lineTotal.amount, 150);
-  assert.equal(cart.subtotal, 150);
+  assert.equal(cart.lines[0].lineTotal.amount, 155);
+  assert.equal(cart.subtotal, 155);
   assert.equal((await fixture.commerce.removeDiscountCode('NOPE')).discountCodes.length, 0);
 });
 
@@ -1029,10 +1029,10 @@ test('existing codes survive additions and removing one preserves the other', as
   await fixture.commerce.applyDiscountCode('LAUNCH10');
   const two = await fixture.commerce.applyDiscountCode('EXTRA');
   assert.deepEqual(two.discountCodes.map(item => item.code), ['LAUNCH10', 'EXTRA']);
-  assert.equal(two.lines[0].lineTotal.amount, 130);
+  assert.equal(two.lines[0].lineTotal.amount, 135);
   const one = await fixture.commerce.removeDiscountCode('launch10');
   assert.deepEqual(one.discountCodes.map(item => item.code), ['EXTRA']);
-  assert.equal(one.lines[0].lineTotal.amount, 145);
+  assert.equal(one.lines[0].lineTotal.amount, 150);
   const mutationVariables = fixture.requests.filter(item => item.query.includes('UpdateDiscountCodes')).map(item => item.variables.discountCodes);
   assert.deepEqual(mutationVariables, [['LAUNCH10'], ['LAUNCH10', 'EXTRA'], ['EXTRA']]);
 });
@@ -1058,7 +1058,7 @@ test('discount user errors and API failures are surfaced without invented saving
   await assert.rejects(fixture.commerce.applyDiscountCode('LAUNCH10'), /503/);
   fixture.setApiError(false);
   const cart = await fixture.commerce.getCart();
-  assert.equal(cart.subtotal, 150);
+  assert.equal(cart.subtotal, 155);
   assert.deepEqual(cart.discountCodes, []);
 });
 

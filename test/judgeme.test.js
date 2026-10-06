@@ -103,5 +103,5 @@ test('Add to Cart remains usable after Judge.me fails', async () => {
   const commerce = createLocalCommerce();
   const cart = await commerce.addProduct('black', false);
   assert.equal(cart.lines[0].productId, 'black');
-  assert.equal(cart.subtotal, 150);
+  assert.equal(cart.subtotal, 155);
 });

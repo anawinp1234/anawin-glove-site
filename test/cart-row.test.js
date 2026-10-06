@@ -18,10 +18,10 @@ const render = (line, child = null, incomplete = false) => renderCartRow({ produ
 
 test('cart row places Shopify entry totals in the right price rail', () => {
   for (const [line, child, expected] of [
-    [glove(1, 150), null, '$150'],
-    [glove(2, 300), null, '$300'],
-    [glove(1, 150), service(1, 20), '$170'],
-    [glove(2, 300), service(2, 40), '$340']
+    [glove(1, 155), null, '$155'],
+    [glove(2, 310), null, '$310'],
+    [glove(1, 155), service(1, 20), '$175'],
+    [glove(2, 310), service(2, 40), '$350']
   ]) {
     const html = render(line, child);
     assert.match(html, new RegExp(`<div class="cart-item-side"><strong class="cart-line-price">\\${expected}</strong>`));
@@ -30,22 +30,22 @@ test('cart row places Shopify entry totals in the right price rail', () => {
 });
 
 test('cart row price refreshes from confirmed quantity and service line totals', () => {
-  assert.match(render(glove(1, 150)), /cart-line-price">\$150/);
-  assert.match(render(glove(2, 300)), /cart-line-price">\$300/);
-  assert.match(render(glove(2, 300), service(2, 40)), /cart-line-price">\$340/);
-  assert.match(render(glove(1, 150), service(1, 20)), /cart-line-price">\$170/);
+  assert.match(render(glove(1, 155)), /cart-line-price">\$155/);
+  assert.match(render(glove(2, 310)), /cart-line-price">\$310/);
+  assert.match(render(glove(2, 310), service(2, 40)), /cart-line-price">\$350/);
+  assert.match(render(glove(1, 155), service(1, 20)), /cart-line-price">\$175/);
   assert.match(render(glove(1, 155.5), service(1, 24.25)), /cart-line-price">\$179\.75/);
 });
 
 test('quantity greater than one service controls name the one-glove action', () => {
-  assert.match(render(glove(2, 300)), />Add break-in to 1 <span>\+\$20<\/span><\/button>/);
-  assert.match(render(glove(2, 300), service(2, 40)), />Remove break-in from 1<\/button>/);
-  assert.match(render(glove(1, 150)), />Add Break-in service \+\$20<\/button>/);
-  assert.match(render(glove(1, 150), service(1, 20)), />Remove break-in<\/button>/);
+  assert.match(render(glove(2, 310)), />Add break-in to 1 <span>\+\$20<\/span><\/button>/);
+  assert.match(render(glove(2, 310), service(2, 40)), />Remove break-in from 1<\/button>/);
+  assert.match(render(glove(1, 155)), />Add Break-in service \+\$20<\/button>/);
+  assert.match(render(glove(1, 155), service(1, 20)), />Remove break-in<\/button>/);
 });
 
 test('cart row refuses a combined total with mismatched currencies', () => {
-  const html = render(glove(1, 150), service(1, 20, 'CAD'), true);
+  const html = render(glove(1, 155), service(1, 20, 'CAD'), true);
   assert.match(html, /cart-line-price">Price unavailable<\/strong>/);
   assert.match(html, /data-remove-service="glove-1"[^>]*disabled/);
 });
