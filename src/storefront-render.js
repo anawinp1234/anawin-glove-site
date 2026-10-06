@@ -42,9 +42,15 @@ function productImage(src, alt, sizes, loading) {
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${fullWidth}" height="${fullHeight}" loading="${loading}" /></picture>`;
 }
 
-function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '') {
+function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '', fetchPriority = '') {
   const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
-  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}" /></picture>`;
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}"${fetchPriority ? ` fetchpriority="${fetchPriority}"` : ''} /></picture>`;
+}
+
+function wordmark(sizes, loading = 'eager') {
+  const widths = [160, 320, 480, 960, 1193];
+  const srcset = widths.map(width => `/images/optimized/anawin-wordmark-${width}.webp ${width}w`).join(', ');
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="/images/anawin-wordmark.png" alt="ANAWIN" width="1193" height="141" loading="${loading}" /></picture>`;
 }
 export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
 const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
@@ -58,7 +64,7 @@ function header() {
     ? `<aside class="announcement-bar" aria-label="Store announcement"><p>${escapeHtml(announcement.message)}</p></aside>`
     : '';
   return `${announcementBar}<header class="site-header">
-    <a class="wordmark" href="/" data-link aria-label="ANAWIN home"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a>
+    <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
     <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
@@ -73,7 +79,7 @@ function commerceNotice() {
 }
 
 function footer() {
-  return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block"><img src="/images/anawin-wordmark.png" alt="ANAWIN" /></a></div><div class="footer-grid">
+  return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block">${wordmark('calc(100vw - 56px)', 'lazy')}</a></div><div class="footer-grid">
     <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
     <div><p class="eyebrow">Connect</p><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
     <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a></div>
@@ -145,9 +151,9 @@ function communitySection() {
 }
 
 function home() {
-  return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [640, 960, 1350], '(max-width: 760px) 150vw, 100vw', '', 1350, 1800, 'eager', 'hero-background')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
+  return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
-    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
+    ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><picture><source type="image/webp" srcset="/images/optimized/anawin-mark-240.webp 240w, /images/optimized/anawin-mark-480.webp 480w, /images/optimized/anawin-mark-860.webp 860w" sizes="(max-width: 760px) 55vw, min(38vw, 430px)"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></picture></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
     <section class="newsletter" aria-labelledby="newsletter-heading"><div class="newsletter-copy"><p class="eyebrow">ANAWIN / Email</p><h2 id="newsletter-heading">JOIN OUR<br>COMMUNITY</h2><p>Be the first to hear about new gloves, releases, and what’s next.</p></div>${newsletterFormMarkup('newsletter')}</section></main>`;
 }
 
