@@ -22,6 +22,8 @@ try {
   commerceError = `Shopify configuration error: ${error.message}`;
 }
 let products = [...localProducts];
+const mobileProductQuery = window.matchMedia('(max-width: 760px)');
+const mobileProductOrder = ['blue', 'brown', 'black'];
 let breakInService = localBreakInService;
 let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl: null };
 let commerceLoading = commerce.mode === 'shopify';
@@ -95,10 +97,30 @@ function fitHeroHeading() {
   }
 }
 
+function syncProductDisplayOrder() {
+  const order = mobileProductQuery.matches ? mobileProductOrder : products.map(product => product.id);
+  document.querySelectorAll('.product-grid, .model-switcher-options, .other-gloves-grid').forEach(container => {
+    const nodes = [...container.children];
+    const sorted = [...nodes].sort((first, second) => order.indexOf(first.dataset.product) - order.indexOf(second.dataset.product));
+    if (sorted.some((node, index) => node !== nodes[index])) {
+      const focused = container.contains(document.activeElement) ? document.activeElement : null;
+      container.append(...sorted);
+      focused?.focus({ preventScroll: true });
+    }
+    if (container.classList.contains('product-grid')) {
+      sorted.forEach((card, index) => {
+        card.style.setProperty('--delay', `${index * 80}ms`);
+        if (container.closest('.shop-products')) card.querySelector('img').loading = index === 0 ? 'eager' : 'lazy';
+      });
+    }
+  });
+}
+
 function render() {
   const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, cartCount, reviewData });
   updateSeo(document, location.pathname);
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  syncProductDisplayOrder();
   fitHeroHeading(); bind(); window.scrollTo(0, 0);
 }
 function refreshReviewMarkup() {
@@ -442,6 +464,7 @@ document.addEventListener('click', event => {
 window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
 });
+mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
 window.addEventListener('popstate', () => { render(); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
 boot();
