@@ -35,11 +35,14 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
 test('prerendered shipping copy covers five destinations while cart totals remain before shipping', () => {
   const shipping = htmlFor('/shipping');
   assert.match(shipping, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
-  assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea\./);
+  assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea\. International shipping rates are calculated at checkout\./);
   assert.match(shipping, /Standard Shipping — FREE/);
+  assert.match(shipping, /International shipping rates and available services are calculated at checkout based on destination and shipping method\./);
+  assert.doesNotMatch(shipping, /\$\d+|Express Shipping —/);
   for (const product of localProducts) {
     const html = htmlFor(productPath(product));
     assert.match(html, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(html, /International rates are calculated at checkout\./);
     assert.match(html, /Free U\.S\. standard shipping\./);
   }
   assert.match(htmlFor('/'), /FREE U\.S\. SHIPPING ON ALL ORDERS\./);

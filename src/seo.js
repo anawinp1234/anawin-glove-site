@@ -57,7 +57,7 @@ export const seoRoutes = Object.freeze({
   },
   '/shipping': {
     title: 'Shipping Policy | ANAWIN',
-    description: 'ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea. View standard and express shipping rates.',
+    description: 'ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea. International shipping rates are calculated at checkout.',
     image: homeImage,
     type: 'website'
   },

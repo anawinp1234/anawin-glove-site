@@ -42,25 +42,17 @@ test('PDPs show price before fixed facts and link purchase policies near the CTA
   }
 });
 
-test('Shipping Policy lists all five destinations and their stated rates', () => {
+test('Shipping Policy lists all five destinations without fixed international rates', () => {
   const html = createStorefrontRenderer({ products: localProducts, breakInService }).route('/shipping');
   assert.match(html, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
-  const rates = {
-    'United States': ['Standard Shipping — FREE'],
-    Canada: ['Standard Shipping — $15 USD', 'Express Shipping — $30 USD'],
-    Australia: ['Standard Shipping — $25 USD', 'Express Shipping — $45 USD'],
-    Japan: ['Standard Shipping — $20 USD', 'Express Shipping — $40 USD'],
-    'South Korea': ['Standard Shipping — $20 USD', 'Express Shipping — $40 USD']
-  };
-  for (const [country, services] of Object.entries(rates)) {
-    const section = html.match(new RegExp(`<section><h2>${country}</h2>(.*?)</section>`))?.[1];
-    assert.ok(section, country);
-    for (const service of services) assert.ok(section.includes(`<p>${service}</p>`), `${country}: ${service}`);
-  }
+  assert.match(html, /<section><h2>United States<\/h2><p>Standard Shipping — FREE<\/p><\/section>/);
+  assert.match(html, /<section><h2>Canada, Australia, Japan &amp; South Korea<\/h2><p>International shipping rates and available services are calculated at checkout based on destination and shipping method\.<\/p><\/section>/);
+  assert.doesNotMatch(html, /\$\d+|Express Shipping —/);
   assert.match(html, /Orders without Break-In Service are processed within 1–3 business days\./);
   assert.match(html, /Orders that include Break-In Service require an additional 2–5 business days of processing before shipment\./);
   assert.match(html, /U\.S\. standard shipping is typically delivered in 3–7 business days after shipment\./);
-  assert.match(html, /International delivery times vary by destination and shipping method\. Available delivery estimates are shown at checkout\./);
+  assert.match(html, /International delivery times vary by destination and shipping service\. Available transit estimates are shown at checkout\./);
+  assert.doesNotMatch(html, /International delivery[^<]*3–7 business days/);
   assert.match(html, /Applicable duties, taxes, and import charges are shown at checkout when available\./);
   assert.doesNotMatch(html, /ships? (?:within|to) (?:the )?United States only|ships? to the U\.S\. and Canada\./i);
 });
@@ -72,6 +64,7 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     assert.ok(accordion, product.name);
     assert.match(accordion, /Free U\.S\. standard shipping\./);
     assert.match(accordion, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(accordion, /International rates are calculated at checkout\./);
     assert.match(accordion, /Orders process in 1–3 business days; Break-In Service adds 2–5 business days\./);
     assert.match(accordion, /U\.S\. standard delivery is typically 3–7 business days after shipment\./);
     assert.match(accordion, /Eligible returns are accepted within 30 days of delivery\./);
