@@ -275,8 +275,8 @@ test('adds a glove without service using Shopify price and checkout', async () =
   const product = (await commerce.listProducts()).find(item => item.id === 'black');
   assert.equal(product.throwingHand, 'Right');
   assert.equal(product.wornOnHand, 'Left');
-  assert.equal(product.accentColor, localProducts[0].accentColor);
-  assert.equal(product.accentBackground, localProducts[0].accentBackground);
+  assert.equal(product.accentColor, localProducts.find(item => item.id === 'black').accentColor);
+  assert.equal(product.accentBackground, localProducts.find(item => item.id === 'black').accentBackground);
   assert.equal(product.shopifyProductGid, 'gid://product/br16');
   const cart = await commerce.addProduct('black', false);
   assert.equal(cart.subtotal, 155);
@@ -289,7 +289,8 @@ test('adds a glove without service using Shopify price and checkout', async () =
 test('adds a native nested Break-in line and restores its parent relationship', async () => {
   const { commerce, storage, requests, restore } = shopifyFixture();
   const products = await commerce.listProducts();
-  assert.equal(products[0].merchandiseId, 'gid://variant/br16');
+  assert.deepEqual(products.map(product => product.id), ['brown', 'blue', 'black']);
+  assert.equal(products.find(product => product.id === 'black').merchandiseId, 'gid://variant/br16');
   assert.equal((await commerce.getBreakInService()).price, 20);
   const cart = await commerce.addProduct('black', true);
   assert.equal(cart.subtotal, 175);

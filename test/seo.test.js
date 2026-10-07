@@ -32,7 +32,7 @@ test('generic source HTML has no homepage canonical or og:url', () => {
 });
 
 test('route lookup accepts one trailing slash but rejects invalid product subpaths', () => {
-  assert.deepEqual(localProducts.map(productPath), ['/product/br16', '/product/ob16', '/product/cl16']);
+  assert.deepEqual(localProducts.map(productPath), ['/product/cl16', '/product/ob16', '/product/br16']);
   assert.equal(normalizePath('/product/br16/'), '/product/br16');
   assert.equal(routeMetadata('/product/br16/'), routeMetadata('/product/br16'));
   for (const path of ['/product/black', '/product/blue', '/product/brown', '/product/br16/anything', '/product/unknown', '/missing', '/toString', '/__proto__']) {
