@@ -309,6 +309,7 @@ body.lightbox-open{overflow:hidden}
 @media(max-width:760px){
   .policy-page{padding:64px 16px 90px}
   .policy-page h1{font-size:clamp(44px,12vw,72px);margin-bottom:48px}
+  .shipping-policy h1{font-size:clamp(32px,9vw,72px)}
   .policy-page h2{font-size:26px}
 }
 

@@ -57,7 +57,7 @@ export const seoRoutes = Object.freeze({
   },
   '/shipping': {
     title: 'Shipping Policy | ANAWIN',
-    description: 'Free standard shipping on all U.S. orders. Read ANAWIN processing times, delivery estimates, and tracking information.',
+    description: 'ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea. View standard and express shipping rates.',
     image: homeImage,
     type: 'website'
   },

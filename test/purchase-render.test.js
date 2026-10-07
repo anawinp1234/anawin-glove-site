@@ -42,13 +42,27 @@ test('PDPs show price before fixed facts and link purchase policies near the CTA
   }
 });
 
-test('Shipping Policy states free standard shipping for U.S. orders and delivery timing', () => {
+test('Shipping Policy lists all five destinations and their stated rates', () => {
   const html = createStorefrontRenderer({ products: localProducts, breakInService }).route('/shipping');
-  assert.match(html, /Free standard shipping on all U\.S\. orders\./);
+  assert.match(html, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
+  const rates = {
+    'United States': ['Standard Shipping — FREE'],
+    Canada: ['Standard Shipping — $15 USD', 'Express Shipping — $30 USD'],
+    Australia: ['Standard Shipping — $25 USD', 'Express Shipping — $45 USD'],
+    Japan: ['Standard Shipping — $20 USD', 'Express Shipping — $40 USD'],
+    'South Korea': ['Standard Shipping — $20 USD', 'Express Shipping — $40 USD']
+  };
+  for (const [country, services] of Object.entries(rates)) {
+    const section = html.match(new RegExp(`<section><h2>${country}</h2>(.*?)</section>`))?.[1];
+    assert.ok(section, country);
+    for (const service of services) assert.ok(section.includes(`<p>${service}</p>`), `${country}: ${service}`);
+  }
   assert.match(html, /Orders without Break-In Service are processed within 1–3 business days\./);
   assert.match(html, /Orders that include Break-In Service require an additional 2–5 business days of processing before shipment\./);
-  assert.match(html, /After an order ships, estimated delivery is typically 3–7 business days\./);
-  assert.doesNotMatch(html, /shipping costs are calculated at checkout/i);
+  assert.match(html, /U\.S\. standard shipping is typically delivered in 3–7 business days after shipment\./);
+  assert.match(html, /International delivery times vary by destination and shipping method\. Available delivery estimates are shown at checkout\./);
+  assert.match(html, /Applicable duties, taxes, and import charges are shown at checkout when available\./);
+  assert.doesNotMatch(html, /ships? (?:within|to) (?:the )?United States only|ships? to the U\.S\. and Canada\./i);
 });
 
 test('all PDP shipping accordions retain timing and returns with the confirmed rates', () => {
@@ -56,10 +70,11 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     const html = renderProduct(product);
     const accordion = html.match(/<details><summary>Shipping & returns .*?<\/details>/)?.[0];
     assert.ok(accordion, product.name);
-    assert.match(accordion, /Standard orders process in 1–3 business days\. Break-In Service adds 2–5 business days\./);
-    assert.match(accordion, /Free standard shipping on all U\.S\. orders\./);
-    assert.match(accordion, /Estimated delivery is 3–7 business days after shipment\./);
-    assert.match(accordion, /Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label\./);
-    assert.doesNotMatch(accordion, /shipping is calculated at checkout/i);
+    assert.match(accordion, /Free U\.S\. standard shipping\./);
+    assert.match(accordion, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(accordion, /Orders process in 1–3 business days; Break-In Service adds 2–5 business days\./);
+    assert.match(accordion, /U\.S\. standard delivery is typically 3–7 business days after shipment\./);
+    assert.match(accordion, /Eligible returns are accepted within 30 days of delivery\./);
+    assert.match(accordion, /Prepaid return labels are provided for eligible U\.S\. returns\./);
   }
 });

@@ -180,7 +180,7 @@ function productPage(product) {
       <section class="product-details" aria-labelledby="product-details-heading"><h2 id="product-details-heading">The details</h2><dl class="product-specs"><div><dt>Size</dt><dd>10.25 Inches</dd></div><div><dt>Leather</dt><dd>US Steerhide Leather</dd></div><div><dt>Features</dt><dd>Double Finger Pad</dd></div><div><dt>Thumb</dt><dd>Sheepskin Thumb Sleeve</dd></div></dl></section>
       <details><summary>Product information <span class="accordion-indicator" aria-hidden="true"></span></summary><p>A 10.25-inch training glove designed for focused glove-work practice. Its compact size gives players a smaller training platform than a standard game glove.</p></details>
       <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
-      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Standard orders process in 1–3 business days. Break-In Service adds 2–5 business days. Free standard shipping on all U.S. orders. Estimated delivery is 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery, and ANAWIN provides a prepaid return label.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
+      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Free U.S. standard shipping. International shipping is available to Canada, Australia, Japan, and South Korea. Orders process in 1–3 business days; Break-In Service adds 2–5 business days. U.S. standard delivery is typically 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery. Prepaid return labels are provided for eligible U.S. returns.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
       <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(warrantyParagraphs[0])}</p><div class="pdp-policy-links"><a href="/warranty" data-link>Full Warranty</a></div></details>
     </aside></div>${productReviewsSection(product)}${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="${productPath(other)}" data-link>${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
 }
@@ -205,11 +205,16 @@ function about() {
 }
 
 function shippingPolicy() {
-  return `<main class="policy-page"><h1>Shipping Policy</h1>
+  return `<main class="policy-page shipping-policy"><h1>Shipping Policy</h1>
+    <p>We currently ship to the United States, Canada, Australia, Japan, and South Korea.</p>
+    <section><h2>United States</h2><p>Standard Shipping — FREE</p></section>
+    <section><h2>Canada</h2><p>Standard Shipping — $15 USD</p><p>Express Shipping — $30 USD</p></section>
+    <section><h2>Australia</h2><p>Standard Shipping — $25 USD</p><p>Express Shipping — $45 USD</p></section>
+    <section><h2>Japan</h2><p>Standard Shipping — $20 USD</p><p>Express Shipping — $40 USD</p></section>
+    <section><h2>South Korea</h2><p>Standard Shipping — $20 USD</p><p>Express Shipping — $40 USD</p></section>
     <section><h2>Processing Times</h2><p>Orders without Break-In Service are processed within 1–3 business days.</p><p>Orders that include Break-In Service require an additional 2–5 business days of processing before shipment.</p><p>Business days exclude weekends and holidays.</p></section>
-    <section><h2>Shipping Area</h2><p>ANAWIN currently ships within the United States only.</p></section>
-    <section><h2>Shipping Rates</h2><p>Free standard shipping on all U.S. orders.</p></section>
-    <section><h2>Delivery Estimates</h2><p>After an order ships, estimated delivery is typically 3–7 business days.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
+    <section><h2>Delivery Estimates</h2><p>U.S. standard shipping is typically delivered in 3–7 business days after shipment.</p><p>International delivery times vary by destination and shipping method. Available delivery estimates are shown at checkout.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
+    <section><h2>International Orders</h2><p>International shipping rates and available services are shown at checkout. Applicable duties, taxes, and import charges are shown at checkout when available.</p></section>
     <section><h2>Tracking</h2><p>When available, tracking information will be provided after the order ships.</p></section>
     <section><h2>Incorrect or Damaged Orders</h2><p>If an order arrives damaged, defective, or incorrect, email <a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a> as soon as possible so the issue can be reviewed and resolved.</p></section>
   </main>`;

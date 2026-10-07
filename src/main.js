@@ -76,7 +76,7 @@ function cartDrawer() {
       product, line, service, mode: commerce.mode, serviceProduct: breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, money, escapeHtml)}<p>Free standard shipping on all U.S. orders. Taxes are calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, money, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {

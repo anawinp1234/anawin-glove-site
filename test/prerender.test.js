@@ -32,20 +32,25 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
   }
 });
 
-test('prerendered shipping pages and the cart bundle restrict free shipping to U.S. orders', () => {
+test('prerendered shipping copy covers five destinations while cart totals remain before shipping', () => {
   const shipping = htmlFor('/shipping');
-  assert.match(shipping, /Free standard shipping on all U\.S\. orders\./);
-  assert.match(shipping, /<meta name="description" content="Free standard shipping on all U\.S\. orders\./);
+  assert.match(shipping, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
+  assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea\./);
+  assert.match(shipping, /Standard Shipping — FREE/);
   for (const product of localProducts) {
     const html = htmlFor(productPath(product));
-    assert.match(html, /Free standard shipping on all U\.S\. orders\./);
-    assert.doesNotMatch(html, /U\.S\. shipping is calculated at checkout/i);
+    assert.match(html, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(html, /Free U\.S\. standard shipping\./);
   }
+  assert.match(htmlFor('/'), /FREE U\.S\. SHIPPING ON ALL ORDERS\./);
   const bundles = readdirSync(join(root, 'dist/assets')).filter(name => /^index-.*\.js$/.test(name));
   assert.equal(bundles.length, 1);
   const bundle = read(`dist/assets/${bundles[0]}`);
-  assert.match(bundle, /<p>Free standard shipping on all U\.S\. orders\. Taxes are calculated at checkout\.<\/p>/);
-  assert.doesNotMatch(bundle, /U\.S\. shipping is calculated at checkout|shipping costs are calculated at checkout|Taxes and shipping calculated at checkout/i);
+  assert.match(bundle, /<p>Free U\.S\. standard shipping\. Shipping options and rates are shown at checkout\. Taxes are calculated at checkout\.<\/p>/);
+  assert.match(bundle, /Total before shipping\/tax/);
+  for (const html of [htmlFor('/'), shipping, ...localProducts.map(product => htmlFor(productPath(product))), bundle]) {
+    assert.doesNotMatch(html, /\$9(?:\.00)?\s*(?:U\.S\.)?\s*shipping|\$10(?:\.00)?\s*(?:U\.S\.)?\s*shipping|free shipping over \$225|(?:ships?|shipping) (?:within|to) (?:the )?(?:U\.S\.|United States) only/i);
+  }
 });
 
 test('every prerendered footer links to the exact published legal policies', () => {
