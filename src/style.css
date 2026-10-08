@@ -475,6 +475,17 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
   .product-details{margin-top:30px}
 }
 
+/* Mobile purchase control shares the product's established colors and purchase state. */
+.mobile-purchase{display:none}
+.mobile-purchase[hidden],body.cart-open .mobile-purchase,body.lightbox-open .mobile-purchase{display:none!important}
+@media(max-width:760px){
+  .mobile-purchase:not([hidden]){position:fixed;inset:auto 0 0;z-index:20;display:grid;grid-template-columns:minmax(72px,auto) minmax(0,1fr);align-items:center;gap:12px;padding:11px max(16px,env(safe-area-inset-right)) calc(11px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));border-top:1px solid var(--line);background:var(--white)}
+  .mobile-purchase-price{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mobile-purchase button{min-height:48px;width:100%;border:0;background:var(--sticky-accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;cursor:pointer}
+  .mobile-purchase button:disabled{cursor:not-allowed}
+  .mobile-purchase button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+}
+
 @media(max-width:360px){
   .pdp-info h1{font-size:19vw}
   .pdp-colorway-detail{align-items:flex-start}
