@@ -8,9 +8,11 @@ import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSecti
 import { normalizePath, productPath, routeMetadata } from './seo.js';
 import { stickyPurchaseAccent } from './sticky-purchase.js';
 
-export const money = (value, currency = 'USD') => new Intl.NumberFormat('en-US', {
-  style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
+const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberFormat('en-US', {
+  style: 'currency', currency, minimumFractionDigits, maximumFractionDigits: 2
 }).format(value);
+export const money = (value, currency = 'USD') => formatMoney(value, currency, 0);
+export const cartMoney = (value, currency = 'USD') => formatMoney(value, currency, 2);
 export const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
 const policyParagraphs = paragraphs => paragraphs.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('');
 const policyList = items => `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
