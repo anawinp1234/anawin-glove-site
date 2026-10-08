@@ -16,6 +16,8 @@ import { bindNewsletterForm } from './newsletter-form.js';
 import { createNewsletterPopupController, installNewsletterDialog } from './newsletter-popup.js';
 import { createJudgeMeService, shopifyProductId } from './judgeme.js';
 import { productReviewLinks } from './review-links.js';
+import { createStickyPurchase } from './sticky-purchase.js';
+import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -54,6 +56,7 @@ const newsletterSignup = createNewsletterSignup();
 let newsletterPopup = null;
 let newsletterDialog = null;
 let newsletterPopupUi = null;
+let stickyPurchase = null;
 const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
 let judgeMeReviewLinks = productReviewLinks(products);
 const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
@@ -128,6 +131,8 @@ function syncProductDisplayOrder() {
 }
 
 function render() {
+  stickyPurchase?.destroy();
+  stickyPurchase = null;
   const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
@@ -135,6 +140,14 @@ function render() {
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
   fitHeroHeading(); bind(); window.scrollTo(0, 0);
+  stickyPurchase = createStickyPurchase({
+    bar: document.querySelector('[data-sticky-purchase]'),
+    original: document.querySelector('[data-add]'),
+    purchaseArea: document.querySelector('.pdp-main'),
+    nav: document.querySelector('#mobile-menu'),
+    blocked: () => cartIsOpen || cartBusy,
+    onActivate: (trigger, source) => addProductFromButton(source.dataset.add, trigger)
+  });
 }
 function refreshReviewMarkup() {
   const views = createStorefrontRenderer({ products, breakInService, reviewData });
@@ -202,6 +215,7 @@ function navigate(path) { history.pushState({}, '', path); render(); loadReviews
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
   cartIsOpen = true;
+  stickyPurchase?.refresh();
   clearTimeout(cartCloseTimer);
   document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
   document.body.insertAdjacentHTML('beforeend', cartDrawer());
@@ -215,9 +229,18 @@ function closeCart() {
   cartIsOpen = false;
   document.body.classList.remove('cart-open');
   app.inert = Boolean(lightboxOverlay);
+  stickyPurchase?.refresh();
   const opener = cartReturnFocus;
   cartReturnFocus = null;
-  (opener?.isConnected && !opener.closest('[hidden]') ? opener : document.querySelector('.cart-trigger'))?.focus();
+  const heading = document.querySelector('main h1');
+  if (heading) heading.tabIndex = -1;
+  const cartTrigger = document.querySelector('.cart-trigger');
+  const menuToggle = document.querySelector('.mobile-menu-toggle');
+  restoreFocusWithVisibleFallback([opener, stickyPurchase?.button, document.querySelector('[data-add]'), cartTrigger, menuToggle, heading],
+    [cartTrigger, menuToggle, heading], () => {
+      headerHidden = false;
+      document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
+    });
   clearTimeout(cartCloseTimer);
   cartCloseTimer = setTimeout(() => {
     if (cartIsOpen) return;
@@ -286,6 +309,11 @@ async function cartAction(action, opener = null, kind = 'cart') {
     }
     finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
   });
+}
+
+function addProductFromButton(productId, trigger) {
+  const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
+  return cartAction(() => commerce.addProduct(productId, includeBreakIn), trigger, 'add');
 }
 
 async function discountAction(action, code = '', removingCode = '') {
@@ -416,8 +444,9 @@ function bind() {
     event.preventDefault();
     const fromMobileMenu = Boolean(element.closest('.mobile-nav'));
     const fromFooter = Boolean(element.closest('footer'));
+    const fromProductSwitcher = Boolean(element.closest('.model-switcher'));
     closeMobileMenu(); closeCart(); navigate(element.getAttribute('href'));
-    if (fromMobileMenu || fromFooter) {
+    if (fromMobileMenu || fromFooter || fromProductSwitcher) {
       const heading = document.querySelector('main h1');
       if (heading) { heading.tabIndex = -1; heading.focus(); }
     }
@@ -449,10 +478,8 @@ function bind() {
     const serviceDelay = document.querySelector('[data-service-delay]');
     if (serviceDelay) serviceDelay.hidden = !serviceCheckbox.checked;
   });
-  document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
-    const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
-    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn), element, 'add');
-  }));
+  document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', () =>
+    addProductFromButton(element.dataset.add, element)));
   document.querySelectorAll('[data-image]').forEach(element => element.addEventListener('click', () => {
     lightboxReturnFocus = element;
     lightboxOverlay = document.createElement('div');
