@@ -36,6 +36,55 @@ test('checkout blocks an unsafe cart marked by another tab', async () => {
   assert.equal(result.checkoutUrl, undefined);
 });
 
+test('an unchanged cart uses the latest Shopify checkout URL on the first click', async () => {
+  const displayed = cart();
+  const verified = { ...displayed, checkoutUrl: `${displayed.checkoutUrl}?fresh=1` };
+  const state = { ...safety(displayed.id), revision: 'initial' };
+  const verify = createCheckoutVerifier({ getCart: async () => verified, readSafety: () => state });
+  const result = await verify(displayed);
+  assert.equal(result.status, 'ready');
+  assert.equal(result.checkoutUrl, verified.checkoutUrl);
+  assert.equal(result.revision, 'initial');
+});
+
+test('rotating Shopify checkout URLs never cause a review loop', async () => {
+  const displayed = cart();
+  let reads = 0;
+  const verify = createCheckoutVerifier({ getCart: async () => ({
+    ...displayed, checkoutUrl: `${displayed.checkoutUrl}?fresh=${++reads}`
+  }), readSafety: () => ({ ...safety(displayed.id), revision: 'stable' }) });
+  for (let click = 1; click <= 3; click++) {
+    const result = await verify(displayed);
+    assert.equal(result.status, 'ready');
+    assert.match(result.checkoutUrl, new RegExp(`fresh=${click}$`));
+  }
+  assert.equal(reads, 3);
+});
+
+test('a changed cart can be reviewed once while Shopify rotates its checkout URL', async () => {
+  const displayed = cart();
+  const changed = cart(displayed.id, [glove('line-1', 2)]);
+  let reads = 0;
+  const verify = createCheckoutVerifier({ getCart: async () => ({
+    ...changed, checkoutUrl: `${changed.checkoutUrl}?fresh=${++reads}`
+  }), readSafety: () => safety(changed.id) });
+  const review = await verify(displayed);
+  assert.equal(review.status, 'review');
+  assert.equal(review.cart.lines[0].quantity, 2);
+  const ready = await verify(review.cart);
+  assert.equal(ready.status, 'ready');
+  assert.match(ready.checkoutUrl, /fresh=2$/);
+});
+
+test('an unresolved mutation blocks checkout even when Shopify returns complete lines', async () => {
+  const displayed = cart();
+  const state = { ...safety(displayed.id), pendingCartId: displayed.id };
+  const verify = createCheckoutVerifier({ getCart: async () => displayed, readSafety: () => state });
+  const result = await verify(displayed);
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.checkoutUrl, undefined);
+});
+
 test('a cart marked unsafe during verification never returns a checkout URL', async () => {
   const displayed = cart();
   const state = safety(displayed.id);
@@ -101,6 +150,29 @@ test('a same-cart quantity change during verification triggers a fresh read and 
   assert.equal(calls, 2);
   assert.equal(result.status, 'review');
   assert.equal(result.cart.lines[0].quantity, 2);
+});
+
+test('a cross-tab revision change after verification forces a fresh cart read', async () => {
+  const displayed = cart();
+  const updated = cart(displayed.id, [glove('line-1', 2)]);
+  let safetyReads = 0;
+  let cartReads = 0;
+  const verify = createCheckoutVerifier({ getCart: async () => ++cartReads === 1 ? displayed : updated,
+    readSafety: () => ({ ...safety(displayed.id), revision: ++safetyReads >= 3 ? 'changed' : 'initial' }) });
+  const result = await verify(displayed);
+  assert.equal(cartReads, 2);
+  assert.equal(result.status, 'review');
+  assert.equal(result.cart.lines[0].quantity, 2);
+  assert.equal(result.checkoutUrl, undefined);
+});
+
+test('Shopify verification failure reports a retryable error', async () => {
+  const displayed = cart();
+  const verify = createCheckoutVerifier({ getCart: async () => { throw new Error('network unavailable'); },
+    readSafety: () => safety(displayed.id) });
+  const result = await verify(displayed);
+  assert.equal(result.status, 'blocked');
+  assert.match(result.message, /Couldn’t check your cart with Shopify/);
 });
 
 test('changed glove quantity or Break-In association requires another explicit click', async () => {

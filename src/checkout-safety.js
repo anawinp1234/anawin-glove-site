@@ -1,7 +1,7 @@
 function cartSignature(cart) {
+  // Shopify can refresh checkoutUrl on a read; compare purchasable state instead.
   return JSON.stringify({
     id: cart.id,
-    checkoutUrl: cart.checkoutUrl,
     subtotal: cart.subtotal,
     currencyCode: cart.currencyCode,
     discountCodes: cart.discountCodes,

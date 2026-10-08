@@ -355,6 +355,26 @@ test('same-cart Shopify mutations publish a cross-tab revision signal', async ()
   assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), first.id);
 });
 
+test('read-only Shopify cart verification preserves revision and glove relationships', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const added = await fixture.commerce.addProduct('blue', true);
+  const revision = fixture.commerce.readCartSafety().revision;
+  const mutationCount = fixture.requests.filter(request => /mutation\s/.test(request.query)).length;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const checked = await fixture.commerce.getCart();
+    const glove = checked.lines.find(line => !line.isBreakIn);
+    const service = checked.lines.find(line => line.isBreakIn);
+    assert.equal(glove.quantity, 1);
+    assert.equal(service.quantity, glove.quantity);
+    assert.equal(service.parentLineId, glove.remoteLineId);
+    assert.equal(checked.incomplete, false);
+    assert.equal(fixture.commerce.readCartSafety().revision, revision);
+  }
+  assert.equal(added.lines.length, 2);
+  assert.equal(fixture.requests.filter(request => /mutation\s/.test(request.query)).length, mutationCount);
+});
+
 test('failed first cart creation keeps the cart empty and a deliberate retry adds one glove', async () => {
   const fixture = shopifyFixture();
   await fixture.commerce.listProducts();
