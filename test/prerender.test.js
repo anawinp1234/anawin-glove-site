@@ -32,16 +32,16 @@ test('all 11 public routes have complete raw HTML and unique route metadata', ()
   }
 });
 
-test('prerendered shipping copy covers five destinations while cart totals remain before shipping', () => {
+test('prerendered shipping copy covers seven destinations while cart totals remain before shipping', () => {
   const shipping = htmlFor('/shipping');
-  assert.match(shipping, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
-  assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, and South Korea\. International shipping rates are calculated at checkout\./);
+  assert.match(shipping, /We currently ship to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
+  assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines\. International shipping rates are calculated at checkout\./);
   assert.match(shipping, /Standard Shipping — FREE/);
   assert.match(shipping, /International shipping rates and available services are calculated at checkout based on destination and shipping method\./);
   assert.doesNotMatch(shipping, /\$\d+|Express Shipping —/);
   for (const product of localProducts) {
     const html = htmlFor(productPath(product));
-    assert.match(html, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(html, /International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
     assert.match(html, /International rates are calculated at checkout\./);
     assert.match(html, /Free U\.S\. standard shipping\./);
   }
@@ -50,6 +50,8 @@ test('prerendered shipping copy covers five destinations while cart totals remai
   assert.equal(bundles.length, 1);
   const bundle = read(`dist/assets/${bundles[0]}`);
   assert.match(bundle, /<p>Free U\.S\. standard shipping\. Shipping options and rates are shown at checkout\. Taxes are calculated at checkout\.<\/p>/);
+  assert.match(bundle, /Shipping options and rates are shown at checkout\./);
+  assert.match(bundle, /Taxes are calculated at checkout\./);
   assert.match(bundle, /Total before shipping\/tax/);
   for (const html of [htmlFor('/'), shipping, ...localProducts.map(product => htmlFor(productPath(product))), bundle]) {
     assert.doesNotMatch(html, /\$9(?:\.00)?\s*(?:U\.S\.)?\s*shipping|\$10(?:\.00)?\s*(?:U\.S\.)?\s*shipping|free shipping over \$225|(?:ships?|shipping) (?:within|to) (?:the )?(?:U\.S\.|United States) only/i);

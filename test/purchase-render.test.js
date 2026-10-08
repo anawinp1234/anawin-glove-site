@@ -42,14 +42,14 @@ test('PDPs show price before fixed facts and link purchase policies near the CTA
   }
 });
 
-test('Shipping Policy lists all five destinations without fixed international rates', () => {
+test('Shipping Policy lists all seven destinations without fixed international rates', () => {
   const html = createStorefrontRenderer({ products: localProducts, breakInService }).route('/shipping');
-  assert.match(html, /We currently ship to the United States, Canada, Australia, Japan, and South Korea\./);
+  assert.match(html, /We currently ship to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
   assert.match(html, /<section><h2>United States<\/h2><p>Standard Shipping — FREE<\/p><\/section>/);
-  assert.match(html, /<section><h2>Canada, Australia, Japan &amp; South Korea<\/h2><p>International shipping rates and available services are calculated at checkout based on destination and shipping method\.<\/p><\/section>/);
+  assert.match(html, /<section><h2>Canada, Australia, Japan, South Korea, Mexico &amp; the Philippines<\/h2><p>International shipping rates and available services are calculated at checkout based on destination and shipping method\.<\/p><\/section>/);
   assert.doesNotMatch(html, /\$\d+|Express Shipping —/);
-  assert.match(html, /Orders without Break-In Service are processed within 1–3 business days\./);
-  assert.match(html, /Orders that include Break-In Service require an additional 2–5 business days of processing before shipment\./);
+  assert.match(html, /Orders are processed within 1–3 business days\./);
+  assert.match(html, /Break-In Service adds 2–5 business days\./);
   assert.match(html, /U\.S\. standard shipping is typically delivered in 3–7 business days after shipment\./);
   assert.match(html, /International delivery times vary by destination and shipping service\. Available transit estimates are shown at checkout\./);
   assert.doesNotMatch(html, /International delivery[^<]*3–7 business days/);
@@ -63,7 +63,7 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     const accordion = html.match(/<details><summary>Shipping & returns .*?<\/details>/)?.[0];
     assert.ok(accordion, product.name);
     assert.match(accordion, /Free U\.S\. standard shipping\./);
-    assert.match(accordion, /International shipping is available to Canada, Australia, Japan, and South Korea\./);
+    assert.match(accordion, /International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
     assert.match(accordion, /International rates are calculated at checkout\./);
     assert.match(accordion, /Orders process in 1–3 business days; Break-In Service adds 2–5 business days\./);
     assert.match(accordion, /U\.S\. standard delivery is typically 3–7 business days after shipment\./);

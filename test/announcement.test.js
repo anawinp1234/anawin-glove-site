@@ -12,6 +12,7 @@ const renderer = config => createStorefrontRenderer({
 
 test('the free-shipping announcement appears above the header when enabled', () => {
   const html = renderer(announcement).header();
+  assert.equal(announcement.message, 'FREE U.S. SHIPPING ON ALL ORDERS.');
   assert.ok(html.startsWith('<aside class="announcement-bar"'));
   assert.match(html, /<aside class="announcement-bar" aria-label="Store announcement"><p>FREE U\.S\. SHIPPING ON ALL ORDERS\.<\/p><\/aside>/);
   assert.ok(html.indexOf(announcement.message) < html.indexOf('<header class="site-header">'));

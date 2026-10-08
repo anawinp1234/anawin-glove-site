@@ -36,6 +36,7 @@ test('no discount keeps the original subtotal and line price', () => {
   const value = cart([glove()], 155);
   assert.match(totals(value), /<span>Subtotal<\/span><strong>\$155<\/strong>/);
   assert.doesNotMatch(totals(value), /applied|Discount \(|cart-final-total/);
+  assert.equal(totals(value), '<div class="cart-total-row"><span>Subtotal</span><strong>$155</strong></div>');
   assert.match(row(value.lines[0]), /cart-line-price">\$155/);
   assert.doesNotMatch(row(value.lines[0]), /cart-line-original/);
 });
