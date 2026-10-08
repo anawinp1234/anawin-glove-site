@@ -3,8 +3,33 @@ import { codeKey, discountCodeList } from './cart-discounts.js';
 
 const LOCAL_CART_KEY = 'anawin-cart';
 const SHOPIFY_CART_KEY = 'anawin-shopify-cart-id';
+const CART_REVISION_KEY = 'anawin-shopify-cart-revision';
 const SERVICE_ATTRIBUTE = '_anawin_service';
 const UNSAFE_CART_KEY = 'anawin-shopify-unsafe-cart-id';
+const PENDING_MUTATION_KEY = 'anawin-shopify-pending-mutation';
+const LEGACY_PENDING_ADD_KEY = 'anawin-shopify-pending-addition';
+const REQUEST_TIMEOUT_MS = 10000;
+
+export class ShopifyRequestError extends Error {
+  constructor(message, code, cause) {
+    super(message, { cause });
+    this.name = 'ShopifyRequestError';
+    this.code = code;
+  }
+}
+
+export function commerceErrorMessage(error, action = 'connect') {
+  if (error?.code === 'uncertain') return 'We could not confirm your cart update. Check your cart before trying again.';
+  if (error?.code === 'uncertain-create') return 'We could not confirm the new cart. Check your cart, then try adding again.';
+  if (error?.code === 'timeout') return 'Shopify is taking too long to respond. Please try again.';
+  if (error?.code === 'network') return 'Connection lost. Check your connection and try again.';
+  if (error?.code === 'cart-changed') return 'Your cart changed in another tab. Check your cart before trying again.';
+  if (error?.code === 'recovery-lock-unavailable') return 'Safe cart recovery is unavailable in this browser. Try again in a browser that supports Web Locks.';
+  if (error?.code === 'recovery-ambiguous') return 'Your cart has changes we cannot safely copy. Check the original cart and try again.';
+  if (action === 'add') return 'Couldn’t add to cart. Please try again.';
+  if (action === 'cart') return 'Couldn’t update your cart. Please try again.';
+  return 'Couldn’t connect to Shopify. Please try again.';
+}
 
 function emptyCart() {
   return { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl: null };
@@ -99,23 +124,43 @@ export function validateShopifyConfig(env = {}) {
   if (!accessToken) throw new Error('Shopify public Storefront API token is missing.');
   if (!/^\d{4}-\d{2}$/.test(apiVersion)) throw new Error('Shopify API version must use YYYY-MM format.');
   if (missingHandles.length) throw new Error(`Shopify product handles are missing for: ${missingHandles.join(', ')}.`);
-  if (!breakInHandle) throw new Error('Shopify break-in service handle is missing.');
   return { domain, accessToken, apiVersion, handles, breakInHandle };
 }
 
 export async function shopifyRequest(config, query, variables = {}, fetchImpl = fetch) {
-  const response = await fetchImpl(`https://${config.domain}/api/${config.apiVersion}/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Storefront-Access-Token': config.accessToken
-    },
-    body: JSON.stringify({ query, variables })
-  });
-  if (!response.ok) throw new Error(`Shopify request failed (${response.status}).`);
-  const payload = await response.json();
-  if (payload.errors?.length) throw new Error(payload.errors.map(error => error.message).join(' '));
-  return payload.data;
+  const controller = new AbortController();
+  let timer;
+  let timedOut = false;
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetchImpl(`https://${config.domain}/api/${config.apiVersion}/graphql.json`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Storefront-Access-Token': config.accessToken
+          },
+          body: JSON.stringify({ query, variables }),
+          signal: controller.signal
+        });
+        if (!response.ok) throw new ShopifyRequestError(`Shopify request failed (${response.status}).`,
+          [400, 401, 403, 404, 422, 429].includes(response.status) ? 'http-rejected' : 'http');
+        const payload = await response.json();
+        if (payload.errors?.length) throw new ShopifyRequestError(payload.errors.map(error => error.message).join(' '), 'graphql');
+        return payload.data;
+      })(),
+      new Promise((_, reject) => { timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new ShopifyRequestError('Shopify request timed out.', 'timeout'));
+      }, config.timeoutMs ?? REQUEST_TIMEOUT_MS); })
+    ]);
+  } catch (error) {
+    if (error instanceof ShopifyRequestError) throw error;
+    throw new ShopifyRequestError(timedOut ? 'Shopify request timed out.' : 'Shopify network request failed.', timedOut ? 'timeout' : 'network', error);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const PRODUCT_QUERY = `query ProductByHandle($handle: String!) {
@@ -229,6 +274,7 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
       targetType: application.targetType,
       percentage: application.value?.__typename === 'PricingPercentageValue' ? application.value.percentage : null
     })),
+    lineCoverageComplete: lines.length === cart.lines.nodes.length && !cart.lines.pageInfo?.hasNextPage,
     incomplete: lines.length !== cart.lines.nodes.length || Boolean(cart.lines.pageInfo?.hasNextPage),
     lines
   };
@@ -285,19 +331,69 @@ function changedParent(before, after, target, value, excludeTarget = false) {
   throw new Error('Shopify changed the glove lines ambiguously. Checkout is unavailable until the cart is corrected.');
 }
 
-export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
+export function createShopifyCommerce(config, storage, fetchImpl = fetch, recoveryLocks = globalThis.navigator?.locks) {
   let products = [];
   let breakInVariant = null;
-  let remoteBreakInService = breakInService;
+  let remoteBreakInService = { ...breakInService, available: false };
+  let lastVerifiedCart = null;
+  let pendingMutation = null;
+  try {
+    const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || storage?.getItem(LEGACY_PENDING_ADD_KEY) || 'null');
+    if (saved && typeof saved.cartId === 'string') pendingMutation = {
+      cartId: saved.cartId, kind: typeof saved.kind === 'string' ? saved.kind : 'addition', status: 'unresolved',
+      kinds: Array.isArray(saved.kinds) ? saved.kinds.filter(kind => typeof kind === 'string') : [],
+      before: saved.before?.id === saved.cartId && Array.isArray(saved.before.lines) ? saved.before : null
+    };
+  } catch { /* Ignore malformed recovery metadata. */ }
+  const clearPendingMutation = () => {
+    pendingMutation = null;
+    storage?.removeItem(PENDING_MUTATION_KEY);
+    storage?.removeItem(LEGACY_PENDING_ADD_KEY);
+  };
   const handleToProductId = Object.fromEntries(Object.entries(config.handles).map(([id, handle]) => [handle, id]));
   const request = (query, variables) => shopifyRequest(config, query, variables, fetchImpl);
-  const markUnsafe = cartId => storage?.setItem(UNSAFE_CART_KEY, cartId);
+  const announceCartChange = () => storage?.setItem(CART_REVISION_KEY, `${Date.now()}:${Math.random()}`);
+  const markUnsafe = (cartId, kind = 'cart change') => {
+    if (!cartId || storage?.getItem(SHOPIFY_CART_KEY) !== cartId) return;
+    let prior = null;
+    try {
+      if (storage?.getItem(UNSAFE_CART_KEY) === cartId) {
+        const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
+        if (saved?.cartId === cartId) prior = saved;
+      }
+    } catch { /* Keep the cart blocked even if recovery metadata is malformed. */ }
+    pendingMutation = { cartId, kind: prior?.kind || kind, status: 'unresolved',
+      kinds: [...new Set([...(prior?.kinds || (prior?.kind ? [prior.kind] : [])), kind])],
+      before: prior?.before || (lastVerifiedCart?.id === cartId ? lastVerifiedCart : null) };
+    storage?.setItem(UNSAFE_CART_KEY, cartId);
+    storage?.setItem(PENDING_MUTATION_KEY, JSON.stringify(pendingMutation));
+  };
   const clearUnsafe = cartId => {
-    if (storage?.getItem(UNSAFE_CART_KEY) === cartId) storage.removeItem(UNSAFE_CART_KEY);
+    if (storage?.getItem(UNSAFE_CART_KEY) === cartId) {
+      storage.removeItem(UNSAFE_CART_KEY);
+      clearPendingMutation();
+    }
   };
   const applySafety = cart => {
-    if (storage?.getItem(UNSAFE_CART_KEY) === cart.id) cart.incomplete = true;
-    if (!cart.lines.length) storage?.removeItem(UNSAFE_CART_KEY);
+    try {
+      const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
+      if (saved?.cartId === cart.id) pendingMutation = saved;
+    } catch { /* A malformed note cannot make an unsafe cart safe. */ }
+    if (cart.id && !cart.incomplete && storage?.getItem(UNSAFE_CART_KEY) !== cart.id) {
+      lastVerifiedCart = { id: cart.id, lines: cart.lines.map(line => ({
+        remoteLineId: line.remoteLineId, parentLineId: line.parentLineId, merchandiseId: line.merchandiseId,
+        productId: line.productId, isBreakIn: line.isBreakIn, quantity: line.quantity,
+        attributes: line.attributes
+      })), discountCodes: cart.discountCodes };
+    }
+    if (cart.id && storage?.getItem(UNSAFE_CART_KEY) === cart.id) {
+      cart.recoveryAvailable = !cart.incomplete || pendingMutation?.before?.id === cart.id;
+      cart.recoveryHasBreakIn = cart.lines.some(line => line.isBreakIn) ||
+        Boolean(pendingMutation?.before?.lines?.some(line => line.isBreakIn));
+      cart.incomplete = true;
+      cart.uncertainMutation = pendingMutation?.cartId === cart.id ? pendingMutation.kinds?.join(', ') || pendingMutation.kind : 'cart change';
+    }
+    if (!cart.id) { storage?.removeItem(UNSAFE_CART_KEY); clearPendingMutation(); }
     return cart;
   };
 
@@ -311,6 +407,9 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     const id = storage?.getItem(SHOPIFY_CART_KEY);
     if (!id) return emptyCart();
     const data = await request(`query Cart($id: ID!) { cart(id: $id) { ${CART_FIELDS} } }`, { id });
+    if (storage?.getItem(SHOPIFY_CART_KEY) !== id) {
+      throw new ShopifyRequestError('The active cart changed while Shopify was responding.', 'cart-changed');
+    }
     if (!data.cart) {
       storage?.removeItem(SHOPIFY_CART_KEY);
       return emptyCart();
@@ -320,26 +419,75 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
 
   async function getCart() { return applySafety(await getRawCart()); }
 
-  async function mutateCart(query, variables, field) {
-    const data = await request(query, variables);
-    const cart = assertCartPayload(data[field]);
+  async function mutateCart(query, variables, field, kind = 'cart change') {
+    const expectedCartId = variables.cartId || null;
+    if ((storage?.getItem(SHOPIFY_CART_KEY) || null) !== expectedCartId) {
+      throw new ShopifyRequestError('The active cart changed before the mutation started.', 'cart-changed');
+    }
+    let data;
+    try { data = await request(query, variables); }
+    catch (error) {
+      if (['timeout', 'network', 'http', 'graphql'].includes(error.code)) {
+        if (variables.cartId) markUnsafe(variables.cartId, kind);
+        throw new ShopifyRequestError(`Shopify cart mutation result is uncertain: ${error.message}`, variables.cartId ? 'uncertain' : 'uncertain-create', error);
+      }
+      throw error;
+    }
+    const payload = data[field];
+    if (!payload?.cart && !payload?.userErrors?.length && expectedCartId) {
+      markUnsafe(expectedCartId, kind);
+      throw new ShopifyRequestError('Shopify did not confirm the cart mutation.', 'uncertain');
+    }
+    if (payload?.userErrors?.length) {
+      const message = payload.userErrors.map(error => error.message).join(' ');
+      let returned = null;
+      try {
+        if (payload.cart) returned = normalizeShopifyCart(payload.cart, handleToProductId, config.breakInHandle);
+      } catch { /* An invalid response cannot establish a definitive rejection. */ }
+      const unchanged = returned && !returned.incomplete && returned.id === expectedCartId &&
+        lastVerifiedCart?.id === expectedCartId && cartStateStamp(returned) === cartStateStamp(lastVerifiedCart);
+      if (expectedCartId && !unchanged) {
+        markUnsafe(expectedCartId, kind);
+        throw new ShopifyRequestError(`Shopify reported errors and did not confirm an unchanged cart: ${message}`, 'uncertain');
+      }
+      throw new Error(message);
+    }
+    const cart = assertCartPayload(payload);
+    if ((storage?.getItem(SHOPIFY_CART_KEY) || null) !== expectedCartId) {
+      throw new ShopifyRequestError('The active cart changed while the mutation was pending.', 'cart-changed');
+    }
+    if (expectedCartId && cart.id !== expectedCartId) {
+      markUnsafe(expectedCartId, kind);
+      throw new ShopifyRequestError('Shopify returned a different cart for the mutation.', 'uncertain');
+    }
+    let normalized;
+    try { normalized = normalizeShopifyCart(cart, handleToProductId, config.breakInHandle); }
+    catch (error) {
+      if (expectedCartId) markUnsafe(expectedCartId, kind);
+      throw new ShopifyRequestError('Shopify returned a cart that could not be verified.', expectedCartId ? 'uncertain' : 'uncertain-create', error);
+    }
     storage?.setItem(SHOPIFY_CART_KEY, cart.id);
-    return applySafety(normalizeShopifyCart(cart, handleToProductId, config.breakInHandle));
+    const result = applySafety(normalized);
+    announceCartChange();
+    return result;
   }
 
-  const updateLines = (cartId, lines) => mutateCart(`mutation UpdateLines($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
+  const updateLines = (cartId, lines, kind = 'quantity update') => mutateCart(`mutation UpdateLines($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
     cartLinesUpdate(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
-  }`, { cartId, lines }, 'cartLinesUpdate');
+  }`, { cartId, lines }, 'cartLinesUpdate', kind);
 
-  const addLines = (cartId, lines) => mutateCart(`mutation AddLines($cartId: ID!, $lines: [CartLineInput!]!) {
+  const addLines = (cartId, lines, kind = 'addition') => mutateCart(`mutation AddLines($cartId: ID!, $lines: [CartLineInput!]!) {
     cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
-  }`, { cartId, lines }, 'cartLinesAdd');
+  }`, { cartId, lines }, 'cartLinesAdd', kind);
 
-  const removeLines = (cartId, lineIds) => mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
+  const removeLines = (cartId, lineIds, kind = 'removal') => mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
     cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
-  }`, { cartId, lineIds }, 'cartLinesRemove');
+  }`, { cartId, lineIds }, 'cartLinesRemove', kind);
 
   async function updateDiscountCodes(cartId, discountCodes) {
+    if (storage?.getItem(SHOPIFY_CART_KEY) !== cartId) {
+      throw new ShopifyRequestError('The active cart changed before the discount update started.', 'cart-changed');
+    }
     const data = await request(`mutation UpdateDiscountCodes($cartId: ID!, $discountCodes: [String!]!) {
       cartDiscountCodesUpdate(cartId: $cartId, discountCodes: $discountCodes) {
         cart { ${CART_FIELDS} }
@@ -348,11 +496,15 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       }
     }`, { cartId, discountCodes });
     const payload = data.cartDiscountCodesUpdate;
+    if (storage?.getItem(SHOPIFY_CART_KEY) !== cartId) {
+      throw new ShopifyRequestError('The active cart changed while the discount update was pending.', 'cart-changed');
+    }
     if (!payload) throw new Error('Shopify did not return a discount update.');
     const updated = assertCartPayload(payload);
     if (updated.id !== cartId) throw new Error('Shopify returned a different cart.');
     const normalized = applySafety(normalizeShopifyCart(updated, handleToProductId, config.breakInHandle));
     normalized.discountWarnings = (payload.warnings || []).map(warning => warning.message).filter(Boolean);
+    announceCartChange();
     return normalized;
   }
 
@@ -366,7 +518,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     if (!parent.instructions?.canRemove) throw new Error('Shopify does not allow this glove to be removed.');
     const updated = await mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
       cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
-    }`, { cartId: cart.id, lineIds: [parent.remoteLineId] }, 'cartLinesRemove');
+    }`, { cartId: cart.id, lineIds: [parent.remoteLineId] }, 'cartLinesRemove', 'removal');
     if (updated.lines.some(line => line.parentLineId === parent.remoteLineId)) throw new Error('Shopify did not remove the nested Break-in service.');
     return updated;
   }
@@ -447,6 +599,140 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     return quantities;
   }
 
+  function recoverySignature(cart) {
+    const parents = new Map();
+    for (const line of cart.lines.filter(line => !line.isBreakIn)) {
+      const child = cart.lines.find(entry => entry.isBreakIn && entry.parentLineId === line.remoteLineId);
+      const key = JSON.stringify([line.merchandiseId,
+        [...line.attributes].sort((a, b) => a.key.localeCompare(b.key)), child?.merchandiseId || null]);
+      const count = parents.get(key) || { gloves: 0, services: 0 };
+      count.gloves += line.quantity;
+      count.services += child?.quantity || 0;
+      parents.set(key, count);
+    }
+    return JSON.stringify([[...parents].sort(([a], [b]) => a.localeCompare(b)), discountCodeList(cart).sort()]);
+  }
+
+  function cartStateStamp(cart) {
+    return JSON.stringify([cart.lines.map(line => [line.remoteLineId, line.parentLineId,
+      line.merchandiseId, line.quantity, line.attributes]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    discountCodeList(cart).sort()]);
+  }
+
+  function snapshotMatchesUnaffectedLines(source, before, kinds = []) {
+    const addingService = kinds.includes('Break-In addition');
+    const removingService = kinds.includes('Break-In removal');
+    if (!source.lineCoverageComplete || (!addingService && !removingService)) return false;
+    if (JSON.stringify(discountCodeList(source).sort()) !== JSON.stringify(discountCodeList(before).sort())) return false;
+    const parents = cart => new Map(cart.lines.filter(line => !line.isBreakIn).map(line => [line.remoteLineId, line]));
+    const liveParents = parents(source);
+    const oldParents = parents(before);
+    if (liveParents.size !== oldParents.size) return false;
+    const affected = new Set();
+    for (const [id, oldLine] of oldParents) {
+      const live = liveParents.get(id);
+      if (!live || live.merchandiseId !== oldLine.merchandiseId || live.productId !== oldLine.productId ||
+        live.quantity !== oldLine.quantity) return false;
+      const otherAttributes = line => JSON.stringify(line.attributes.filter(attribute => attribute.key !== SERVICE_ATTRIBUTE)
+        .sort((a, b) => a.key.localeCompare(b.key)));
+      if (otherAttributes(live) !== otherAttributes(oldLine)) return false;
+      const serviceAttribute = line => line.attributes.filter(attribute => attribute.key === SERVICE_ATTRIBUTE);
+      const oldService = serviceAttribute(oldLine);
+      const liveService = serviceAttribute(live);
+      if (oldService.length !== 1 || liveService.length !== 1 ||
+        !['none', 'break-in'].includes(liveService[0].value)) return false;
+      if (oldService[0].value !== liveService[0].value) {
+        if (oldService[0].value === 'none' && liveService[0].value === 'break-in' && !addingService ||
+          oldService[0].value === 'break-in' && liveService[0].value === 'none' && !removingService) return false;
+        affected.add(id);
+      }
+    }
+    const children = cart => new Map(cart.lines.filter(line => line.isBreakIn).map(line => [line.remoteLineId, line]));
+    const oldChildren = children(before);
+    const liveChildren = children(source);
+    for (const id of new Set([...oldChildren.keys(), ...liveChildren.keys()])) {
+      const oldLine = oldChildren.get(id);
+      const live = liveChildren.get(id);
+      if (oldLine && live && oldLine.parentLineId === live.parentLineId &&
+        oldLine.merchandiseId === live.merchandiseId && oldLine.quantity === live.quantity) continue;
+      if (!oldLine || live || !removingService) return false;
+      const parentId = live?.parentLineId || oldLine?.parentLineId;
+      if (!oldParents.has(parentId) || !liveParents.has(parentId)) return false;
+      affected.add(parentId);
+    }
+    if (affected.size !== 1) return false;
+    const affectedId = [...affected][0];
+    const liveChildLines = source.lines.filter(line => line.isBreakIn && line.parentLineId === affectedId);
+    if (liveChildLines.length > 1 || liveChildLines.some(line => line.quantity > liveParents.get(affectedId).quantity)) return false;
+    return true;
+  }
+
+  async function recoverCartUnchecked({ withoutBreakIn = false } = {}) {
+    const unsafeId = storage?.getItem(UNSAFE_CART_KEY);
+    if (!unsafeId || storage?.getItem(SHOPIFY_CART_KEY) !== unsafeId) return getCart();
+    const source = await getRawCart();
+    if (source.id !== unsafeId) throw new Error('Shopify has not returned the original cart for recovery.');
+    try {
+      const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
+      if (saved?.cartId === unsafeId) pendingMutation = saved;
+    } catch { /* Recovery can still use a structurally complete Shopify cart. */ }
+    const historical = pendingMutation?.before;
+    if (source.incomplete && (!historical ||
+      !snapshotMatchesUnaffectedLines(source, historical, pendingMutation?.kinds || [pendingMutation?.kind]))) {
+      throw new ShopifyRequestError('The original cart differs from the last verified cart. Its full contents cannot be established safely.', 'recovery-ambiguous');
+    }
+    const observed = source.incomplete ? historical : source;
+    if (!observed || observed.id !== unsafeId || !hasConsistentBreakInLines(observed)) {
+      throw new Error('Shopify has not returned a complete cart for recovery.');
+    }
+    const verified = withoutBreakIn ? { ...observed, lines: observed.lines.filter(line => !line.isBreakIn).map(line => ({
+      ...line, attributes: withServiceAttribute(line.attributes, 'none'), serviceConfiguration: 'none'
+    })) } : observed;
+    const sourceStamp = cartStateStamp(source);
+    const parents = verified.lines.filter(line => !line.isBreakIn);
+    const input = {
+      lines: parents.map(line => ({ merchandiseId: line.merchandiseId, quantity: line.quantity, attributes: line.attributes })),
+      discountCodes: discountCodeList(verified)
+    };
+    const created = await request(`mutation CreateCart($input: CartInput!) {
+      cartCreate(input: $input) { cart { ${CART_FIELDS} } userErrors { message } }
+    }`, { input });
+    let newCart = normalizeShopifyCart(assertCartPayload(created.cartCreate), handleToProductId, config.breakInHandle);
+    if (!newCart.id || newCart.id === unsafeId) throw new Error('Shopify did not create a separate recovery cart.');
+    const children = verified.lines.filter(line => line.isBreakIn).map(child => {
+      const oldParent = parents.find(line => line.remoteLineId === child.parentLineId);
+      const matches = newCart.lines.filter(line => !line.isBreakIn && line.merchandiseId === oldParent?.merchandiseId &&
+        JSON.stringify([...line.attributes].sort((a, b) => a.key.localeCompare(b.key))) ===
+        JSON.stringify([...oldParent.attributes].sort((a, b) => a.key.localeCompare(b.key))));
+      if (matches.length !== 1) throw new Error('Shopify could not identify a Break-In parent in the recovery cart.');
+      return { merchandiseId: child.merchandiseId, quantity: child.quantity, parent: { lineId: matches[0].remoteLineId } };
+    });
+    if (children.length) {
+      const added = await request(`mutation AddLines($cartId: ID!, $lines: [CartLineInput!]!) {
+        cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
+      }`, { cartId: newCart.id, lines: children });
+      newCart = normalizeShopifyCart(assertCartPayload(added.cartLinesAdd), handleToProductId, config.breakInHandle);
+    }
+    if (newCart.incomplete || recoverySignature(newCart) !== recoverySignature(verified)) {
+      throw new Error('Shopify did not preserve every cart item during recovery.');
+    }
+    const latest = await getRawCart();
+    if (latest.id !== unsafeId || cartStateStamp(latest) !== sourceStamp ||
+      storage?.getItem(SHOPIFY_CART_KEY) !== unsafeId) {
+      throw new Error('The original cart changed during recovery. Check it again before continuing.');
+    }
+    storage.setItem(SHOPIFY_CART_KEY, newCart.id);
+    clearUnsafe(unsafeId);
+    return applySafety(newCart);
+  }
+
+  async function recoverCart(options) {
+    if (!recoveryLocks?.request) {
+      throw new ShopifyRequestError('Exclusive cart recovery is unavailable in this browser.', 'recovery-lock-unavailable');
+    }
+    return recoveryLocks.request('anawin-shopify-cart-recovery', () => recoverCartUnchecked(options));
+  }
+
   function verifySplit(before, after, source, destinationValue, serviceDelta) {
     if (after.id !== before.id || after.incomplete || !hasConsistentBreakInLines(after)) {
       throw new Error('Shopify returned an incomplete split cart.');
@@ -471,21 +757,16 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     }
   }
 
-  function originalCartUnchanged(before, after) {
-    if (after.incomplete || before.id !== after.id || before.subtotal !== after.subtotal || before.currencyCode !== after.currencyCode) return false;
-    const signature = cart => JSON.stringify(cart.lines.map(line => [line.remoteLineId, line.parentLineId,
-      line.merchandiseId, line.quantity, line.attributes, line.unitPrice, line.lineTotal]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
-    return signature(before) === signature(after);
-  }
-
   async function splitBreakIn(cart, parent, addService) {
     if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
-    markUnsafe(cart.id);
+    markUnsafe(cart.id, addService ? 'Break-In addition' : 'Break-In removal');
+    let firstMutationCompleted = false;
     try {
       let current;
       if (addService) {
         await addLines(cart.id, [{ merchandiseId: parent.merchandiseId, quantity: 1,
           attributes: withServiceAttribute(parent.attributes, 'break-in') }]);
+        firstMutationCompleted = true;
         current = await getRawCart();
         let destination = resolveAddedDestination(cart, current, parent, 'break-in');
         const children = current.lines.filter(line => line.isBreakIn && line.parentLineId === destination.remoteLineId);
@@ -508,6 +789,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       } else {
         await addLines(cart.id, [{ merchandiseId: parent.merchandiseId, quantity: 1,
           attributes: withServiceAttribute(parent.attributes, 'none') }]);
+        firstMutationCompleted = true;
         current = await getRawCart();
         resolveAddedDestination(cart, current, parent, 'none');
         const source = resolveCurrentLine(current, parent);
@@ -518,9 +800,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       clearUnsafe(cart.id);
       return applySafety(current);
     } catch (error) {
-      try {
-        if (originalCartUnchanged(cart, await getRawCart())) clearUnsafe(cart.id);
-      } catch { /* An uncertain cart remains blocked. */ }
+      if (!firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id);
       throw error;
     }
   }
@@ -529,16 +809,6 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
     mode: 'shopify',
     async listProducts() {
       const entries = await Promise.all(Object.entries(config.handles).map(async ([id, handle]) => [id, await loadProduct(handle)]));
-      const service = await loadProduct(config.breakInHandle);
-      breakInVariant = service.variants.nodes[0];
-      remoteBreakInService = {
-        ...breakInService,
-        name: service.title,
-        merchandiseId: breakInVariant.id,
-        price: Number(breakInVariant.price.amount),
-        currencyCode: breakInVariant.price.currencyCode,
-        available: breakInVariant.availableForSale
-      };
       products = localProducts.map(local => {
         const remote = entries.find(([id]) => id === local.id)[1];
         const variant = remote.variants.nodes[0];
@@ -546,8 +816,45 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       });
       return products;
     },
-    async getBreakInService() { return remoteBreakInService; },
+    async getBreakInService() {
+      breakInVariant = null;
+      remoteBreakInService = { ...breakInService, available: false };
+      if (!config.breakInHandle) return remoteBreakInService;
+      try {
+        const service = await loadProduct(config.breakInHandle);
+        breakInVariant = service.variants.nodes[0];
+        const price = Number(breakInVariant.price.amount);
+        const currencyCode = breakInVariant.price.currencyCode;
+        if (!Number.isFinite(price) || price < 0 || !products.every(product => product.currencyCode === currencyCode)) {
+          throw new Error('Shopify returned an invalid Break-in service price.');
+        }
+        remoteBreakInService = {
+          ...breakInService,
+          name: service.title,
+          merchandiseId: breakInVariant.id,
+          price,
+          currencyCode,
+          available: breakInVariant.availableForSale
+        };
+      } catch {
+        breakInVariant = null;
+        /* The optional service must not prevent glove-only purchases. */
+      }
+      return remoteBreakInService;
+    },
     getCart,
+    readCartSafety() {
+      let pendingCartId = null;
+      try { pendingCartId = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null')?.cartId || null; }
+      catch { pendingCartId = storage?.getItem(UNSAFE_CART_KEY) || null; }
+      return { id: storage?.getItem(SHOPIFY_CART_KEY) || null,
+        unsafeId: storage?.getItem(UNSAFE_CART_KEY) || null, pendingCartId,
+        revision: storage?.getItem(CART_REVISION_KEY) || null };
+    },
+    async refreshCart() {
+      return applySafety(await getRawCart());
+    },
+    recoverCart,
     async applyDiscountCode(input) {
       const code = input.trim();
       if (!code) throw new Error('Enter a discount code.');
@@ -588,7 +895,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
         selectedConfigurationIncreased: configurationQuantity(updated) === configurationQuantity(before) + 1
       };
       if (Object.values(checks).some(passed => !passed)) {
-        markUnsafe(updated.id);
+        markUnsafe(updated.id, 'addition');
         throw new Error('Shopify did not preserve the selected glove service configuration. Checkout is unavailable.');
       }
       return updated;
@@ -616,7 +923,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       let started = false;
       try {
         await updateLines(cart.id, [{ id: parent.remoteLineId,
-          attributes: withServiceAttribute(parent.attributes, 'break-in') }]);
+          attributes: withServiceAttribute(parent.attributes, 'break-in') }], 'Break-In addition');
         started = true;
         let current = await getCart();
         const selected = changedParent(cart, current, parent, 'break-in');
@@ -624,10 +931,10 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
         if (children.length > 1 || children[0]?.quantity > selected.quantity) throw new Error('Shopify returned inconsistent Break-in service lines.');
         if (!children.length) {
           await addLines(cart.id, [{ merchandiseId: breakInVariant.id, quantity: selected.quantity,
-            parent: { lineId: selected.remoteLineId } }]);
+            parent: { lineId: selected.remoteLineId } }], 'Break-In addition');
         } else if (children[0].quantity !== selected.quantity) {
           if (!children[0].instructions?.canUpdateQuantity) throw new Error('Shopify cannot synchronize Break-in service quantity.');
-          await updateLines(cart.id, [{ id: children[0].remoteLineId, quantity: selected.quantity }]);
+          await updateLines(cart.id, [{ id: children[0].remoteLineId, quantity: selected.quantity }], 'Break-In addition');
         }
         current = await getCart();
         if (current.incomplete || !hasConsistentBreakInLines(current) ||
@@ -637,7 +944,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
         }
         return current;
       } catch (error) {
-        if (started) markUnsafe(cart.id);
+        if (started) markUnsafe(cart.id, 'Break-In addition');
         throw error;
       }
     },
@@ -652,7 +959,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
       if (!child.instructions?.canRemove) throw new Error('Shopify does not allow Break-in service to be removed.');
       let started = false;
       try {
-        await removeLines(cart.id, [child.remoteLineId]);
+        await removeLines(cart.id, [child.remoteLineId], 'Break-In removal');
         started = true;
         const afterRemoval = await getCart();
         const selected = changedParent(cart, afterRemoval, parent, 'break-in', true);
@@ -660,7 +967,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
           throw new Error('Shopify did not remove the selected Break-in service.');
         }
         await updateLines(cart.id, [{ id: selected.remoteLineId,
-          attributes: withServiceAttribute(selected.attributes, 'none') }]);
+          attributes: withServiceAttribute(selected.attributes, 'none') }], 'Break-In removal');
         const updated = await getCart();
         if (updated.incomplete || !hasConsistentBreakInLines(updated) ||
           cartLineQuantity(updated, parent.productId, false) !== cartLineQuantity(cart, parent.productId, false) ||
@@ -669,7 +976,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch) {
         }
         return updated;
       } catch (error) {
-        if (started) markUnsafe(cart.id);
+        if (started) markUnsafe(cart.id, 'Break-In removal');
         throw error;
       }
     },

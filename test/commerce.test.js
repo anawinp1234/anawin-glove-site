@@ -4,10 +4,12 @@ import { breakInService, localProducts, purchasePrice } from '../src/catalog.js'
 import {
   cartEntryTotal,
   cartUnitPrice,
+  commerceErrorMessage,
   createLocalCommerce,
   createShopifyCommerce,
   migrateLocalCart,
   shopifyRequest,
+  ShopifyRequestError,
   validateShopifyConfig
 } from '../src/commerce.js';
 
@@ -74,14 +76,14 @@ test('Shopify mode requires public connection details and every product handle',
     VITE_SHOPIFY_STORE_DOMAIN: 'store.myshopify.com',
     VITE_SHOPIFY_STOREFRONT_TOKEN: 'public-token'
   }), /handles/);
-  assert.throws(() => validateShopifyConfig({
+  assert.equal(validateShopifyConfig({
     VITE_COMMERCE_MODE: 'shopify',
     VITE_SHOPIFY_STORE_DOMAIN: 'store.myshopify.com',
     VITE_SHOPIFY_STOREFRONT_TOKEN: 'public-token',
     VITE_SHOPIFY_BR16_HANDLE: 'br16',
     VITE_SHOPIFY_OB16_HANDLE: 'ob16',
     VITE_SHOPIFY_CL16_HANDLE: 'cl16'
-  }), /break-in service handle/);
+  }).breakInHandle, '');
 });
 
 test('Shopify request surfaces HTTP and GraphQL errors', async () => {
@@ -93,13 +95,31 @@ test('Shopify request surfaces HTTP and GraphQL errors', async () => {
   })), /Not permitted/);
 });
 
+test('a timed-out Shopify request aborts, clears loading, and can be retried safely', async () => {
+  const config = { domain: 'store.myshopify.com', apiVersion: '2026-07', accessToken: 'public-token', timeoutMs: 20 };
+  let calls = 0;
+  let signal;
+  const fetchImpl = async (_url, options) => {
+    calls++;
+    signal = options.signal;
+    if (calls === 1) return new Promise(() => {});
+    return { ok: true, json: async () => ({ data: { ready: true } }) };
+  };
+  await assert.rejects(shopifyRequest(config, 'query {}', {}, fetchImpl), error => error.code === 'timeout');
+  assert.equal(signal.aborted, true);
+  assert.match(commerceErrorMessage(new ShopifyRequestError('timeout', 'timeout')), /taking too long/);
+  assert.deepEqual(await shopifyRequest(config, 'query {}', {}, fetchImpl), { ready: true });
+  assert.equal(calls, 2);
+});
+
 function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, rekeyOnAdd = false,
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
   subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
-  discountScenario = null, discountWarnings = [] } = {}) {
+  discountScenario = null, discountWarnings = [], serviceState = 'available', serviceHandle = 'break-in', timeoutMs,
+  recoveryLocks = undefined } = {}) {
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
-    handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: 'break-in'
+    handles: { black: 'br16', blue: 'ob16', brown: 'cl16' }, breakInHandle: serviceHandle, timeoutMs
   };
   const variants = {
     br16: ['gid://variant/br16', prices.br16 || '155.00'], ob16: ['gid://variant/ob16', prices.ob16 || '155.00'],
@@ -108,27 +128,43 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
   const linePrice = handle => cartPrices[handle] || variants[handle][1];
   const finalUnitPrice = (handle, currentPrices = discountedPrices) => currentPrices[handle] || linePrice(handle);
   const storage = new MemoryStorage();
+  let recoveryTail = Promise.resolve();
+  const locks = recoveryLocks === undefined ? { request(_name, action) {
+    const result = recoveryTail.then(action);
+    recoveryTail = result.catch(() => {});
+    return result;
+  } } : recoveryLocks;
   const requests = [];
   let lines = [];
+  let recoveryLines = null;
+  let recoveryCartId = null;
+  let nextCartId = 2;
   let nextId = 1;
   let cartExists = false;
   let userError = '';
   let apiError = false;
   let failMutationAt = 0;
   let failAfterMutationAt = 0;
+  let userErrorAfterMutationAt = 0;
   let mutationCount = 0;
   let mutationObserver = null;
+  let rejectStatusAt = 0;
+  let delayMutationAt = 0;
+  let delayResponseAfterAt = 0;
+  let releaseDelayed = null;
+  let signalDelayed = null;
   const response = data => ({ ok: true, json: async () => ({ data }) });
-  const snapshot = () => {
+  const snapshot = (id = 'gid://cart/1') => {
+    const cartLines = id === recoveryCartId ? recoveryLines : lines;
     const state = discountScenario?.(discountCodes.map(item => item.code)) || {};
     const currentPrices = state.discountedPrices || discountedPrices;
     const currentAllocations = state.discountAllocations || discountAllocations;
     return ({
-    id: 'gid://cart/1', checkoutUrl: 'https://store.myshopify.com/checkouts/1',
+    id, checkoutUrl: `https://store.myshopify.com/checkouts/${id.split('/').at(-1)}`,
     discountCodes: structuredClone(state.discountCodes || discountCodes), discountApplications: structuredClone(state.discountApplications || discountApplications),
-    cost: { subtotalAmount: { amount: String(state.subtotalOverride ?? subtotalOverride ?? lines.reduce((sum, line) =>
+    cost: { subtotalAmount: { amount: String(state.subtotalOverride ?? subtotalOverride ?? cartLines.reduce((sum, line) =>
       sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle, currentPrices)), 0)), currencyCode: 'USD' } },
-    lines: { nodes: structuredClone(lines).map(line => ({ ...line,
+    lines: { nodes: structuredClone(cartLines).map(line => ({ ...line,
       allDiscountAllocations: structuredClone(currentAllocations[line.merchandise.product.handle] || []),
       cost: { amountPerQuantity: {
       amount: linePrice(line.merchandise.product.handle),
@@ -142,36 +178,35 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     } } })) }
   });
   };
-  const makeLine = (handle, quantity, parentId = null, attributes = []) => ({
+  const makeLine = (handle, quantity, parent = null, attributes = []) => ({
     id: `line-${nextId++}`, quantity,
     attributes: structuredClone(attributes),
     instructions: { canRemove: true, canUpdateQuantity: true },
-    parentRelationship: parentId ? { parent: { id: parentId, merchandise: { id: variants.br16[0], product: { handle: 'br16' } } } } : null,
+    parentRelationship: parent ? { parent: { id: parent.id, merchandise: structuredClone(parent.merchandise) } } : null,
     merchandise: { id: variants[handle][0], product: { handle } }
   });
   const attributeSignature = attributes => JSON.stringify([...attributes].sort((a, b) =>
     a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
-  const add = inputs => {
-    if (inputs.length === 1 && inputs[0].parent?.lineId) {
-      const parent = lines.find(line => line.id === inputs[0].parent.lineId && !line.parentRelationship);
-      if (!parent) throw new Error('Unknown parent cart line');
-      const child = lines.find(line => line.parentRelationship?.parent.id === parent.id);
-      if (child) child.quantity += inputs[0].quantity;
-      else lines.push(makeLine('break-in', inputs[0].quantity, parent.id));
-      return;
-    }
-    const parentInput = inputs[0];
-    const handle = Object.keys(variants).find(key => variants[key][0] === parentInput.merchandiseId);
-    const withService = inputs.length === 2;
-    const existing = lines.find(line => line.merchandise.id === parentInput.merchandiseId && !line.parentRelationship &&
-      attributeSignature(line.attributes) === attributeSignature(parentInput.attributes || []));
-    const parent = existing || makeLine(handle, 0, null, parentInput.attributes);
-    if (!existing) lines.push(parent);
-    parent.quantity += parentInput.quantity;
-    if (withService) {
-      const child = lines.find(line => line.parentRelationship?.parent.id === parent.id) || makeLine('break-in', 0, parent.id);
-      if (!lines.includes(child)) lines.push(child);
-      child.quantity += inputs[1].quantity;
+  const add = (inputs, targetLines = lines) => {
+    for (const input of inputs) {
+      if (input.parent) {
+        const parent = targetLines.find(line => !line.parentRelationship &&
+          (input.parent.lineId ? line.id === input.parent.lineId :
+            line.merchandise.id === input.parent.merchandiseId &&
+            line.attributes.some(attribute => attribute.key === '_anawin_service' && attribute.value === 'break-in')));
+        if (!parent) throw new Error('Unknown parent cart line');
+        const child = targetLines.find(line => line.parentRelationship?.parent.id === parent.id) ||
+          makeLine('break-in', 0, parent);
+        if (!targetLines.includes(child)) targetLines.push(child);
+        child.quantity += input.quantity;
+        continue;
+      }
+      const handle = Object.keys(variants).find(key => variants[key][0] === input.merchandiseId);
+      const existing = targetLines.find(line => line.merchandise.id === input.merchandiseId && !line.parentRelationship &&
+        attributeSignature(line.attributes) === attributeSignature(input.attributes || []));
+      const parent = existing || makeLine(handle, 0, null, input.attributes);
+      if (!existing) targetLines.push(parent);
+      parent.quantity += input.quantity;
     }
   };
   const mergeEquivalentParents = () => {
@@ -208,10 +243,12 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     const { query, variables } = JSON.parse(options.body);
     requests.push({ query, variables });
     if (query.includes('ProductByHandle')) {
+      if (variables.handle === 'break-in' && serviceState === 'missing') return response({ product: null });
+      if (variables.handle === 'break-in' && serviceState === 'failed') return { ok: false, status: 503 };
       const [id, amount] = variants[variables.handle];
       return response({ product: {
         id: `gid://product/${variables.handle}`, title: variables.handle.toUpperCase(), handle: variables.handle,
-        variants: { nodes: [{ id, availableForSale: true, price: { amount, currencyCode: currencies[variables.handle] || 'USD' } }] }
+        variants: { nodes: [{ id, availableForSale: variables.handle !== 'break-in' || serviceState !== 'sold-out', price: { amount: variables.handle === 'break-in' && serviceState === 'invalid-price' ? 'bad' : amount, currencyCode: currencies[variables.handle] || 'USD' } }] }
       } });
     }
     assert.match(query, /parentRelationship/);
@@ -221,20 +258,32 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     assert.match(query, /discountAllocations\(lineLevelOnly: false\)/);
     assert.match(query, /attributes \{ key value \}/);
     assert.match(query, /canUpdateQuantity/);
-    if (query.includes('query Cart(')) return response({ cart: cartExists ? snapshot() : null });
+    if (query.includes('query Cart(')) return response({ cart: cartExists ? snapshot(variables.id) : null });
     if (apiError) return { ok: false, status: 503 };
     const field = query.includes('CreateCart') ? 'cartCreate' : query.includes('AddLines') ? 'cartLinesAdd' :
       query.includes('UpdateLines') ? 'cartLinesUpdate' : query.includes('UpdateDiscountCodes') ? 'cartDiscountCodesUpdate' : 'cartLinesRemove';
     mutationCount++;
     mutationObserver?.({ field, variables, storage });
+    if (rejectStatusAt === mutationCount) return { ok: false, status: 422 };
+    if (delayMutationAt === mutationCount) {
+      signalDelayed?.();
+      await new Promise(resolve => { releaseDelayed = resolve; });
+    }
     if (failMutationAt === mutationCount) return response({ [field]: { userErrors: [{ message: 'Partial mutation failed' }], cart: snapshot() } });
     if (userError) return response({ [field]: { userErrors: [{ message: userError }], cart: snapshot() } });
     if (field === 'cartDiscountCodesUpdate') {
       discountCodes = variables.discountCodes.map(code => ({ code, applicable: true }));
     } else if (field === 'cartCreate' || field === 'cartLinesAdd') {
-      add(field === 'cartCreate' ? variables.input.lines : variables.lines);
+      if (field === 'cartCreate' && cartExists) {
+        recoveryCartId = `gid://cart/${nextCartId++}`;
+        recoveryLines = [];
+        add(variables.input.lines, recoveryLines);
+      } else {
+        add(field === 'cartCreate' ? variables.input.lines : variables.lines,
+          variables.cartId === recoveryCartId ? recoveryLines : lines);
+      }
       cartExists = true;
-      if (rekeyOnAdd) rekeyLines();
+      if (rekeyOnAdd && variables.cartId !== recoveryCartId) rekeyLines();
     } else if (field === 'cartLinesUpdate') {
       for (const update of variables.lines) {
         const line = lines.find(item => item.id === update.id);
@@ -259,14 +308,457 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
       lines = lines.filter(line => !variables.lineIds.includes(line.id) && !variables.lineIds.includes(line.parentRelationship?.parent.id));
     }
     if (failAfterMutationAt === mutationCount) return { ok: false, status: 503 };
-    return response({ [field]: { userErrors: [], warnings: field === 'cartDiscountCodesUpdate' ? discountWarnings : [], cart: snapshot() } });
+    if (delayResponseAfterAt === mutationCount) {
+      signalDelayed?.();
+      await new Promise(resolve => { releaseDelayed = resolve; });
+    }
+    if (userErrorAfterMutationAt === mutationCount) return response({ [field]: { userErrors: [{ message: 'Partial Shopify error' }],
+      cart: snapshot(field === 'cartCreate' ? recoveryCartId || 'gid://cart/1' : variables.cartId || 'gid://cart/1') } });
+    return response({ [field]: { userErrors: [], warnings: field === 'cartDiscountCodesUpdate' ? discountWarnings : [],
+      cart: snapshot(field === 'cartCreate' ? recoveryCartId || 'gid://cart/1' : variables.cartId || 'gid://cart/1') } });
   };
-  const commerce = createShopifyCommerce(config, storage, fetchImpl);
-  return { commerce, storage, requests, restore: () => createShopifyCommerce(config, storage, fetchImpl),
-    get lines() { return lines; }, setUserError(value) { userError = value; }, setApiError(value) { apiError = value; },
+  const shopify = createShopifyCommerce(config, storage, fetchImpl, locks);
+  const commerce = {
+    ...shopify,
+    async listProducts() {
+      const products = await shopify.listProducts();
+      await shopify.getBreakInService();
+      return products;
+    }
+  };
+  return { commerce, storage, requests, restore: () => createShopifyCommerce(config, storage, fetchImpl, locks),
+    get lines() { return storage.getItem('anawin-shopify-cart-id') === recoveryCartId ? recoveryLines : lines; },
+    setUserError(value) { userError = value; }, setApiError(value) { apiError = value; },
     failNextMutation(offset = 1) { failMutationAt = mutationCount + offset; },
     failAfterNextMutation(offset = 1) { failAfterMutationAt = mutationCount + offset; },
+    partialUserErrorNextMutation() { userErrorAfterMutationAt = mutationCount + 1; },
+    rejectNextMutation() { rejectStatusAt = mutationCount + 1; },
+    delayNextMutation() {
+      delayMutationAt = mutationCount + 1;
+      return new Promise(resolve => { signalDelayed = resolve; });
+    },
+    delayNextMutationResponse() {
+      delayResponseAfterAt = mutationCount + 1;
+      return new Promise(resolve => { signalDelayed = resolve; });
+    },
+    releaseDelayedMutation() { releaseDelayed?.(); },
     observeMutations(observer) { mutationObserver = observer; } };
+}
+
+test('same-cart Shopify mutations publish a cross-tab revision signal', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const first = await fixture.commerce.addProduct('black', false);
+  const before = fixture.storage.getItem('anawin-shopify-cart-revision');
+  await fixture.commerce.setLineQuantity(first.lines[0].remoteLineId, 2);
+  assert.notEqual(fixture.storage.getItem('anawin-shopify-cart-revision'), before);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), first.id);
+});
+
+test('failed first cart creation keeps the cart empty and a deliberate retry adds one glove', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  fixture.failNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('black', false), /Partial mutation failed/);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), null);
+  const empty = await fixture.commerce.getCart();
+  assert.deepEqual(empty.lines, []);
+  assert.notEqual(empty.incomplete, true);
+  assert.match(commerceErrorMessage(new Error('rejected'), 'add'), /Couldn’t add to cart/);
+  const cart = await fixture.commerce.addProduct('black', false);
+  assert.equal(cart.lines.length, 1);
+  assert.equal(cart.subtotal, 155);
+});
+
+test('failed addition to an existing cart preserves items and retries only after rejection', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const original = await fixture.commerce.addProduct('black', false);
+  fixture.failNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('blue', false), /Partial mutation failed/);
+  const unchanged = await fixture.commerce.getCart();
+  assert.equal(unchanged.subtotal, 155);
+  assert.equal(unchanged.checkoutUrl, original.checkoutUrl);
+  assert.equal(unchanged.incomplete, false);
+  const retried = await fixture.commerce.addProduct('blue', false);
+  assert.equal(retried.subtotal, 310);
+  assert.equal(retried.lines.filter(line => !line.isBreakIn).length, 2);
+});
+
+test('an applied uncertain add remains isolated until the customer recovers a verified cart', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.failAfterNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  assert.equal((await fixture.commerce.getCart()).incomplete, true);
+  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  const mutationsBeforeCheck = fixture.requests.filter(item => /mutation /.test(item.query)).length;
+  const checked = await fixture.restore().refreshCart();
+  assert.equal(checked.incomplete, true);
+  assert.equal(checked.recoveryAvailable, true);
+  assert.equal(checked.subtotal, 310);
+  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  assert.equal(fixture.requests.filter(item => /mutation /.test(item.query)).length, mutationsBeforeCheck);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 310);
+  assert.notEqual(recovered.id, checked.id);
+  assert.equal(fixture.storage.getItem('anawin-shopify-pending-mutation'), null);
+});
+
+test('an unresolved cart mutation blocks another add until its outcome is known', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  const checked = await fixture.commerce.refreshCart();
+  assert.equal(checked.subtotal, 155);
+  assert.equal(checked.incomplete, true);
+  const mutationsBeforeRetry = fixture.requests.filter(item => /mutation /.test(item.query)).length;
+  await assert.rejects(fixture.commerce.addProduct('blue', false), /cart is incomplete/);
+  assert.equal(fixture.requests.filter(item => /mutation /.test(item.query)).length, mutationsBeforeRetry);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 155);
+  const retried = await fixture.commerce.addProduct('blue', false);
+  assert.equal(retried.subtotal, 310);
+});
+
+test('an uncertain add to an existing empty cart stays blocked after a read', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  await fixture.commerce.removeProduct('black');
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  const empty = await fixture.restore().getCart();
+  assert.equal(empty.lines.length, 0);
+  assert.equal(empty.incomplete, true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), /cart is incomplete/);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.lines.length, 0);
+  assert.equal(recovered.incomplete, false);
+});
+
+test('an HTTP rejection establishes no mutation and leaves the existing cart usable', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.rejectNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'http-rejected');
+  const cart = await fixture.commerce.getCart();
+  assert.equal(cart.incomplete, false);
+  assert.equal(cart.subtotal, 155);
+  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), null);
+  assert.equal((await fixture.commerce.addProduct('blue', false)).subtotal, 310);
+});
+
+test('a Shopify user error with changed cart contents is treated as uncertain', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.partialUserErrorNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  const blocked = await fixture.commerce.refreshCart();
+  assert.equal(blocked.incomplete, true);
+  assert.equal(blocked.subtotal, 310);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 310);
+});
+
+for (const applied of [false, true]) {
+  test(`${applied ? 'applied' : 'unapplied'} timed-out addition recovers without replaying the old mutation`, async () => {
+    const fixture = shopifyFixture({ timeoutMs: 20 });
+    await fixture.commerce.listProducts();
+    await fixture.commerce.addProduct('black', false);
+    const reachedMutation = applied ? fixture.delayNextMutationResponse() : fixture.delayNextMutation();
+    const attempt = fixture.commerce.addProduct('blue', false).catch(error => error);
+    await reachedMutation;
+    assert.equal((await attempt).code, 'uncertain');
+    const observed = await fixture.restore().refreshCart();
+    assert.equal(observed.incomplete, true);
+    assert.equal(observed.subtotal, applied ? 310 : 155);
+    const recovered = await fixture.restore().recoverCart();
+    assert.equal(recovered.incomplete, false);
+    assert.equal(recovered.subtotal, applied ? 310 : 155);
+    fixture.releaseDelayedMutation();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const active = await fixture.restore().getCart();
+    assert.equal(active.id, recovered.id);
+    assert.equal(active.subtotal, recovered.subtotal);
+    if (!applied) {
+      const retried = await fixture.commerce.addProduct('blue', false);
+      assert.equal(retried.subtotal, 310);
+      assert.equal(retried.lines.filter(line => line.productId === 'blue' && !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 1);
+    }
+  });
+}
+
+for (const [label, target, applied] of [
+  ['quantity increase', 2, false], ['quantity decrease', 1, true]
+]) {
+  test(`a failed ${label} recovers into a separate Shopify cart`, async () => {
+    const fixture = shopifyFixture();
+    await fixture.commerce.listProducts();
+    await fixture.commerce.addProduct('black', true);
+    if (applied) await fixture.commerce.setLineQuantity((await fixture.commerce.getCart()).lines.find(line => !line.isBreakIn).remoteLineId, 2);
+    const before = await fixture.commerce.getCart();
+    const parent = before.lines.find(line => !line.isBreakIn);
+    fixture.failAfterNextMutation();
+    await assert.rejects(fixture.commerce.setLineQuantity(parent.remoteLineId, target), error => error.code === 'uncertain');
+    const blocked = await fixture.restore().refreshCart();
+    assert.equal(blocked.incomplete, true);
+    assert.equal(blocked.recoveryAvailable, true);
+    const recovered = await fixture.restore().recoverCart();
+    assert.equal(recovered.incomplete, false);
+    assert.equal(recovered.lines.find(line => !line.isBreakIn).quantity, target);
+    assert.equal(recovered.lines.find(line => line.isBreakIn).quantity, target);
+    assert.notEqual(recovered.id, before.id);
+  });
+}
+
+test('a failed removal preserves the verified remaining items after reload', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', true);
+  await fixture.commerce.addProduct('blue', false);
+  const before = await fixture.commerce.getCart();
+  fixture.failAfterNextMutation();
+  await assert.rejects(fixture.commerce.removeLine(before.lines.find(line => line.productId === 'black' && !line.isBreakIn).remoteLineId),
+    error => error.code === 'uncertain');
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.lines.length, 1);
+  assert.equal(recovered.lines[0].productId, 'blue');
+  assert.equal(recovered.subtotal, 155);
+});
+
+test('a partial Break-In change recovers the last consistent glove-only cart', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const before = await fixture.commerce.getCart();
+  fixture.failAfterNextMutation();
+  await assert.rejects(fixture.commerce.addBreakIn(before.lines[0].remoteLineId), error => error.code === 'uncertain');
+  const partial = await fixture.restore().refreshCart();
+  assert.equal(partial.incomplete, true);
+  assert.equal(partial.recoveryAvailable, true);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 155);
+  assert.equal(recovered.lines.filter(line => line.isBreakIn).length, 0);
+});
+
+test('an incomplete cart cannot drop another tab’s confirmed glove from an older snapshot', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const original = await fixture.commerce.addProduct('black', false);
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  const reached = fixture.delayNextMutation();
+  const changingService = fixture.commerce.addBreakIn(original.lines[0].remoteLineId).catch(error => error);
+  await reached;
+  const confirmed = await otherTab.addProduct('blue', false);
+  assert.equal(confirmed.subtotal, 310);
+  fixture.failNextMutation();
+  fixture.releaseDelayedMutation();
+  await changingService;
+  await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-ambiguous');
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
+  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), original.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
+});
+
+test('an outdated snapshot cannot overwrite another tab’s confirmed quantity', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const original = await fixture.commerce.addProduct('blue', false);
+  const black = original.lines.find(line => line.productId === 'black' && !line.isBreakIn);
+  const blue = original.lines.find(line => line.productId === 'blue' && !line.isBreakIn);
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  const reached = fixture.delayNextMutation();
+  const changingService = fixture.commerce.addBreakIn(black.remoteLineId).catch(error => error);
+  await reached;
+  const confirmed = await otherTab.setLineQuantity(blue.remoteLineId, 2);
+  assert.equal(confirmed.lines.find(line => line.productId === 'blue').quantity, 2);
+  fixture.failNextMutation();
+  fixture.releaseDelayedMutation();
+  await changingService;
+  await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-ambiguous');
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
+});
+
+test('an outdated snapshot cannot remove another tab’s confirmed Break-In association', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const original = await fixture.commerce.addProduct('blue', false);
+  const black = original.lines.find(line => line.productId === 'black' && !line.isBreakIn);
+  const blue = original.lines.find(line => line.productId === 'blue' && !line.isBreakIn);
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  await otherTab.getBreakInService();
+  const reached = fixture.delayNextMutation();
+  const changingService = fixture.commerce.addBreakIn(black.remoteLineId).catch(error => error);
+  await reached;
+  const confirmed = await otherTab.addBreakIn(blue.remoteLineId);
+  assert.equal(confirmed.lines.filter(line => line.isBreakIn).length, 1);
+  fixture.failNextMutation();
+  fixture.releaseDelayedMutation();
+  await changingService;
+  await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-ambiguous');
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
+});
+
+test('failed Break-In removal recovers mixed serviced and unserviced lines with correct parents', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', true);
+  await fixture.commerce.addProduct('black', false);
+  await fixture.commerce.addProduct('blue', true);
+  const before = await fixture.commerce.getCart();
+  const servicedBlack = before.lines.find(line => line.productId === 'black' && !line.isBreakIn && line.serviceConfiguration === 'break-in');
+  fixture.failAfterNextMutation();
+  await assert.rejects(fixture.commerce.removeBreakIn(servicedBlack.remoteLineId), error => error.code === 'uncertain');
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 505);
+  assert.equal(recovered.lines.filter(line => !line.isBreakIn).length, 3);
+  assert.equal(recovered.lines.filter(line => line.isBreakIn).length, 2);
+  for (const child of recovered.lines.filter(line => line.isBreakIn)) {
+    const parent = recovered.lines.find(line => line.remoteLineId === child.parentLineId);
+    assert.equal(parent.serviceConfiguration, 'break-in');
+    assert.equal(parent.productId, child.productId);
+  }
+});
+
+test('an explicit glove-only recovery can omit unavailable Break-In without dropping gloves', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', true);
+  await fixture.commerce.addProduct('black', false);
+  await fixture.commerce.addProduct('blue', true);
+  const before = await fixture.commerce.getCart();
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('brown', false), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  const blocked = await fixture.restore().refreshCart();
+  assert.equal(blocked.recoveryHasBreakIn, true);
+  const recovered = await fixture.restore().recoverCart({ withoutBreakIn: true });
+  assert.equal(recovered.incomplete, false);
+  assert.equal(recovered.subtotal, 465);
+  assert.equal(recovered.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 3);
+  assert.equal(recovered.lines.filter(line => line.isBreakIn).length, 0);
+  assert.notEqual(recovered.id, before.id);
+});
+
+test('failed recovery leaves the original cart and unresolved state available for another attempt', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const original = await fixture.commerce.addProduct('black', false);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  await assert.rejects(fixture.commerce.recoverCart(), /503/);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
+  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  fixture.setApiError(false);
+  assert.equal((await fixture.restore().recoverCart()).incomplete, false);
+});
+
+test('Web Locks serialize simultaneous recovery into one active replacement cart', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const original = await fixture.commerce.addProduct('black', false);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  const firstTab = fixture.restore();
+  const secondTab = fixture.restore();
+  const [first, second] = await Promise.all([firstTab.recoverCart(), secondTab.recoverCart()]);
+  assert.notEqual(first.id, original.id);
+  assert.equal(second.id, first.id);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), first.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 2);
+});
+
+test('recovery without Web Locks creates no replacement and preserves the original', async () => {
+  const fixture = shopifyFixture({ recoveryLocks: null });
+  await fixture.commerce.listProducts();
+  const original = await fixture.commerce.addProduct('black', false);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-lock-unavailable');
+  assert.match(commerceErrorMessage(new ShopifyRequestError('lock', 'recovery-lock-unavailable')), /browser that supports Web Locks/);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
+  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), original.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
+});
+
+test('two tabs cannot mistake one addition for a timed-out addition from the other tab', async () => {
+  const fixture = shopifyFixture({ timeoutMs: 20 });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  const reachedMutation = fixture.delayNextMutation();
+  const delayed = fixture.commerce.addProduct('blue', false).catch(error => error);
+  await reachedMutation;
+  assert.equal((await otherTab.addProduct('blue', false)).subtotal, 310);
+  assert.equal((await delayed).code, 'uncertain');
+  const blocked = await fixture.restore().refreshCart();
+  assert.equal(blocked.incomplete, true);
+  const recovered = await fixture.restore().recoverCart();
+  assert.equal(recovered.lines.filter(line => line.productId === 'blue' && !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 1);
+  fixture.releaseDelayedMutation();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const active = await fixture.restore().getCart();
+  assert.equal(active.id, recovered.id);
+  assert.equal(active.lines.filter(line => line.productId === 'blue' && !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 1);
+});
+
+test('a late successful response from an old tab cannot replace a recovered active cart', async () => {
+  const fixture = shopifyFixture({ timeoutMs: 1000 });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  const reachedMutation = fixture.delayNextMutation();
+  const delayed = otherTab.addProduct('blue', false).catch(error => error);
+  await reachedMutation;
+  fixture.failAfterNextMutation();
+  await assert.rejects(fixture.commerce.addProduct('brown', false), error => error.code === 'uncertain');
+  const recovered = await fixture.restore().recoverCart();
+  fixture.releaseDelayedMutation();
+  assert.equal((await delayed).code, 'cart-changed');
+  const active = await fixture.restore().getCart();
+  assert.equal(active.id, recovered.id);
+  assert.equal(active.subtotal, 310);
+  assert.equal(active.lines.some(line => line.productId === 'blue'), false);
+});
+
+for (const serviceState of ['missing', 'failed', 'sold-out', 'missing-handle', 'invalid-price']) {
+  test(`${serviceState} Break-In Service leaves all gloves purchasable without service`, async () => {
+    const fixture = shopifyFixture({ serviceState, serviceHandle: serviceState === 'missing-handle' ? '' : 'break-in' });
+    const products = await fixture.commerce.listProducts();
+    assert.equal(products.length, 3);
+    assert.ok(products.every(product => product.available));
+    assert.equal((await fixture.commerce.getBreakInService()).available, false);
+    const cart = await fixture.commerce.addProduct('black', false);
+    assert.equal(cart.subtotal, 155);
+    assert.equal(cart.lines.filter(line => line.isBreakIn).length, 0);
+    await assert.rejects(fixture.commerce.addProduct('blue', true), /not currently available/);
+    assert.equal((await fixture.commerce.getCart()).subtotal, 155);
+  });
 }
 
 test('adds a glove without service using Shopify price and checkout', async () => {
@@ -284,6 +776,21 @@ test('adds a glove without service using Shopify price and checkout', async () =
   assert.equal(cart.lines.length, 1);
   assert.deepEqual(requests.find(item => item.query.includes('CreateCart')).variables.input.lines,
     [{ merchandiseId: 'gid://variant/br16', quantity: 1, attributes: [{ key: '_anawin_service', value: 'none' }] }]);
+});
+
+test('all three available gloves remain purchasable with the normal $20 Break-In option', async () => {
+  const fixture = shopifyFixture();
+  const products = await fixture.commerce.listProducts();
+  assert.deepEqual(products.map(product => [product.name, product.price, product.available]), [
+    ['CL16', 155, true], ['OB16', 155, true], ['BR16', 155, true]
+  ]);
+  assert.equal((await fixture.commerce.getBreakInService()).price, 20);
+  await fixture.commerce.addProduct('black', true);
+  await fixture.commerce.addProduct('blue', false);
+  const cart = await fixture.commerce.addProduct('brown', false);
+  assert.equal(cart.subtotal, 485);
+  assert.equal(cart.lines.filter(line => !line.isBreakIn).length, 3);
+  assert.equal(cart.lines.filter(line => line.isBreakIn).length, 1);
 });
 
 test('adds a native nested Break-in line and restores its parent relationship', async () => {
@@ -963,8 +1470,9 @@ test('service mutations surface Shopify user and API errors without changing car
   fixture.setUserError('');
   fixture.setApiError(true);
   await assert.rejects(fixture.commerce.addBreakIn(fixture.unservicedId), /503/);
-  await assert.rejects(fixture.commerce.removeBreakIn(fixture.servicedId), /503/);
+  await assert.rejects(fixture.commerce.removeBreakIn(fixture.servicedId), /cart is incomplete/);
   const cart = await fixture.commerce.getCart();
+  assert.equal(cart.incomplete, true);
   assert.equal(cart.subtotal, 330);
   assert.deepEqual(mixedQuantities(cart, fixture.servicedId, fixture.unservicedId), { serviced: 1, unserviced: 1, service: 1 });
 });

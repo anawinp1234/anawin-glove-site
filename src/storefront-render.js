@@ -52,7 +52,7 @@ function wordmark(sizes, loading = 'eager') {
   const srcset = widths.map(width => `/images/optimized/anawin-wordmark-${width}.webp ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="/images/anawin-wordmark.png" alt="ANAWIN" width="1193" height="141" loading="${loading}" /></picture>`;
 }
-export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
+export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
 const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
@@ -63,18 +63,18 @@ function header() {
   const announcementBar = announcement.enabled === true
     ? `<aside class="announcement-bar" aria-label="Store announcement"><p>${escapeHtml(announcement.message)}</p></aside>`
     : '';
-  return `${announcementBar}<header class="site-header">
+  return `<div class="site-header-stack">${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
     <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
     <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${cartCount()})</span></button>
-  </header>`;
+  </header></div>`;
 }
 
 function commerceNotice() {
   if (commerceLoading) return `<div class="commerce-notice" role="status">Connecting to product inventory…</div>`;
-  if (commerceError) return `<div class="commerce-notice commerce-notice-error" role="alert">${escapeHtml(commerceError)}</div>`;
+  if (commerceError) return `<div class="commerce-notice commerce-notice-error" role="alert">${escapeHtml(commerceError)}${commerceRetry ? ' <button type="button" data-retry-commerce>Try again</button>' : ''}</div>`;
   return '';
 }
 

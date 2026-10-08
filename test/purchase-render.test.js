@@ -29,6 +29,26 @@ test('PDPs disable Break-In while inventory loads or fails, then enable it when 
   }
 });
 
+test('a failed Shopify product lookup offers a keyboard-accessible retry', () => {
+  const renderer = createStorefrontRenderer({ products: localProducts, breakInService,
+    commerceError: 'Couldn’t connect to Shopify. Please try again.', commerceRetry: true });
+  assert.match(renderer.commerceNotice(), /role="alert"[^>]*>Couldn’t connect to Shopify\. Please try again\. <button type="button" data-retry-commerce>Try again<\/button>/);
+});
+
+test('an unavailable Break-In Service disables only its option', () => {
+  const html = renderProduct(localProducts[0], { breakInService: { ...breakInService, available: false } });
+  assert.match(html, /data-break-in[^>]* disabled/);
+  assert.match(html, /Break-In Service is unavailable\./);
+  assert.match(html, /data-add="brown" >Add to cart <span data-add-price>\$155/);
+});
+
+test('a sold-out glove cannot be added', () => {
+  const soldOut = { ...localProducts[0], available: false };
+  const html = createStorefrontRenderer({ products: [soldOut, ...localProducts.slice(1)], breakInService }).route(productPath(soldOut));
+  assert.match(html, /data-add="brown" disabled>Sold out/);
+  assert.match(html, /data-break-in[^>]* disabled/);
+});
+
 test('PDPs show price before fixed facts and link purchase policies near the CTA', () => {
   for (const product of localProducts) {
     const html = renderProduct(product);
