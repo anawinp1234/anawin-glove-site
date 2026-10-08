@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cartDiscountSummary, renderCartDiscounts, renderCartDiscountSection, renderDiscountEntry } from '../src/cart-discounts.js';
 import { renderCartRow } from '../src/cart-row.js';
+import { cartMoney } from '../src/storefront-render.js';
 
 const money = (amount, currency) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
@@ -49,6 +50,14 @@ test('applicable percentage code shows the configured percentage and Shopify sav
   assert.match(html, /Discount \(LAUNCH10\)<\/span><span>−\$15/);
   assert.match(html, /Total before shipping\/tax<\/span><strong>\$140/);
   assert.match(row(value.lines[0]), /<div class="cart-price-pair"><s class="cart-line-original">\$155<\/s><strong class="cart-line-price">\$140<\/strong>/);
+});
+
+test('cart amounts always show two decimal places for cents and whole dollars', () => {
+  const value = cart([glove(1, 155, 139.5, [allocation(15.5)])], 139.5, applied, percentage);
+  const html = renderCartDiscounts(value, 'shopify', cartMoney, escapeHtml);
+  assert.match(html, /Merchandise subtotal<\/span><span>\$155\.00/);
+  assert.match(html, /Discount \(LAUNCH10\)<\/span><span>−\$15\.50/);
+  assert.match(html, /Total before shipping\/tax<\/span><strong>\$139\.50/);
 });
 
 test('an inapplicable code is never shown as applied', () => {

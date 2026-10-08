@@ -1,6 +1,6 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
-import { createStorefrontRenderer, newsletterPopupMarkup, money, escapeHtml, arrow } from './storefront-render.js';
+import { createStorefrontRenderer, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
@@ -90,9 +90,9 @@ function cartDrawer() {
     ${cartFeedback}
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
       product, line, service, mode: commerce.mode, serviceProduct: breakInService,
-      busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
+      busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, money, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
