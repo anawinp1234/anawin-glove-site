@@ -1,8 +1,13 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
 import { createStorefrontRenderer, newsletterPopupMarkup, money, escapeHtml, arrow } from './storefront-render.js';
-import { createCommerce } from './commerce.js';
+import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
+import { cartFeedbackMarkup } from './cart-feedback.js';
+import { createCartActionGate } from './cart-action-gate.js';
+import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey } from './checkout-safety.js';
+import { nextHeaderHidden } from './header-scroll.js';
+import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { updateSeo, productPath } from './seo.js';
@@ -28,6 +33,13 @@ let breakInService = localBreakInService;
 let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl: null };
 let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
+let checkoutBusy = false;
+let checkoutNeedsReview = false;
+let headerHidden = false;
+let lastHeaderScrollY = window.scrollY;
+const runCartAction = createCartActionGate();
+const verifyCheckout = commerce.mode === 'shopify'
+  ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
 let cartError = '';
 let discountInput = '';
 let discountBusy = false;
@@ -51,12 +63,7 @@ const reviewData = Object.fromEntries(localProducts.map(product => {
 }));
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
-const canCheckout = () => commerce.mode === 'shopify' && Boolean(cart.checkoutUrl) && !cart.incomplete && cart.lines.length > 0 && cart.lines.every(line => {
-  if (!line.merchandiseId) return false;
-  if (!line.isBreakIn) return true;
-  const parent = cart.lines.find(candidate => candidate.remoteLineId === line.parentLineId && !candidate.isBreakIn);
-  return parent?.productId === line.productId && parent.quantity === line.quantity;
-});
+const canCheckout = () => commerce.mode === 'shopify' && checkoutCartIsComplete(cart);
 
 function cartDrawer() {
   const productItems = commerce.mode === 'shopify'
@@ -71,14 +78,18 @@ function cartDrawer() {
       service: cart.lines.find(line => line.productId === product.id && line.isBreakIn)
     })).filter(entry => entry.line);
   const checkout = canCheckout()
-    ? `<button data-checkout ${cartBusy ? 'disabled' : ''}>Checkout securely</button>`
-    : `<button disabled>Checkout coming soon</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
+    ? `<button data-checkout ${cartBusy || checkoutBusy ? 'disabled' : ''}>${checkoutBusy ? 'Checking cart…' : 'Checkout securely'}</button><p class="checkout-status" role="status" aria-live="polite">${checkoutBusy ? 'Checking your cart with Shopify…' : ''}</p>`
+    : `<button disabled>${commerce.mode === 'local' ? 'Checkout coming soon' : 'Checkout unavailable'}</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
+  const cartFeedback = cartFeedbackMarkup({ error: cartError, incomplete: cart.incomplete,
+    recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn,
+    busy: cartBusy, mode: commerce.mode }, escapeHtml);
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
+    ${cartFeedback}
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
       product, line, service, mode: commerce.mode, serviceProduct: breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, money, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${cartError ? `<p class="cart-error" role="alert">${escapeHtml(cartError)}</p>` : ''}${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, money, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
@@ -117,9 +128,11 @@ function syncProductDisplayOrder() {
 }
 
 function render() {
-  const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, cartCount, reviewData });
+  const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  headerHidden = false;
+  document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
   fitHeroHeading(); bind(); window.scrollTo(0, 0);
 }
@@ -254,20 +267,29 @@ function bindMobileGallery() {
     update();
   }));
 }
-async function cartAction(action, opener = null) {
-  if (cartBusy) return;
-  cartBusy = true; cartError = ''; openCart(opener);
-  try { cart = await action(); }
-  catch (error) {
-    cartError = error.message || 'Cart update failed. Please try again.';
-    try { cart = await commerce.getCart(); }
-    catch { cart = { ...cart, checkoutUrl: null }; }
-  }
-  finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
+async function cartAction(action, opener = null, kind = 'cart') {
+  if (cartBusy || checkoutBusy) return;
+  return runCartAction(async () => {
+    cartBusy = true; cartError = ''; openCart(opener);
+    try {
+      cart = await action();
+      if (cart.incomplete) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
+      else if (kind === 'recovery') {
+        checkoutNeedsReview = true;
+        cartError = 'Review the items in your new cart before checkout.';
+      }
+    }
+    catch (error) {
+      cartError = commerceErrorMessage(error, kind);
+      try { cart = await commerce.getCart(); }
+      catch { cart = { ...cart, checkoutUrl: null }; }
+    }
+    finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
+  });
 }
 
 async function discountAction(action, code = '', removingCode = '') {
-  if (cartBusy || discountBusy) return;
+  if (cartBusy || discountBusy || checkoutBusy) return;
   cartBusy = true;
   discountBusy = true;
   discountMessage = '';
@@ -294,7 +316,7 @@ async function discountAction(action, code = '', removingCode = '') {
     }
     if (!discountError && cart.discountWarnings?.length) discountMessage = [discountMessage, ...cart.discountWarnings].filter(Boolean).join(' ');
   } catch (error) {
-    discountMessage = error.message || 'Discount update failed. Please try again.';
+    discountMessage = commerceErrorMessage(error, 'cart');
     discountError = true;
     try { cart = await commerce.getCart(); }
     catch { cart = { ...cart, checkoutUrl: null }; }
@@ -310,6 +332,10 @@ async function discountAction(action, code = '', removingCode = '') {
 }
 
 function bindCart() {
+  document.querySelector('[data-refresh-cart]')?.addEventListener('click', () => cartAction(() => commerce.refreshCart()));
+  document.querySelector('[data-recover-cart]')?.addEventListener('click', () => cartAction(() => commerce.recoverCart(), null, 'recovery'));
+  document.querySelector('[data-recover-without-service]')?.addEventListener('click', () =>
+    cartAction(() => commerce.recoverCart({ withoutBreakIn: true }), null, 'recovery'));
   const discountForm = document.querySelector('[data-discount-form]');
   discountForm?.querySelector('input')?.addEventListener('input', event => {
     discountInput = event.target.value;
@@ -346,15 +372,39 @@ function bindCart() {
     if (!line) return;
     return cartAction(() => commerce.setLineQuantity(line.remoteLineId, line.quantity + Number(element.dataset.delta)));
   }));
-  document.querySelector('[data-checkout]')?.addEventListener('click', () => {
-    if (!canCheckout()) return;
-    try {
-      const checkoutUrl = new URL(cart.checkoutUrl);
-      if (checkoutUrl.protocol !== 'https:') throw new Error();
-      window.location.assign(checkoutUrl.href);
-    } catch {
-      cartError = 'Shopify returned an invalid checkout link.'; openCart();
+  document.querySelector('[data-checkout]')?.addEventListener('click', async () => {
+    if (checkoutBusy || cartBusy || !canCheckout()) return;
+    checkoutBusy = true;
+    const button = document.querySelector('[data-checkout]');
+    button.disabled = true;
+    button.textContent = 'Checking cart…';
+    button.setAttribute('aria-busy', 'true');
+    const status = document.querySelector('.checkout-status');
+    if (status) status.textContent = 'Checking your cart with Shopify…';
+    const result = await verifyCheckout(cart, { requireReview: checkoutNeedsReview });
+    checkoutBusy = false;
+    if (result.status === 'ready') {
+      const safety = commerce.readCartSafety();
+      if (safety.id === result.cart.id && safety.revision === result.revision &&
+        safety.unsafeId !== safety.id && safety.pendingCartId !== safety.id) {
+        try {
+          const checkoutUrl = new URL(result.checkoutUrl);
+          if (checkoutUrl.protocol !== 'https:') throw new Error();
+          window.location.assign(checkoutUrl.href);
+          return;
+        } catch { cartError = 'Shopify returned an invalid checkout link. Check your cart and try again.'; }
+      } else cartError = 'Your cart changed in another tab. Check your cart before checkout.';
+      cart = { ...cart, checkoutUrl: null };
+    } else {
+      if (result.cart) cart = result.cart;
+      else cart = { ...cart, checkoutUrl: null };
+      checkoutNeedsReview = result.status === 'review' ? false : checkoutNeedsReview;
+      cartError = result.message || 'Couldn’t check your cart. Check your cart and try again.';
     }
+    syncCartCount();
+    openCart();
+    const next = document.querySelector(result.status === 'review' ? '[data-checkout]' : '[data-refresh-cart]');
+    if (next && !next.disabled) next.focus();
   });
 }
 
@@ -372,6 +422,12 @@ function bind() {
       if (heading) { heading.tabIndex = -1; heading.focus(); }
     }
   }));
+  document.querySelector('[data-retry-commerce]')?.addEventListener('click', async () => {
+    const pending = loadCommerce();
+    focusCommerceRetryStatus(document);
+    await pending;
+    focusCommerceRetryResult(document);
+  });
   const menuToggle = document.querySelector('.mobile-menu-toggle');
   menuToggle?.addEventListener('click', () => {
     const menu = document.querySelector('#mobile-menu');
@@ -395,7 +451,7 @@ function bind() {
   });
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', async () => {
     const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
-    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn), element);
+    await cartAction(() => commerce.addProduct(element.dataset.add, includeBreakIn), element, 'add');
   }));
   document.querySelectorAll('[data-image]').forEach(element => element.addEventListener('click', () => {
     lightboxReturnFocus = element;
@@ -423,9 +479,20 @@ function closeLightbox() {
   lightboxReturnFocus = null;
 }
 
-async function boot() {
+async function loadCommerce() {
+  if (commerce.mode !== 'shopify') {
+    if (!commerceError) {
+      products = await commerce.listProducts();
+      breakInService = await commerce.getBreakInService();
+      cart = await commerce.getCart();
+    }
+    render();
+    return;
+  }
+  commerceLoading = true;
+  commerceError = '';
+  breakInService = { ...localBreakInService, available: false };
   render();
-  setupNewsletterPopup();
   try {
     products = await commerce.listProducts();
     judgeMeReviewLinks = productReviewLinks(products);
@@ -434,13 +501,33 @@ async function boot() {
       reviewData[handle] = { ...reviewData[handle], writeReviewUrl: judgeMeReviewLinks[handle] };
     }
     loadReviews();
-    [breakInService, cart] = await Promise.all([commerce.getBreakInService(), commerce.getCart()]);
+    const serviceLoad = commerce.getBreakInService().then(service => {
+      breakInService = service;
+      if (!commerceLoading && service.available) { render(); if (cartIsOpen) openCart(); }
+    });
+    try { cart = await commerce.getCart(); }
+    catch (error) {
+      cartError = commerceErrorMessage(error, 'cart');
+      cart = { ...cart, checkoutUrl: null };
+    }
+    commerceLoading = false;
+    render();
+    if (cartIsOpen) openCart();
+    await serviceLoad;
   }
   catch (error) {
-    commerceError = error.message || 'Unable to connect to Shopify.';
+    commerceError = commerceErrorMessage(error);
     for (const product of products) reviewData[product.name.toLowerCase()] = { status: 'unavailable' };
+    commerceLoading = false;
+    render();
+    if (cartIsOpen) openCart();
   }
-  finally { commerceLoading = false; render(); if (cartIsOpen) openCart(); }
+}
+
+async function boot() {
+  render();
+  setupNewsletterPopup();
+  await loadCommerce();
 }
 
 document.addEventListener('keydown', event => {
@@ -467,4 +554,27 @@ window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
 mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
 window.addEventListener('popstate', () => { render(); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
+window.addEventListener('storage', event => {
+  if (commerce.mode !== 'shopify' || !isCartStorageKey(event.key)) return;
+  checkoutNeedsReview = true;
+  cart = { ...cart, checkoutUrl: null };
+  cartError = 'Your cart changed in another tab. Check your cart before checkout.';
+  if (cartIsOpen && !checkoutBusy) {
+    openCart();
+    document.querySelector('[data-refresh-cart]')?.focus();
+  }
+});
+window.addEventListener('scroll', () => {
+  const scrollY = Math.max(0, window.scrollY);
+  headerHidden = nextHeaderHidden({ scrollY, previousY: lastHeaderScrollY, hidden: headerHidden,
+    menuOpen: document.querySelector('.mobile-menu-toggle')?.getAttribute('aria-expanded') === 'true' ||
+      Boolean(document.activeElement?.closest('.site-header-stack')) });
+  document.querySelector('.site-header-stack')?.classList.toggle('is-hidden', headerHidden);
+  lastHeaderScrollY = scrollY;
+}, { passive: true });
+document.addEventListener('focusin', event => {
+  if (!event.target.closest?.('.site-header-stack')) return;
+  headerHidden = false;
+  document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
+});
 boot();
