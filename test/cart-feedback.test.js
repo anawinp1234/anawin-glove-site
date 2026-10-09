@@ -35,6 +35,13 @@ test('a serviced cart offers an explicit glove-only recovery choice', () => {
   assert.match(html, /Continue without Break-In Service/);
 });
 
+test('a legacy service cart offers only the safe glove-only recovery choice', () => {
+  const html = cartFeedbackMarkup({ incomplete: true, gloveOnlyRecoveryAvailable: true,
+    mode: 'shopify' }, escapeHtml);
+  assert.match(html, /data-recover-without-service/);
+  assert.doesNotMatch(html, /data-recover-cart/);
+});
+
 test('repeated clicks during a pending cart action run only one mutation', async () => {
   let release;
   const gate = createCartActionGate();

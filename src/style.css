@@ -437,6 +437,23 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 .service-option .service-heading b{flex:0 0 auto;color:var(--ink);font-size:15px;font-weight:700}
 .service-option small{font-size:12px;line-height:1.5}
 .service-option .service-timing{color:var(--ink);font-weight:700}
+.break-in-customization{margin:0 0 18px;padding:4px 0 0}
+.break-in-customization[hidden]{display:none}
+.break-in-customization h2{margin:0 0 18px;font-size:15px;line-height:1.35;font-weight:700}
+.break-in-customization fieldset{min-width:0;margin:0 0 20px;padding:0;border:0}
+.break-in-customization legend{width:100%;margin:0 0 9px;padding:0;font-size:13px;line-height:1.4;font-weight:700}
+.break-in-choice{display:flex;min-height:52px;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);cursor:pointer}
+.break-in-choice+.break-in-choice{border-top:0}
+.break-in-choice:has(input:checked){position:relative;border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.break-in-choice:has(input:focus-visible){outline:2px solid var(--ink);outline-offset:2px;z-index:1}
+.break-in-choice input{flex:0 0 19px;width:19px;height:19px;margin:0;accent-color:var(--ink)}
+.break-in-choice span{display:block;min-width:0}
+.break-in-choice strong{display:block;font-size:12px;line-height:1.35}
+.break-in-choice small{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.4}
+.break-in-choice em{display:inline-block;margin-left:5px;color:var(--muted);font-size:10px;font-style:normal;font-weight:400}
+.break-in-disclaimer{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+.cart-service-preferences{grid-column:1/-1;margin:0;padding-top:9px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.45}
+.cart-service-preferences p{margin:2px 0}
 .purchase-status{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.45}
 .purchase-status-error{color:#8b2929}
 .pdp-info .add-button{min-height:58px;align-items:center;font-weight:700;letter-spacing:.02em;transition:background-color .2s ease,opacity .2s ease,transform .1s ease}
