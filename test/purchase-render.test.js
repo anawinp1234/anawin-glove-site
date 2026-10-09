@@ -30,6 +30,23 @@ test('PDPs disable Break-In while inventory loads or fails, then enable it when 
   }
 });
 
+test('every trainer offers accessible break-in choices above Add to Cart', () => {
+  for (const product of localProducts) {
+    const html = renderProduct(product);
+    assert.ok(html.indexOf('data-break-in-customization') > html.indexOf('data-break-in'));
+    assert.ok(html.indexOf('data-break-in-customization') < html.indexOf('class="add-button"'));
+    assert.match(html, /data-break-in-customization hidden aria-labelledby="break-in-customization-heading"/);
+    assert.match(html, /<fieldset><legend>How broken in do you want your glove\?<\/legend>/);
+    assert.match(html, /<fieldset><legend>How do you wear your glove\?<\/legend>/);
+    assert.match(html, /name="break-in-level" value="Medium \(65%\)" checked/);
+    assert.match(html, /name="glove-wearing-style" value="Traditional" checked/);
+    for (const value of ['Firm (40%)', 'Game Ready (90%)', 'Two in the Pinky (TIP)']) {
+      assert.ok(html.includes(`value="${value}"`));
+    }
+    assert.match(html, /Break-in percentages are approximate\. Your glove's final feel develops with use\./);
+  }
+});
+
 test('mobile purchase bar reuses each glove color and confirmed product price', () => {
   const accents = { black: '#202326', blue: '#2560ae', brown: '#9a622d' };
   for (const product of localProducts) {

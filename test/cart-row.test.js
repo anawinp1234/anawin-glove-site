@@ -49,3 +49,14 @@ test('cart row refuses a combined total with mismatched currencies', () => {
   assert.match(html, /cart-line-price">Price unavailable<\/strong>/);
   assert.match(html, /data-remove-service="glove-1"[^>]*disabled/);
 });
+
+test('cart row shows escaped Shopify service preferences only while service is present', () => {
+  const child = { ...service(1, 20), attributes: [
+    { key: 'Break-In Level', value: 'Game Ready (90%)' },
+    { key: 'Glove Wearing Style', value: 'Two in the Pinky (TIP)' }
+  ] };
+  const html = render(glove(1, 155), child);
+  assert.match(html, /Break-In Level: Game Ready \(90%\)/);
+  assert.match(html, /Glove Wearing Style: Two in the Pinky \(TIP\)/);
+  assert.doesNotMatch(render(glove(1, 155)), /Break-In Level:/);
+});

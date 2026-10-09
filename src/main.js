@@ -85,6 +85,7 @@ function cartDrawer() {
     : `<button disabled>${commerce.mode === 'local' ? 'Checkout coming soon' : 'Checkout unavailable'}</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
   const cartFeedback = cartFeedbackMarkup({ error: cartError, incomplete: cart.incomplete,
     recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn,
+    gloveOnlyRecoveryAvailable: cart.gloveOnlyRecoveryAvailable,
     busy: cartBusy, mode: commerce.mode }, escapeHtml);
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     ${cartFeedback}
@@ -313,7 +314,11 @@ async function cartAction(action, opener = null, kind = 'cart') {
 
 function addProductFromButton(productId, trigger) {
   const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
-  return cartAction(() => commerce.addProduct(productId, includeBreakIn), trigger, 'add');
+  const options = includeBreakIn ? {
+    level: document.querySelector('input[name="break-in-level"]:checked')?.value,
+    wearingStyle: document.querySelector('input[name="glove-wearing-style"]:checked')?.value
+  } : undefined;
+  return cartAction(() => commerce.addProduct(productId, includeBreakIn, options), trigger, 'add');
 }
 
 async function discountAction(action, code = '', removingCode = '') {
@@ -472,6 +477,14 @@ function bind() {
   bindMobileGallery();
   const serviceCheckbox = document.querySelector('[data-break-in]');
   serviceCheckbox?.addEventListener('change', () => {
+    const customization = document.querySelector('[data-break-in-customization]');
+    if (customization) customization.hidden = !serviceCheckbox.checked;
+    if (!serviceCheckbox.checked) {
+      const medium = document.querySelector('input[name="break-in-level"][value="Medium (65%)"]');
+      const traditional = document.querySelector('input[name="glove-wearing-style"][value="Traditional"]');
+      if (medium) medium.checked = true;
+      if (traditional) traditional.checked = true;
+    }
     const product = products.find(item => item.id === document.querySelector('[data-add]')?.dataset.add);
     const amount = document.querySelector('[data-add-price]');
     if (product && amount) amount.textContent = money(purchasePrice(product, breakInService, serviceCheckbox.checked), product.currencyCode);

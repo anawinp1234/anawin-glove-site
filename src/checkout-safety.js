@@ -1,3 +1,5 @@
+import { cartCustomizationIsComplete } from './catalog.js';
+
 function cartSignature(cart) {
   // Shopify can refresh checkoutUrl on a read; compare purchasable state instead.
   return JSON.stringify({
@@ -24,6 +26,7 @@ export function isCartStorageKey(key) {
 
 export function checkoutCartIsComplete(cart) {
   if (!cart?.id || !cart.checkoutUrl || cart.incomplete || !cart.lines?.length) return false;
+  if (!cartCustomizationIsComplete(cart.lines)) return false;
   return cart.lines.every(line => {
     if (!line.merchandiseId || !Number.isInteger(line.quantity) || line.quantity < 1) return false;
     if (!line.isBreakIn) return true;

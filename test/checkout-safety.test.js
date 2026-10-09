@@ -4,12 +4,19 @@ import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey } from
 
 const glove = (id = 'line-1', quantity = 1, service = 'none') => ({
   remoteLineId: id, parentLineId: null, merchandiseId: 'gid://variant/br16', productId: 'black',
-  isBreakIn: false, quantity, attributes: [{ key: '_anawin_service', value: service }],
+  isBreakIn: false, quantity, attributes: [{ key: '_anawin_service', value: service },
+    ...(service === 'break-in' ? [
+      { key: '_anawin_break_in_level', value: 'Medium (65%)' },
+      { key: '_anawin_wearing_style', value: 'Traditional' }
+    ] : [])],
   unitPrice: { amount: 155, currencyCode: 'USD' }, lineTotal: { amount: 155 * quantity, currencyCode: 'USD' }
 });
 const child = (parentId = 'line-1') => ({
   remoteLineId: 'service-1', parentLineId: parentId, merchandiseId: 'gid://variant/service',
-  productId: 'black', isBreakIn: true, quantity: 1, attributes: [],
+  productId: 'black', isBreakIn: true, quantity: 1, attributes: [
+    { key: 'Break-In Level', value: 'Medium (65%)' },
+    { key: 'Glove Wearing Style', value: 'Traditional' }
+  ],
   unitPrice: { amount: 20, currencyCode: 'USD' }, lineTotal: { amount: 20, currencyCode: 'USD' }
 });
 const cart = (id = 'gid://cart/1', lines = [glove()]) => ({
@@ -83,6 +90,29 @@ test('an unresolved mutation blocks checkout even when Shopify returns complete 
   const result = await verify(displayed);
   assert.equal(result.status, 'blocked');
   assert.equal(result.checkoutUrl, undefined);
+});
+
+test('checkout blocks missing, duplicate, or mismatched customization attributes', async () => {
+  const validParent = glove('line-1', 1, 'break-in');
+  const validChild = child();
+  const invalid = [
+    [glove('line-1', 1, 'break-in'), { ...validChild, attributes: [] }],
+    [{ ...validParent, attributes: [{ key: '_anawin_service', value: 'break-in' }] }, { ...validChild, attributes: [] }],
+    [validParent, { ...validChild, attributes: [{ key: 'Break-In Level', value: 'Firm (40%)' },
+      { key: 'Glove Wearing Style', value: 'Traditional' }] }],
+    [validParent, { ...validChild, attributes: [...validChild.attributes, validChild.attributes[0]] }],
+    [{ ...validParent, attributes: validParent.attributes.map(attribute =>
+      attribute.key === '_anawin_break_in_level' ? { ...attribute, value: 'Unknown' } : attribute) }, validChild],
+    [glove(), validChild]
+  ];
+  for (const lines of invalid) {
+    const displayed = cart('gid://cart/1', lines);
+    assert.equal(checkoutCartIsComplete(displayed), false);
+    const verify = createCheckoutVerifier({ getCart: async () => displayed,
+      readSafety: () => safety(displayed.id) });
+    assert.equal((await verify(displayed)).status, 'blocked');
+  }
+  assert.equal(checkoutCartIsComplete(cart('gid://cart/1', [validParent, validChild])), true);
 });
 
 test('a cart marked unsafe during verification never returns a checkout URL', async () => {
