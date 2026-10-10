@@ -305,6 +305,7 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
   let nextCartId = 2;
   let nextId = 1;
   let cartExists = false;
+  let expiredCart = false;
   let userError = '';
   let apiError = false;
   let failMutationAt = 0;
@@ -442,7 +443,12 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     if (field === 'cartDiscountCodesUpdate') {
       discountCodes = variables.discountCodes.map(code => ({ code, applicable: true }));
     } else if (field === 'cartCreate' || field === 'cartLinesAdd') {
-      if (field === 'cartCreate' && cartExists) {
+      if (field === 'cartCreate' && expiredCart) {
+        recoveryCartId = `gid://cart/${nextCartId++}`;
+        recoveryLines = [];
+        add(variables.input.lines, recoveryLines);
+        expiredCart = false;
+      } else if (field === 'cartCreate' && cartExists) {
         recoveryCartId = `gid://cart/${nextCartId++}`;
         recoveryLines = [];
         add(variables.input.lines, recoveryLines);
@@ -511,7 +517,8 @@ function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, 
     },
     releaseDelayedMutation() { releaseDelayed?.(); },
     observeMutations(observer) { mutationObserver = observer; },
-    observeQueries(observer) { queryObserver = observer; } };
+    observeQueries(observer) { queryObserver = observer; },
+    expireCart() { cartExists = false; lines = []; recoveryCartId = null; recoveryLines = null; expiredCart = true; } };
 }
 
 test('same-cart Shopify mutations publish a cross-tab revision signal', async () => {
@@ -557,6 +564,92 @@ test('failed first cart creation keeps the cart empty and a deliberate retry add
   const cart = await fixture.commerce.addProduct('black', false);
   assert.equal(cart.lines.length, 1);
   assert.equal(cart.subtotal, 155);
+});
+
+test('a confirmed expired cart is recreated and the first Add to Cart succeeds', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const expired = await fixture.commerce.addProduct('black', false);
+  fixture.expireCart();
+
+  const added = await fixture.commerce.addProduct('blue', false);
+
+  assert.notEqual(added.id, expired.id);
+  assert.equal(added.lines.length, 1);
+  assert.equal(added.lines[0].productId, 'blue');
+  assert.equal(added.lines[0].quantity, 1);
+  assert.equal(added.subtotal, 155);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), added.id);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 2);
+  assert.equal(fixture.requests.filter(request => request.query.includes('AddLines')).length, 0);
+});
+
+test('an expired cart recreates the requested glove with its selected Break-In Service', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const expired = await fixture.commerce.addProduct('black', false);
+  fixture.expireCart();
+
+  const added = await fixture.commerce.addProduct('brown', true,
+    { level: 'Game Ready (90%)', wearingStyle: 'Two in the Pinky (TIP)' });
+
+  assert.notEqual(added.id, expired.id);
+  const glove = added.lines.find(line => !line.isBreakIn);
+  const service = added.lines.find(line => line.isBreakIn);
+  assert.equal(glove.productId, 'brown');
+  assert.equal(glove.quantity, 1);
+  assert.equal(service.quantity, 1);
+  assert.equal(service.parentLineId, glove.remoteLineId);
+  assert.equal(service.attributes.find(attribute => attribute.key === 'Break-In Level').value, 'Game Ready (90%)');
+  assert.equal(service.attributes.find(attribute => attribute.key === 'Glove Wearing Style').value, 'Two in the Pinky (TIP)');
+  assert.equal(added.subtotal, 175);
+  assert.equal(added.incomplete, false);
+});
+
+test('a failed create after an expired-cart read is surfaced without replaying it', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.expireCart();
+  fixture.failNextMutation();
+
+  await assert.rejects(fixture.commerce.addProduct('blue', false), /Partial mutation failed/);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), null);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 2);
+  assert.equal(fixture.requests.filter(request => request.query.includes('AddLines')).length, 0);
+
+  const retried = await fixture.commerce.addProduct('blue', false);
+  assert.equal(retried.lines.length, 1);
+  assert.equal(retried.lines[0].productId, 'blue');
+  assert.equal(retried.subtotal, 155);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 3);
+});
+
+test('an uncertain create after an expired-cart read is not blindly retried', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.expireCart();
+  fixture.failAfterNextMutation();
+
+  await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain-create');
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), null);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 2);
+  assert.equal(fixture.requests.filter(request => request.query.includes('AddLines')).length, 0);
+});
+
+test('a verified live cart receives an addition through cartLinesAdd', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const before = await fixture.commerce.addProduct('black', false);
+
+  const after = await fixture.commerce.addProduct('blue', false);
+
+  assert.equal(after.id, before.id);
+  assert.equal(after.lines.length, 2);
+  assert.equal(after.subtotal, 310);
+  assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
+  assert.equal(fixture.requests.filter(request => request.query.includes('AddLines')).length, 1);
 });
 
 test('failed addition to an existing cart preserves items and retries only after rejection', async () => {

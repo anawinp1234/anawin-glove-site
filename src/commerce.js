@@ -986,6 +986,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       }
       const cartId = storage?.getItem(SHOPIFY_CART_KEY);
       const before = cartId ? await getCart() : emptyCart();
+      const verifiedCartId = before.id;
       if (before.incomplete) throw new Error('The Shopify cart is incomplete. Checkout is unavailable until the cart is corrected.');
       const conflictingParent = includeBreakIn && before.lines.some(line => !line.isBreakIn &&
         line.merchandiseId === product.merchandiseId && line.serviceConfiguration === 'break-in' &&
@@ -993,38 +994,38 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         JSON.stringify([...lines[0].attributes].sort((a, b) => a.key.localeCompare(b.key))));
       let updated;
       if (conflictingParent) {
-        markUnsafe(cartId, 'addition');
+        markUnsafe(verifiedCartId, 'addition');
         let parentAdded = false;
         try {
           const sameAttributes = line => JSON.stringify([...line.attributes].sort((a, b) => a.key.localeCompare(b.key))) ===
             JSON.stringify([...lines[0].attributes].sort((a, b) => a.key.localeCompare(b.key)));
           const previous = before.lines.filter(line => !line.isBreakIn && line.merchandiseId === product.merchandiseId && sameAttributes(line));
           const previousQuantity = previous.reduce((sum, line) => sum + line.quantity, 0);
-          const first = await addLines(cartId, [lines[0]]);
+          const first = await addLines(verifiedCartId, [lines[0]]);
           parentAdded = true;
           const matching = first.lines.filter(line => !line.isBreakIn && line.merchandiseId === product.merchandiseId &&
             sameAttributes(line));
           const attached = first.lines.filter(line => line.parentLineId === matching[0]?.remoteLineId);
           if (matching.length !== 1 || matching[0].quantity !== previousQuantity + 1 || attached.length > 1 ||
             attached.length > 0 && ![previousQuantity, previousQuantity + 1].includes(attached[0].quantity)) {
-            markUnsafe(cartId, 'addition validation failed');
+            markUnsafe(verifiedCartId, 'addition validation failed');
             throw new Error('Shopify could not identify the new glove configuration.');
           }
           if (attached[0]?.quantity === previousQuantity + 1) {
             if (!serviceAttributes(selected).every(attribute => attached[0].attributes.some(saved =>
               saved.key === attribute.key && saved.value === attribute.value))) {
-              markUnsafe(cartId, 'addition validation failed');
+              markUnsafe(verifiedCartId, 'addition validation failed');
               throw new Error('Shopify did not preserve the selected Break-In preferences.');
             }
             updated = first;
-          } else updated = await addLines(cartId, [{ ...lines[1], parent: { lineId: matching[0].remoteLineId } }]);
+          } else updated = await addLines(verifiedCartId, [{ ...lines[1], parent: { lineId: matching[0].remoteLineId } }]);
           updated = await getRawCart();
         } catch (error) {
-          if (parentAdded) markUnsafe(cartId, 'addition');
-          else if (error.code !== 'uncertain') clearUnsafe(cartId);
+          if (parentAdded) markUnsafe(verifiedCartId, 'addition');
+          else if (error.code !== 'uncertain') clearUnsafe(verifiedCartId);
           throw error;
         }
-      } else updated = cartId ? await addLines(cartId, lines) : await createCart(lines);
+      } else updated = verifiedCartId ? await addLines(verifiedCartId, lines) : await createCart(lines);
       const configuration = includeBreakIn ? 'break-in' : 'none';
       const configurationQuantity = cart => cart.lines.filter(line => line.productId === productId && !line.isBreakIn &&
         line.serviceConfiguration === configuration && (!includeBreakIn ||
@@ -1049,7 +1050,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         throw new Error('Shopify did not preserve the selected glove service configuration. Checkout is unavailable.');
       }
       if (conflictingParent) {
-        clearUnsafe(cartId);
+        clearUnsafe(verifiedCartId);
         updated = applySafety(updated);
       }
       return updated;
