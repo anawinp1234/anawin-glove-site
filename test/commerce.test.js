@@ -37,10 +37,10 @@ test('purchase price follows each glove and the selected service price', () => {
   assert.equal(purchasePrice({ price: 160 }, { price: 25 }, true), 185);
 });
 
-test('migrates the original local cart and caps unsafe quantities', () => {
+test('migrates the original local cart without an arbitrary quantity cap', () => {
   assert.deepEqual(migrateLocalCart({ black: 12, 'breakin-black': 1, blue: -2 }), {
     version: 2,
-    items: { black: { quantity: 9, breakInQuantity: 9 } }
+    items: { black: { quantity: 12, breakInQuantity: 12 } }
   });
 });
 
@@ -57,6 +57,19 @@ test('local cart keeps break-in quantity synchronized when quantity changes', as
 
   cart = await commerce.removeProduct('black');
   assert.deepEqual(cart.lines, []);
+});
+
+test('local additions and quantity updates have no hidden nine-item ceiling', async () => {
+  const commerce = createLocalCommerce(new MemoryStorage());
+  let cart;
+  for (let i = 0; i < 10; i++) cart = await commerce.addProduct('black', false);
+  assert.equal(cart.lines[0].quantity, 10);
+  cart = await commerce.setQuantity('black', 11);
+  assert.equal(cart.lines[0].quantity, 11);
+  cart = await commerce.setQuantity('black', 9);
+  assert.equal(cart.lines[0].quantity, 9);
+  await assert.rejects(commerce.setQuantity('black', 1.5), /non-negative whole number/);
+  await assert.rejects(commerce.setQuantity('black', -1), /non-negative whole number/);
 });
 
 test('local preview keeps service preferences after reload', async () => {
@@ -1012,6 +1025,71 @@ test('updates a parent, follows Shopify child quantity, and removes only parents
   cart = await commerce.removeProduct('black');
   assert.deepEqual(cart.lines, []);
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, ['line-1']);
+});
+
+test('Shopify quantity changes preserve direction through 8, 9, 10, and 11 for serviced and plain gloves', async () => {
+  for (const includeBreakIn of [false, true]) {
+    const fixture = shopifyFixture();
+    await fixture.commerce.listProducts();
+    let cart;
+    for (let i = 0; i < 8; i++) cart = await fixture.commerce.addProduct('black', includeBreakIn);
+    let parent = cart.lines.find(line => !line.isBreakIn);
+    cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, 9);
+    parent = cart.lines.find(line => !line.isBreakIn);
+    assert.equal(parent.quantity, 9, '8 → 9');
+    cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, 10);
+    parent = cart.lines.find(line => !line.isBreakIn);
+    assert.equal(parent.quantity, 10, '9 → 10');
+    cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, 11);
+    parent = cart.lines.find(line => !line.isBreakIn);
+    assert.equal(parent.quantity, 11, '10 → 11');
+    cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, 10);
+    parent = cart.lines.find(line => !line.isBreakIn);
+    assert.equal(parent.quantity, 10, '11 → 10');
+    cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, 9);
+    parent = cart.lines.find(line => !line.isBreakIn);
+    assert.equal(parent.quantity, 9, '10 → 9');
+    const service = cart.lines.find(line => line.isBreakIn);
+    if (includeBreakIn) {
+      assert.equal(service.quantity, 9);
+      assert.equal(service.parentLineId, parent.remoteLineId);
+      assert.equal(service.attributes.find(item => item.key === 'Break-In Level')?.value, 'Medium (65%)');
+    } else assert.equal(service, undefined);
+    assert.equal(cart.incomplete, false);
+  }
+});
+
+test('ten repeated Shopify additions followed by quantity increase produce eleven gloves', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  let cart;
+  for (let i = 0; i < 10; i++) cart = await fixture.commerce.addProduct('blue', false);
+  let parent = cart.lines.find(line => !line.isBreakIn);
+  assert.equal(parent.quantity, 10);
+  cart = await fixture.commerce.setLineQuantity(parent.remoteLineId, parent.quantity + 1);
+  parent = cart.lines.find(line => !line.isBreakIn);
+  assert.equal(parent.quantity, 11);
+});
+
+test('Shopify-rejected quantity changes and failed requests never report a changed cart', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const initial = await fixture.commerce.addProduct('black', true);
+  const parent = initial.lines.find(line => !line.isBreakIn);
+  fixture.setUserError('Quantity unavailable');
+  await assert.rejects(fixture.commerce.setLineQuantity(parent.remoteLineId, 2), /Quantity unavailable/);
+  fixture.setUserError('');
+  let cart = await fixture.commerce.getCart();
+  assert.equal(cart.lines.find(line => !line.isBreakIn).quantity, 1);
+  assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 1);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.setLineQuantity(parent.remoteLineId, 2));
+  fixture.setApiError(false);
+  assert.equal(fixture.lines.find(line => !line.parentRelationship).quantity, 1);
+  assert.equal(fixture.lines.find(line => line.parentRelationship).quantity, 1);
+  cart = await fixture.restore().recoverCart();
+  assert.equal(cart.lines.find(line => !line.isBreakIn).quantity, 1);
+  assert.equal(cart.lines.find(line => line.isBreakIn).quantity, 1);
 });
 
 test('updates a child only when Shopify leaves it out of sync and permits it', async () => {
