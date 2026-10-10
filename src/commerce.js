@@ -10,6 +10,17 @@ const PENDING_MUTATION_KEY = 'anawin-shopify-pending-mutation';
 const LEGACY_PENDING_ADD_KEY = 'anawin-shopify-pending-addition';
 const REQUEST_TIMEOUT_MS = 10000;
 
+function requestedQuantity(value) {
+  const quantity = Number(value);
+  if (!Number.isSafeInteger(quantity) || quantity < 0) throw new Error('Quantity must be a non-negative whole number.');
+  return quantity;
+}
+
+function migratedQuantity(value) {
+  const quantity = Number(value);
+  return Number.isFinite(quantity) ? Math.max(0, Math.trunc(quantity)) : 0;
+}
+
 export class ShopifyRequestError extends Error {
   constructor(message, code, cause) {
     super(message, { cause });
@@ -41,7 +52,7 @@ export function migrateLocalCart(value) {
 
   const items = {};
   for (const product of localProducts) {
-    const quantity = Math.max(0, Math.min(9, Number(value[product.id]) || 0));
+    const quantity = migratedQuantity(value[product.id]);
     if (!quantity) continue;
     items[product.id] = {
       quantity,
@@ -87,7 +98,7 @@ export function createLocalCommerce(storage) {
     async getCart() { return localCartFromState(state); },
     async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN) {
       const current = state.items[productId] || { quantity: 0, breakInQuantity: 0 };
-      current.quantity = Math.min(9, current.quantity + 1);
+      current.quantity += 1;
       if (includeBreakIn) {
         current.breakInOptions = normalizeBreakInOptions(options);
         current.breakInQuantity = current.quantity;
@@ -97,7 +108,7 @@ export function createLocalCommerce(storage) {
       return localCartFromState(state);
     },
     async setQuantity(productId, quantity) {
-      const next = Math.max(0, Math.min(9, quantity));
+      const next = requestedQuantity(quantity);
       const current = state.items[productId];
       if (!current || !next) delete state.items[productId];
       else {
@@ -548,7 +559,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   }
 
   async function setParentLineQuantity(cart, parent, quantity) {
-    const next = Math.max(0, Math.min(9, quantity));
+    const next = requestedQuantity(quantity);
     if (next === parent.quantity) return cart;
     if (!next) return removeParentLine(cart, parent);
     if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
@@ -708,7 +719,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         return old && line.quantity !== old.quantity;
       });
       if (changed.length !== 1 || changed[0].isBreakIn ||
-        !Number.isInteger(changed[0].quantity) || changed[0].quantity < 1 || changed[0].quantity > 9) return false;
+        !Number.isInteger(changed[0].quantity) || changed[0].quantity < 1) return false;
       const old = before.lines.find(line => line.remoteLineId === changed[0].remoteLineId);
       if (!before.lines.some(line => line.isBreakIn && line.parentLineId === old.remoteLineId)) return false;
       return cartStateStamp({ ...source, lines: source.lines.map(line => line === changed[0]
