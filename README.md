@@ -23,6 +23,13 @@ approved $155 USD catalog price. Shopify continues to supply runtime prices,
 availability, cart state, and checkout links. Cloudflare serves slashless URLs
 from the generated `.html` files and returns the 404 page for unknown routes.
 
+`public/_headers` adds a Content-Security-Policy-Report-Only header to static
+responses, including prerendered pages and the HTML 404. It does not enforce
+restrictions or configure a reporting endpoint; use browser console reports
+on a production-like preview before considering enforcement. The `/*` rule
+also sends the header on static assets, where it does not govern the page.
+Worker-generated `/api/*` responses do not inherit `_headers`.
+
 GitHub Actions CI runs on pull requests to `main` and pushes to `main` or
 `fullstack-review`. It installs from the lockfile, tests, rebuilds, and checks
 whitespace without deployment credentials. CI sets `VITE_COMMERCE_MODE=local`
