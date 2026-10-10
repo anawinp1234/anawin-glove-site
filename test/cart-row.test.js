@@ -44,6 +44,15 @@ test('quantity greater than one service controls name the one-glove action', () 
   assert.match(render(glove(1, 155), service(1, 20)), />Remove break-in<\/button>/);
 });
 
+test('quantity controls are clearly labeled and disabled while cart changes are pending', () => {
+  const line = glove(10, 1550);
+  const html = renderCartRow({ product, line, service: null, mode: 'shopify', serviceProduct,
+    busy: true, incomplete: false, money, escapeHtml });
+  assert.match(html, /aria-label="Decrease OB16 quantity"[^>]*disabled/);
+  assert.match(html, /aria-label="Increase OB16 quantity"[^>]*disabled/);
+  assert.match(html, /<span>10<\/span>/);
+});
+
 test('cart row refuses a combined total with mismatched currencies', () => {
   const html = render(glove(1, 155), service(1, 20, 'CAD'), true);
   assert.match(html, /cart-line-price">Price unavailable<\/strong>/);
