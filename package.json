@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "node scripts/check-source-imports.mjs && vite build && node scripts/prerender.mjs",
+    "build": "node scripts/check-build-config.mjs && node scripts/check-source-imports.mjs && vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "npm run build && node --test"
   },

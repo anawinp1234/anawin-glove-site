@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, fullstack-review]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # PRs validate the secret-free preview build. Production configuration is
+      # checked by the build guard when VITE_COMMERCE_MODE=shopify is selected.
+      VITE_COMMERCE_MODE: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Check whitespace in working tree and submitted changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          git diff --check
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            git diff --check "$BASE_SHA" HEAD
+          elif git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            git diff --check "$BEFORE_SHA" HEAD
+          else
+            git diff --check "$(git hash-object -t tree /dev/null)" HEAD
+          fi
