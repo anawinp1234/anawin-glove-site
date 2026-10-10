@@ -131,3 +131,46 @@ test('robots, sitemap, and security headers survive the build', () => {
   }
   assert.doesNotMatch(read('dist/sitemap.xml'), /404/);
 });
+
+test('static responses carry one restrictive report-only CSP without changing HTML or existing headers', () => {
+  const source = read('public/_headers');
+  const built = read('dist/_headers');
+  assert.equal(built, source);
+  assert.match(source, /^\/\*$/m);
+  const headerLines = source.trim().split('\n').slice(1).map(line => line.trim());
+  const values = new Map(headerLines.map(line => {
+    const separator = line.indexOf(':');
+    return [line.slice(0, separator).toLowerCase(), line.slice(separator + 1).trim()];
+  }));
+  assert.equal(values.size, headerLines.length, 'duplicate headers would combine into conflicting policies');
+  assert.equal(values.get('x-frame-options'), 'DENY');
+  assert.equal(values.get('x-content-type-options'), 'nosniff');
+  assert.equal(values.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.equal(values.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()');
+  assert.equal(values.has('content-security-policy'), false);
+  assert.equal(values.has('strict-transport-security'), false);
+
+  const policy = values.get('content-security-policy-report-only');
+  assert.ok(policy, 'missing report-only policy');
+  const directives = new Map(policy.split(';').map(part => {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    return [name, sources];
+  }));
+  assert.equal(directives.size, policy.split(';').length, 'duplicate CSP directives');
+  for (const [name, expected] of Object.entries({
+    'default-src': ["'self'"], 'base-uri': ["'self'"], 'object-src': ["'none'"],
+    'frame-ancestors': ["'none'"], 'frame-src': ["'none'"],
+    'script-src': ["'self'", 'https://static.cloudflareinsights.com'],
+    'style-src': ["'self'", "'unsafe-inline'"],
+    'img-src': ["'self'", 'data:'], 'font-src': ["'self'"],
+    'connect-src': ["'self'", 'https://ignvv0-zh.myshopify.com', 'https://cdn.judge.me'],
+    'media-src': ["'self'"], 'form-action': ["'self'"]
+  })) assert.deepEqual(directives.get(name), expected, name);
+  assert.equal(directives.size, 12);
+  assert.doesNotMatch(policy, /\*\.|https?:\/\/\*|unsafe-eval|report-uri|report-to|upgrade-insecure-requests/);
+  for (const path of [...Object.keys(seoRoutes), '/404']) {
+    const html = path === '/404' ? read('dist/404.html') : htmlFor(path);
+    assert.doesNotMatch(html, /http-equiv=["']Content-Security-Policy/i, path);
+    assert.match(html, /<main\b/, path);
+  }
+});
