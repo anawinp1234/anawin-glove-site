@@ -5,7 +5,7 @@ import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
-import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey } from './checkout-safety.js';
+import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey, redirectToVerifiedCheckout } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
@@ -421,11 +421,9 @@ function bindCart() {
       if (safety.id === result.cart.id && safety.revision === result.revision &&
         safety.unsafeId !== safety.id && safety.pendingCartId !== safety.id) {
         try {
-          const checkoutUrl = new URL(result.checkoutUrl);
-          if (checkoutUrl.protocol !== 'https:') throw new Error();
-          window.location.assign(checkoutUrl.href);
+          if (!redirectToVerifiedCheckout(result.checkoutUrl, url => window.location.assign(url))) throw new Error();
           return;
-        } catch { cartError = 'Shopify returned an invalid checkout link. Check your cart and try again.'; }
+        } catch { cartError = 'We couldn’t open secure checkout. Check your cart and try again.'; }
       } else cartError = 'Your cart changed in another tab. Check your cart before checkout.';
       cart = { ...cart, checkoutUrl: null };
     } else {

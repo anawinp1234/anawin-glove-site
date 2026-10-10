@@ -1,5 +1,32 @@
 import { cartCustomizationIsComplete } from './catalog.js';
 
+// Verified against ANAWIN's Shopify Admin primary domain and a Storefront API
+// Cart.checkoutUrl. Review this policy before changing checkout domains.
+const APPROVED_CHECKOUT_HOST = 'ignvv0-zh.myshopify.com';
+
+export function verifiedCheckoutUrl(value) {
+  if (typeof value !== 'string' || !/^https:\/\//i.test(value) ||
+    /[\u0000-\u0020\u007f\\]/.test(value)) return null;
+  try {
+    const url = new URL(value);
+    // URL normalizes the default HTTPS port to an empty string.
+    if (url.protocol !== 'https:' || url.hostname !== APPROVED_CHECKOUT_HOST ||
+      url.port !== '' || url.username || url.password ||
+      value.slice(8).split(/[/?#]/, 1)[0].includes('@')) return null;
+    // Pass Shopify's path and query through unchanged.
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+export function redirectToVerifiedCheckout(value, navigate) {
+  const url = verifiedCheckoutUrl(value);
+  if (!url) return false;
+  navigate(url);
+  return true;
+}
+
 function cartSignature(cart) {
   // Shopify can refresh checkoutUrl on a read; compare purchasable state instead.
   return JSON.stringify({

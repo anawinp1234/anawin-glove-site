@@ -38,6 +38,8 @@ Shopify preparation lives in `src/commerce.js`. To connect a store later:
 
 In Shopify mode, Shopify owns prices, availability, cart totals, and the hosted checkout URL. The UI never constructs a payable total or checkout URL from browser state.
 
+Checkout redirects are limited to the verified Shopify origin `https://ignvv0-zh.myshopify.com`. If Shopify's checkout domain changes, verify the new `Cart.checkoutUrl` origin against Shopify Admin and a Storefront API test cart, then review `src/checkout-safety.js` before deploying. A rejected link requires the customer to check the cart again, which fetches fresh Shopify state.
+
 ## Catalog and content
 
 Product names, specifications, and local imagery remain in the storefront so its confirmed presentation is preserved. Shopify replaces price, availability, merchandise identity, and cart totals after connection. Founder content, shipping terms, and return terms remain in storefront content.
