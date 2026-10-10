@@ -23,6 +23,15 @@ approved $155 USD catalog price. Shopify continues to supply runtime prices,
 availability, cart state, and checkout links. Cloudflare serves slashless URLs
 from the generated `.html` files and returns the 404 page for unknown routes.
 
+GitHub Actions CI runs on pull requests to `main` and pushes to `main` or
+`fullstack-review`. It installs from the lockfile, tests, rebuilds, and checks
+whitespace without deployment credentials. CI sets `VITE_COMMERCE_MODE=local`
+for a secret-free preview build. Every build now requires an explicit commerce
+mode; Shopify builds also require the public Storefront API settings and all
+four product handles. The deployment build must supply those values separately
+and verify real product, checkout, and Judge.me behavior. CI cannot verify the
+live Shopify/Cloudflare configuration or Judge.me data without that environment.
+
 ## Commerce modes
 
 The storefront defaults to local preview mode. Its confirmed product content lives in `src/catalog.js`, and the preview cart is stored in the browser. Checkout stays disabled in this mode.
