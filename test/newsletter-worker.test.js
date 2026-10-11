@@ -205,10 +205,48 @@ test('native rate limit returns 429 without contacting Shopify', async () => {
   assert.equal(f.calls.length, 0);
 });
 
+test('newsletter API success and errors keep JSON security and cache headers', async () => {
+  const success = fixture([
+    graphql({ customers: { nodes: [] } }),
+    graphql({ customerCreate: { userErrors: [], customer: customer('SUBSCRIBED') } })
+  ]);
+  const invalid = fixture();
+  const method = fixture();
+  const limited = fixture([], { NEWSLETTER_IP_LIMITER: { limit: async () => ({ success: false }) } });
+  const unexpected = fixture([], { NEWSLETTER_IP_LIMITER: { limit: async () => { throw new Error('private limiter detail'); } } });
+  const cases = [
+    [await success.run(), 200],
+    [await worker.fetch(request({ consent: true }), invalid.env), 400],
+    [await worker.fetch(request({}, { method: 'GET' }), method.env), 405],
+    [await worker.fetch(request(), limited.env), 429],
+    [await worker.fetch(request(), unexpected.env), 503]
+  ];
+  for (const [response, status] of cases) {
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+    assert.equal(response.headers.get('Content-Type'), 'application/json; charset=utf-8');
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('Strict-Transport-Security'), null);
+    assert.equal(response.headers.get('Content-Security-Policy'), null);
+  }
+  assert.equal(cases[2][0].headers.get('Allow'), 'POST');
+  assert.equal(cases[3][0].headers.get('Retry-After'), '60');
+  assert.deepEqual(await cases[4][0].json(), { error: 'signup_unavailable' });
+});
+
 test('unknown API routes stay JSON 404 and static requests delegate to the assets binding', async () => {
   const env = { ASSETS: { fetch: async () => new Response('static asset') } };
-  assert.equal((await worker.fetch(new Request('https://anawinofficial.com/api/other'), env)).status, 404);
-  assert.equal(await (await worker.fetch(new Request('https://anawinofficial.com/about'), env)).text(), 'static asset');
+  const missing = await worker.fetch(new Request('https://anawinofficial.com/api/other'), env);
+  assert.equal(missing.status, 404);
+  assert.deepEqual(await missing.json(), { error: 'not_found' });
+  assert.equal(missing.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(missing.headers.get('Content-Type'), 'application/json; charset=utf-8');
+  assert.equal(missing.headers.get('Cache-Control'), 'no-store');
+  assert.equal(missing.headers.get('Strict-Transport-Security'), null);
+  assert.equal(missing.headers.get('Content-Security-Policy'), null);
+  const staticResponse = await worker.fetch(new Request('https://anawinofficial.com/about'), env);
+  assert.equal(await staticResponse.text(), 'static asset');
+  assert.equal(staticResponse.headers.get('X-Content-Type-Options'), null);
 });
 
 test('production client bundle contains no Admin token or Admin secret binding name', async () => {
