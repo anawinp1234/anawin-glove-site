@@ -10,6 +10,7 @@ import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
+import { loadZoomImage } from './zoom-image.js';
 import { updateSeo, productPath } from './seo.js';
 import { createNewsletterSignup } from './newsletter.js';
 import { bindNewsletterForm } from './newsletter-form.js';
@@ -52,6 +53,7 @@ let cartReturnFocus = null;
 let cartCloseTimer = null;
 let lightboxOverlay = null;
 let lightboxReturnFocus = null;
+let lightboxImageController = null;
 const newsletterSignup = createNewsletterSignup();
 let newsletterPopup = null;
 let newsletterDialog = null;
@@ -499,7 +501,21 @@ function bind() {
     lightboxOverlay.setAttribute('role', 'dialog');
     lightboxOverlay.setAttribute('aria-modal', 'true');
     lightboxOverlay.setAttribute('aria-label', 'Product image');
-    lightboxOverlay.innerHTML = `<button aria-label="Close image">Close</button><img src="${element.dataset.image}" alt="Expanded product view">`;
+    lightboxOverlay.setAttribute('aria-busy', 'true');
+    lightboxOverlay.innerHTML = '<button aria-label="Close image">Close</button><p class="lightbox-status" role="status">Loading image…</p>';
+    const overlay = lightboxOverlay;
+    const status = overlay.querySelector('[role="status"]');
+    const image = document.createElement('img');
+    image.alt = [document.querySelector('.pdp-info h1')?.textContent, element.querySelector('img')?.alt].filter(Boolean).join(' — ') || 'Expanded product view';
+    lightboxImageController = new AbortController();
+    const loaded = loadZoomImage(image, element.dataset.image, lightboxImageController.signal);
+    overlay.append(image);
+    loaded.then(result => {
+      if (lightboxOverlay !== overlay || result === 'aborted') return;
+      overlay.setAttribute('aria-busy', 'false');
+      if (result === 'loaded') status.remove();
+      else status.textContent = 'Image unavailable. Close and try again.';
+    });
     document.body.append(lightboxOverlay);
     document.body.classList.add('lightbox-open');
     app.inert = true;
@@ -510,6 +526,8 @@ function bind() {
 
 function closeLightbox() {
   if (!lightboxOverlay) return;
+  lightboxImageController?.abort();
+  lightboxImageController = null;
   lightboxOverlay.remove();
   lightboxOverlay = null;
   document.body.classList.remove('lightbox-open');

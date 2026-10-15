@@ -240,6 +240,7 @@ footer a:focus-visible{outline:2px solid var(--paper);outline-offset:4px}
 }
 
 body.lightbox-open{overflow:hidden}
+.lightbox-status{color:#fff;max-width:calc(100vw - 48px);text-align:center;line-height:1.5}
 .cart-head button{min-width:44px;min-height:44px}
 .quantity button{width:44px;height:44px}
 .remove{min-width:44px;min-height:44px;padding:0 4px}
