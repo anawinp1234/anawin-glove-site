@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderCartRow } from '../src/cart-row.js';
+import { access } from 'node:fs/promises';
+import { bindCartImageFallbacks, renderCartRow } from '../src/cart-row.js';
+import { localProducts } from '../src/catalog.js';
 
 const product = { id: 'blue', name: 'OB16', tone: 'Baby Blue / Royal / Navy', images: ['/images/blue1.PNG'] };
 const serviceProduct = { price: 20, currencyCode: 'USD', available: true };
@@ -68,4 +70,55 @@ test('cart row shows escaped Shopify service preferences only while service is p
   assert.match(html, /Break-In Level: Game Ready \(90%\)/);
   assert.match(html, /Glove Wearing Style: Two in the Pinky \(TIP\)/);
   assert.doesNotMatch(render(glove(1, 155)), /Break-In Level:/);
+});
+
+for (const [model, original, optimized] of [
+  ['BR16', '/images/black1.PNG', '/images/optimized/black1-480.webp'],
+  ['OB16', '/images/blue1.PNG', '/images/optimized/blue1-480.webp'],
+  ['CL16', '/images/brown1.PNG', '/images/optimized/brown1-480.webp']
+]) {
+  for (const serviced of [false, true]) {
+    test(`${model} ${serviced ? 'serviced' : 'unserviced'} cart entry uses its matching thumbnail and original fallback`, async () => {
+      const item = localProducts.find(item => item.name === model);
+      const html = renderCartRow({ product: item, line: glove(1, 155), service: serviced ? service(1, 20) : null,
+        mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
+      assert.ok(html.includes(`<img src="${optimized}" data-cart-image-fallback="${original}" alt="${model} glove in ${item.tone}">`));
+      assert.match(html, /data-qty-line="glove-1" data-delta="-1"/);
+      assert.match(html, /data-qty-line="glove-1" data-delta="1"/);
+      assert.match(html, /class="remove" data-remove-line="glove-1"/);
+      assert.ok(html.includes(`class="cart-line-price">${serviced ? '$175' : '$155'}</strong>`));
+      assert.equal(item.images[0], original);
+      await access(new URL(`../public${optimized}`, import.meta.url));
+      await access(new URL(`../public${original}`, import.meta.url));
+    });
+  }
+}
+
+test('an unmapped cart photo retains its original URL instead of guessing a thumbnail', () => {
+  const html = renderCartRow({ product: { ...product, images: ['/images/new-photo.png'] }, line: glove(1, 155),
+    mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /<img src="\/images\/new-photo.png" alt="OB16 glove in Baby Blue \/ Royal \/ Navy">/);
+  assert.doesNotMatch(html, /data-cart-image-fallback/);
+});
+
+test('cart thumbnail alternative text and original image URLs are escaped', () => {
+  const html = renderCartRow({ product: { ...product, name: 'OB16 "Special"', tone: 'Blue & Navy', images: ['/images/a"b.png'] },
+    line: glove(1, 155), mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /src="\/images\/a&quot;b.png"/);
+  assert.match(html, /alt="OB16 &quot;Special&quot; glove in Blue &amp; Navy"/);
+});
+
+test('a failed optimized thumbnail retries the original only once', () => {
+  const image = new EventTarget();
+  image.src = '/images/optimized/blue1-480.webp';
+  const attributes = new Map([['data-cart-image-fallback', '/images/blue1.PNG']]);
+  image.getAttribute = name => attributes.get(name);
+  image.removeAttribute = name => attributes.delete(name);
+  bindCartImageFallbacks({ querySelectorAll: () => [image] });
+  image.dispatchEvent(new Event('error'));
+  assert.equal(image.src, '/images/blue1.PNG');
+  assert.equal(attributes.has('data-cart-image-fallback'), false);
+  image.src = '/images/original-also-failed.PNG';
+  image.dispatchEvent(new Event('error'));
+  assert.equal(image.src, '/images/original-also-failed.PNG');
 });
