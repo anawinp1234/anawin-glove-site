@@ -1,7 +1,26 @@
 import { cartEntryTotal } from './commerce.js';
 import { entryDisplayAmounts, lineDisplayAmounts } from './cart-discounts.js';
 
+const cartThumbnails = new Map([
+  ['/images/black1.PNG', '/images/optimized/black1-480.webp'],
+  ['/images/blue1.PNG', '/images/optimized/blue1-480.webp'],
+  ['/images/brown1.PNG', '/images/optimized/brown1-480.webp']
+]);
+
+export function bindCartImageFallbacks(container) {
+  container.querySelectorAll('img[data-cart-image-fallback]').forEach(image => {
+    image.addEventListener('error', () => {
+      const fallback = image.getAttribute('data-cart-image-fallback');
+      image.removeAttribute('data-cart-image-fallback');
+      image.src = fallback;
+    }, { once: true });
+  });
+}
+
 export function renderCartRow({ product, line, service, mode, serviceProduct, busy, incomplete, money, escapeHtml }) {
+  const originalImage = product.images[0];
+  const thumbnail = cartThumbnails.get(originalImage);
+  const image = `<img src="${escapeHtml(thumbnail || originalImage)}"${thumbnail ? ` data-cart-image-fallback="${escapeHtml(originalImage)}"` : ''} alt="${escapeHtml(`${product.name} glove in ${product.tone}`)}">`;
   const shopify = mode === 'shopify';
   const quantityAttribute = shopify ? `data-qty-line="${escapeHtml(line.remoteLineId)}"` : `data-qty="${product.id}"`;
   const removeAttribute = shopify ? `data-remove-line="${escapeHtml(line.remoteLineId)}"` : `data-remove="${product.id}"`;
@@ -31,5 +50,5 @@ export function renderCartRow({ product, line, service, mode, serviceProduct, bu
       ? `<p class="cart-service">Break-in service${service.quantity > 1 ? ` (${service.quantity})` : ''} · ${serviceOriginal}${servicePrice} <button class="cart-service-control" data-remove-service="${escapeHtml(line.remoteLineId)}" aria-label="${line.quantity > 1 ? 'Remove break-in from 1' : 'Remove break-in from'} ${escapeHtml(product.name)}" ${busy || incomplete || (line.quantity > 1 ? !line.instructions?.canUpdateQuantity : !service.instructions?.canRemove) ? 'disabled' : ''}>${line.quantity > 1 ? 'Remove break-in from 1' : 'Remove break-in'}</button></p>`
       : `<button class="cart-service-control" data-add-service="${escapeHtml(line.remoteLineId)}" ${busy || incomplete || serviceProduct.available === false || line.quantity > 1 && !line.instructions?.canUpdateQuantity ? 'disabled' : ''}>${line.quantity > 1 ? `Add break-in to 1 <span>+${money(serviceProduct.price, serviceProduct.currencyCode)}</span>` : `Add Break-in service +${money(serviceProduct.price, serviceProduct.currencyCode)}`}</button>`
     : service ? `<p class="cart-service">Break-in service · ${money(serviceProduct.price, serviceProduct.currencyCode)}</p>` : '';
-  return `<article class="cart-item"><img src="${escapeHtml(product.images[0])}" alt=""><div class="cart-item-info"><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${busy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${busy ? 'disabled' : ''}>+</button></div></div><div class="cart-item-side">${priceMarkup}<button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${busy ? 'disabled' : ''}>Remove</button></div>${preferenceMarkup}</article>`;
+  return `<article class="cart-item">${image}<div class="cart-item-info"><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.tone)}</p>${serviceControl}<div class="quantity"><button ${quantityAttribute} data-delta="-1" aria-label="Decrease ${escapeHtml(description)} quantity" ${busy ? 'disabled' : ''}>−</button><span>${line.quantity}</span><button ${quantityAttribute} data-delta="1" aria-label="Increase ${escapeHtml(description)} quantity" ${busy ? 'disabled' : ''}>+</button></div></div><div class="cart-item-side">${priceMarkup}<button class="remove" ${removeAttribute} aria-label="Remove ${escapeHtml(description)}" ${busy ? 'disabled' : ''}>Remove</button></div>${preferenceMarkup}</article>`;
 }

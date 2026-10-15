@@ -2,7 +2,7 @@ import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
 import { createStorefrontRenderer, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
-import { renderCartRow } from './cart-row.js';
+import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey, redirectToVerifiedCheckout } from './checkout-safety.js';
@@ -365,6 +365,7 @@ async function discountAction(action, code = '', removingCode = '') {
 }
 
 function bindCart() {
+  bindCartImageFallbacks(document.querySelector('.cart-drawer'));
   document.querySelector('[data-refresh-cart]')?.addEventListener('click', () => cartAction(() => commerce.refreshCart()));
   document.querySelector('[data-recover-cart]')?.addEventListener('click', () => cartAction(() => commerce.recoverCart(), null, 'recovery'));
   document.querySelector('[data-recover-without-service]')?.addEventListener('click', () =>
