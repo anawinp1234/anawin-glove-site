@@ -40,7 +40,13 @@ function productImage(src, alt, sizes, loading, card = false) {
   const name = src.split('/').pop().replace(/\.PNG$/, '');
   const fullWidth = name === 'black1' ? 1045 : 1254;
   const fullHeight = name === 'black1' ? 1044 : 1254;
-  const optimized = width => `/images/optimized/${name}-${width}.webp`;
+  const optimized = width => {
+    // Scope the P3 correction to the gallery, preserving cards and recommendations.
+    if (name === 'black1' && sizes === galleryImageSizes) return width === fullWidth
+      ? '/images/optimized/black1-zoom-1045.webp'
+      : `/images/optimized/black1-p3-${width}.webp`;
+    return `/images/optimized/${name}-${width}.webp`;
+  };
   const srcset = [480, ...(card ? [768] : []), 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${fullWidth}" height="${fullHeight}" loading="${loading}" /></picture>`;
 }
