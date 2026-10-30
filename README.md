@@ -17,7 +17,7 @@ npm run build
 ```
 
 `npm run build` runs Vite and then `scripts/prerender.mjs`. It writes static HTML
-for the 11 public routes plus `dist/404.html`; `npm test` builds first so its
+for the 12 public routes plus `dist/404.html`; `npm test` builds first so its
 HTML checks work from a clean checkout. The generated product markup uses the
 approved $155 USD catalog price. Shopify continues to supply runtime prices,
 availability, cart state, and checkout links. Cloudflare serves slashless URLs

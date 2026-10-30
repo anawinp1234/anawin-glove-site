@@ -8,6 +8,8 @@ import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSecti
 import { normalizePath, productPath, routeMetadata } from './seo.js';
 import { stickyPurchaseAccent } from './sticky-purchase.js';
 
+const discordInviteUrl = 'https://discord.com/invite/acstj7uMt';
+
 const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits, maximumFractionDigits: 2
 }).format(value);
@@ -74,9 +76,9 @@ function header() {
     : '';
   return `<div class="site-header-stack">${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
-    <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}</nav>
+    <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
-    <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
+    <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
     <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${cartCount()})</span></button>
   </header></div>`;
 }
@@ -89,8 +91,8 @@ function commerceNotice() {
 
 function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block">${wordmark('calc(100vw - 56px)', 'lazy')}</a></div><div class="footer-grid">
-    <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a></div>
-    <div><p class="eyebrow">Connect</p><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
+    <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a></div>
+    <div><p class="eyebrow">Connect</p><a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
     <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a></div>
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
@@ -159,9 +161,26 @@ function communitySection() {
   }).join('')}</div></section>`;
 }
 
+function discordButton() {
+  return `<a class="community-button" href="${discordInviteUrl}" target="_blank" rel="noopener noreferrer">JOIN THE DISCORD ${arrow()}</a>`;
+}
+
+// Include the approved 1.22× zoom; narrow desktop panels also cover a 560px minimum height.
+const communityPhotoSizes = '(max-width: 760px) 122vw, (max-width: 840px) 513px, 61vw';
+function communityPhoto(loading) {
+  return responsivePhoto('/images/optimized/glovesonfield-1086.webp', 'glovesonfield', [480, 600, 768, 960, 1086], communityPhotoSizes, 'Close-up of colorful ANAWIN baseball gloves on grass beside an infield', 1086, 1448, loading, '', loading === 'eager' ? 'high' : '');
+}
+
+function communityPage() {
+  return `<main class="community-page"><section class="community-hero" aria-labelledby="community-page-heading"><div class="community-hero-photo">${communityPhoto('eager')}</div><div class="community-hero-copy"><p class="eyebrow">ANAWIN COMMUNITY</p><h1 id="community-page-heading">BUILT FOR<br>THE GAME.<br>BUILT WITH YOU.</h1><p class="community-description">Built for the baseball community. Built with the baseball community.</p>${discordButton()}</div></section>
+    <div class="community-pillars"><section aria-labelledby="community-talk"><h2 id="community-talk">TALK BASEBALL</h2><p>Discuss the game and gear.</p></section><section aria-labelledby="community-share"><h2 id="community-share">SHARE YOUR SETUP</h2><p>Share your glove setup with the community.</p></section><section aria-labelledby="community-shape"><h2 id="community-shape">SHAPE WHAT’S NEXT</h2><p>Share feedback and ideas with ANAWIN.</p></section></div>
+    <section class="community-invitation" aria-labelledby="community-invitation-heading"><p class="eyebrow">ANAWIN / DISCORD</p><h2 id="community-invitation-heading">LET’S TALK BASEBALL.</h2><p class="community-description">Bring your love of the game. Join the ANAWIN community on Discord.</p>${discordButton()}</section></main>`;
+}
+
 function home() {
   return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
+    <section class="community-spotlight" aria-labelledby="discord-heading"><div class="community-spotlight-copy"><p class="eyebrow">ANAWIN COMMUNITY</p><h2 id="discord-heading">BUILT<br>WITH YOU.</h2><p class="community-description">Talk baseball. Share your setup. Help shape what comes next.</p><div class="community-actions">${discordButton()}<a class="community-explore" href="/community" data-link>Explore the community ${arrow()}</a></div></div><div class="community-spotlight-photo">${communityPhoto('lazy')}</div></section>
     ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><picture><source type="image/webp" srcset="/images/optimized/anawin-mark-240.webp 240w, /images/optimized/anawin-mark-480.webp 480w, /images/optimized/anawin-mark-860.webp 860w" sizes="(max-width: 760px) 55vw, min(38vw, 430px)"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></picture></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
     <section class="newsletter" aria-labelledby="newsletter-heading"><div class="newsletter-copy"><p class="eyebrow">ANAWIN / Email</p><h2 id="newsletter-heading">JOIN OUR<br>COMMUNITY</h2><p>Be the first to hear about new gloves, releases, and what’s next.</p></div>${newsletterFormMarkup('newsletter')}</section></main>`;
 }
@@ -267,6 +286,7 @@ function route(pathname) {
   if (path === '/') return home();
   if (path === '/shop') return shop();
   if (path === '/about') return about();
+  if (path === '/community') return communityPage();
   if (path === '/shipping') return shippingPolicy();
   if (path === '/returns') return returnsPolicy();
   if (path === '/warranty') return warrantyPolicy();
