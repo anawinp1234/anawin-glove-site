@@ -38,7 +38,7 @@ function renderDocument(path) {
 }
 
 const routes = Object.keys(seoRoutes);
-if (routes.length !== 11) throw new Error(`Expected 11 public routes, found ${routes.length}.`);
+if (routes.length !== 12) throw new Error(`Expected 12 public routes, found ${routes.length}.`);
 for (const path of routes) {
   const output = path === '/' ? join(dist, 'index.html') : join(dist, `${path.slice(1)}.html`);
   await mkdir(dirname(output), { recursive: true });

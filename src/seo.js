@@ -10,7 +10,9 @@ export const productPaths = Object.freeze({
 export const productPath = product => productPaths[product.id];
 
 const homeImage = '/images/hero-background.jpg';
+const communityImage = '/images/community-social.jpg';
 const imageAlts = Object.freeze({
+  [communityImage]: 'ANAWIN Community — Built with you, with a cropped glimpse of baseball gloves on the field',
   [homeImage]: 'Black and red ANAWIN glove on grass',
   '/images/black1.PNG': 'BR16 ANAWIN glove in black, red, and gray',
   '/images/blue1.PNG': 'OB16 ANAWIN glove in baby blue, royal, and navy',
@@ -53,6 +55,12 @@ export const seoRoutes = Object.freeze({
     title: 'About ANAWIN | Built with the Baseball Community',
     description: 'Learn how two friends started ANAWIN and shaped the brand with the baseball community.',
     image: homeImage,
+    type: 'website'
+  },
+  '/community': {
+    title: 'ANAWIN Community | Built With You',
+    description: 'Join the ANAWIN community on Discord to talk baseball, share your glove setup, and help shape what comes next.',
+    image: communityImage,
     type: 'website'
   },
   '/shipping': {

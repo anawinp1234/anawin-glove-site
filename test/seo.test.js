@@ -6,7 +6,7 @@ import { localProducts } from '../src/catalog.js';
 
 const paths = [
   '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
-  '/about', '/shipping', '/returns', '/warranty', '/care', '/break-in'
+  '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
 test('metadata covers exactly the public routes with unique titles and descriptions', () => {
