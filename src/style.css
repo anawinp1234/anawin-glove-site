@@ -669,3 +669,14 @@ body.newsletter-open{overflow:hidden}
 .skip-link{position:fixed;top:8px;left:8px;z-index:100;padding:12px 16px;background:var(--ink);color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transform:translateY(calc(-100% - 16px))}
 .skip-link:focus{transform:none;outline:2px solid #fff;outline-offset:-4px}
 #main-content:focus{outline:none}
+
+/* Lightbox: step through every product view without closing. */
+.lightbox-status{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);margin:0}
+.lightbox-status:empty{display:none}
+.lightbox .lightbox-nav{position:absolute;left:50%;bottom:max(20px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:6px;color:#fff;transform:translateX(-50%);cursor:default}
+.lightbox .lightbox-nav button{position:static;display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;cursor:pointer;transition:background-color .2s}
+.lightbox .lightbox-nav button:hover{background:rgba(255,255,255,.14)}
+.lightbox button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.lightbox-nav svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5}
+.lightbox-count{min-width:64px;font-size:12px;font-weight:700;letter-spacing:.12em;text-align:center;text-transform:uppercase;font-variant-numeric:tabular-nums}
+.lightbox:has(.lightbox-nav) img{width:min(74vh,82vw);height:min(74vh,82vw)}
