@@ -20,7 +20,7 @@ import { createJudgeMeService, shopifyProductId } from './judgeme.js';
 import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
-import { rememberScroll, savedScrollY, scrollToInstant } from './scroll-memory.js';
+import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -42,7 +42,7 @@ let checkoutBusy = false;
 let checkoutNeedsReview = false;
 let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
-let scrollMemoryTimer = null;
+const scrollMemory = installScrollMemory(window, top => { render(top); loadReviews(); });
 const runCartAction = createCartActionGate();
 const verifyCheckout = commerce.mode === 'shopify'
   ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
@@ -221,10 +221,7 @@ function setupNewsletterPopup() {
   newsletterPopup.schedule();
 }
 function navigate(path) {
-  clearTimeout(scrollMemoryTimer);
-  rememberScroll(history, window.scrollY);
-  history.pushState({}, '', path);
-  render(0); loadReviews();
+  scrollMemory.navigate(path);
 }
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
@@ -517,6 +514,7 @@ const lightboxChevron = direction => `<svg viewBox="0 0 16 16" aria-hidden="true
 
 function openLightbox(buttons, index) {
   lightboxGallery = buttons;
+  lightboxReturnFocus = buttons[index];
   lightboxOverlay = document.createElement('div');
   lightboxOverlay.className = 'lightbox';
   lightboxOverlay.setAttribute('role', 'dialog');
@@ -557,7 +555,6 @@ function showLightboxImage(index) {
   const overlay = lightboxOverlay;
   const element = lightboxGallery[index];
   lightboxIndex = index;
-  lightboxReturnFocus = element;
   lightboxImageController?.abort();
   const controller = new AbortController();
   lightboxImageController = controller;
@@ -591,7 +588,7 @@ function closeLightbox() {
   lightboxOverlay = null;
   document.body.classList.remove('lightbox-open');
   app.inert = cartIsOpen;
-  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus();
+  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus({ preventScroll: true });
   lightboxReturnFocus = null;
   lightboxGallery = [];
 }
@@ -642,8 +639,7 @@ async function loadCommerce() {
 }
 
 async function boot() {
-  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  render(savedScrollY(history.state));
+  render(scrollMemory.initialY);
   setupNewsletterPopup();
   await loadCommerce();
 }
@@ -674,7 +670,6 @@ window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
 });
 mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
-window.addEventListener('popstate', () => { clearTimeout(scrollMemoryTimer); render(savedScrollY(history.state)); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
 window.addEventListener('storage', event => {
   if (commerce.mode !== 'shopify' || !isCartStorageKey(event.key)) return;
@@ -693,10 +688,7 @@ window.addEventListener('scroll', () => {
       Boolean(document.activeElement?.closest('.site-header-stack')) });
   document.querySelector('.site-header-stack')?.classList.toggle('is-hidden', headerHidden);
   lastHeaderScrollY = scrollY;
-  clearTimeout(scrollMemoryTimer);
-  scrollMemoryTimer = setTimeout(() => rememberScroll(history, window.scrollY), 200);
 }, { passive: true });
-window.addEventListener('pagehide', () => rememberScroll(history, window.scrollY));
 document.addEventListener('focusin', event => {
   if (!event.target.closest?.('.site-header-stack')) return;
   headerHidden = false;
