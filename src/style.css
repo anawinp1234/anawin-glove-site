@@ -674,3 +674,8 @@ body.newsletter-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   html:has(.community-page),html:has(.community-spotlight){scroll-behavior:auto}
 }
+
+/* Keyboard users can bypass the header on every page. */
+.skip-link{position:fixed;top:8px;left:8px;z-index:100;padding:12px 16px;background:var(--ink);color:#fff;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;transform:translateY(calc(-100% - 16px))}
+.skip-link:focus{transform:none;outline:2px solid #fff;outline-offset:-4px}
+#main-content:focus{outline:none}

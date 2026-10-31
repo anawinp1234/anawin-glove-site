@@ -451,6 +451,10 @@ function bindCart() {
 }
 
 function bind() {
+  document.querySelector('[data-skip-link]')?.addEventListener('click', event => {
+    event.preventDefault();
+    document.querySelector('#main-content')?.focus();
+  });
   const newsletterForm = app.querySelector('.newsletter [data-newsletter-form]');
   if (newsletterForm) bindNewsletterForm(newsletterForm, newsletterSignup, handleNewsletterResult);
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {

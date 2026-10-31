@@ -74,7 +74,7 @@ function header() {
   const announcementBar = announcement.enabled === true
     ? `<aside class="announcement-bar" aria-label="Store announcement"><p>${escapeHtml(announcement.message)}</p></aside>`
     : '';
-  return `<div class="site-header-stack">${announcementBar}<header class="site-header">
+  return `<a class="skip-link" href="#main-content" data-skip-link>Skip to content</a><div class="site-header-stack">${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
@@ -280,7 +280,14 @@ function breakInPolicy() {
 
 const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
 
+// Every view starts with its <main>; give it the skip link's target.
+const withMainTarget = markup => markup.replace(/^<main\b/, '<main id="main-content" tabindex="-1"');
+
 function route(pathname) {
+  return withMainTarget(routeView(pathname));
+}
+
+function routeView(pathname) {
   const path = normalizePath(pathname);
   if (!routeMetadata(path)) return notFound();
   if (path === '/') return home();

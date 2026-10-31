@@ -120,7 +120,7 @@ test('non-product routes have no Product JSON-LD and 404 is noindex', () => {
   }
   const html = read('dist/404.html');
   assert.match(html, /<meta name="robots" content="noindex"/);
-  assert.match(html, /<main class="not-found"/);
+  assert.match(html, /<main id="main-content" tabindex="-1" class="not-found"/);
   assert.equal(matches(html, /<h1\b/g).length, 1);
   assert.doesNotMatch(html, /rel="canonical"|property="og:url"|application\/ld\+json/);
 });
@@ -172,5 +172,14 @@ test('static responses carry one restrictive report-only CSP without changing HT
     const html = path === '/404' ? read('dist/404.html') : htmlFor(path);
     assert.doesNotMatch(html, /http-equiv=["']Content-Security-Policy/i, path);
     assert.match(html, /<main\b/, path);
+  }
+});
+
+test('every prerendered page offers a skip link to its single main landmark', () => {
+  for (const path of [...Object.keys(seoRoutes), '/404']) {
+    const html = htmlFor(path);
+    assert.equal(matches(html, /<a class="skip-link" href="#main-content"/g).length, 1, path);
+    assert.equal(matches(html, /<main id="main-content" tabindex="-1"/g).length, 1, path);
+    assert.ok(html.indexOf('class="skip-link"') < html.indexOf('class="site-header"'), path);
   }
 });
