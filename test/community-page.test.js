@@ -25,7 +25,7 @@ test('community has its own route, heading hierarchy and three promised discussi
   assert.match(html, /BUILT FOR<br>THE GAME\.<br>BUILT WITH YOU\./);
   assert.ok(html.includes('Built for the baseball community. Built with the baseball community.'));
   for (const [heading, copy] of [
-    ['TALK TO THE FOUNDERS', 'Ask us about leather, patterns, break-in, anything. Literally anything.'],
+    ['TALK WITH THE ANAWIN TEAM', 'Ask us about leather, patterns, break-in, anything. Literally anything.'],
     ['VOTE ON WHAT’S NEXT', 'Colorways, patterns, and new models get tested in the server first.'],
     ['WIN FREE GEAR', 'Learn how to win free gear, gloves, and more!']
   ]) {
