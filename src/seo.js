@@ -123,10 +123,78 @@ export function productJsonLd(path) {
       '@type': 'Offer',
       url: canonicalOrigin + normalizedPath,
       priceCurrency: product.currencyCode,
-      price: Number(product.price).toFixed(2)
+      price: Number(product.price).toFixed(2),
+      shippingDetails: usShippingDetails
     }
   };
 }
+
+// Mirrors the published Shipping and Returns policies; keep them in sync if either policy changes.
+const usShippingDetails = Object.freeze({
+  '@type': 'OfferShippingDetails',
+  shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' },
+  shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+  deliveryTime: {
+    '@type': 'ShippingDeliveryTime',
+    handlingTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' },
+    transitTime: { '@type': 'QuantitativeValue', minValue: 3, maxValue: 7, unitCode: 'DAY' }
+  }
+});
+
+const usReturnPolicy = Object.freeze({
+  '@type': 'MerchantReturnPolicy',
+  applicableCountry: 'US',
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+  merchantReturnDays: 30,
+  returnMethod: 'https://schema.org/ReturnByMail',
+  returnFees: 'https://schema.org/FreeReturn',
+  merchantReturnLink: `${canonicalOrigin}/returns`
+});
+
+export function siteJsonLd(path) {
+  if (normalizePath(path) !== '/') return null;
+  return [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      '@id': `${canonicalOrigin}/#organization`,
+      name: 'ANAWIN',
+      url: `${canonicalOrigin}/`,
+      logo: `${canonicalOrigin}/images/anawin-mark.png`,
+      email: 'support@anawinofficial.com',
+      sameAs: ['https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial'],
+      hasMerchantReturnPolicy: usReturnPolicy
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'ANAWIN',
+      url: `${canonicalOrigin}/`,
+      publisher: { '@id': `${canonicalOrigin}/#organization` }
+    }
+  ];
+}
+
+export function breadcrumbJsonLd(path) {
+  const normalizedPath = normalizePath(path);
+  const product = localProducts.find(item => normalizedPath === productPath(item));
+  if (!product) return null;
+  const crumbs = [['Home', '/'], ['Shop', '/shop'], [product.name, normalizedPath]];
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map(([name, crumbPath], index) => ({
+      '@type': 'ListItem', position: index + 1, name, item: canonicalOrigin + crumbPath
+    }))
+  };
+}
+
+// Each structured-data block is a separate script, marked so client navigation can replace it.
+const jsonLdBlocks = path => [
+  ['data-anawin-product', productJsonLd(path)],
+  ['data-anawin-breadcrumbs', breadcrumbJsonLd(path)],
+  ['data-anawin-site', siteJsonLd(path)]
+];
 
 const serializeJsonLd = value => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -154,8 +222,9 @@ export function renderSeoHead(path) {
     `<meta name="twitter:image" content="${escapeAttribute(image)}" />`,
     `<meta name="twitter:image:alt" content="${escapeAttribute(imageAlt)}" />`
   ];
-  const product = productJsonLd(normalizedPath);
-  if (product) lines.push(`<script type="application/ld+json" data-anawin-product>${serializeJsonLd(product)}</script>`);
+  for (const [attribute, data] of jsonLdBlocks(normalizedPath)) {
+    if (data) lines.push(`<script type="application/ld+json" ${attribute}>${serializeJsonLd(data)}</script>`);
+  }
   return lines.join('\n    ');
 }
 
@@ -205,14 +274,15 @@ export function updateSeo(document, path) {
   robots.forEach(meta => meta.remove());
   if (!route) setMeta(document, 'meta[name="robots"]', { name: 'robots' }, 'noindex');
 
-  const product = productJsonLd(normalizedPath);
-  const scripts = [...document.head.querySelectorAll('script[type="application/ld+json"][data-anawin-product]')];
-  if (product) {
-    const script = scripts.shift() || document.createElement('script');
-    script.setAttribute('type', 'application/ld+json');
-    script.setAttribute('data-anawin-product', '');
-    script.textContent = serializeJsonLd(product);
-    if (!script.isConnected) document.head.append(script);
+  for (const [attribute, data] of jsonLdBlocks(normalizedPath)) {
+    const scripts = [...document.head.querySelectorAll(`script[type="application/ld+json"][${attribute}]`)];
+    if (data) {
+      const script = scripts.shift() || document.createElement('script');
+      script.setAttribute('type', 'application/ld+json');
+      script.setAttribute(attribute, '');
+      script.textContent = serializeJsonLd(data);
+      if (!script.isConnected) document.head.append(script);
+    }
+    scripts.forEach(script => script.remove());
   }
-  scripts.forEach(script => script.remove());
 }

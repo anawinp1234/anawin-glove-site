@@ -98,7 +98,17 @@ test('each PDP has one self-contained Product and minimal approved Offer', () =>
       '@type': 'Offer',
       url: canonicalOrigin + path,
       priceCurrency: 'USD',
-      price: '155.00'
+      price: '155.00',
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' },
+        shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' },
+          transitTime: { '@type': 'QuantitativeValue', minValue: 3, maxValue: 7, unitCode: 'DAY' }
+        }
+      }
     });
     for (const forbidden of ['review', 'aggregateRating', 'sku', 'gtin', 'mpn', 'availability', 'inventoryLevel']) {
       assert.equal(data[forbidden], undefined, `${path}: ${forbidden}`);
@@ -116,7 +126,9 @@ test('old product pages are absent from the build and redirects are deployed', (
 
 test('non-product routes have no Product JSON-LD and 404 is noindex', () => {
   for (const path of Object.keys(seoRoutes).filter(value => !value.startsWith('/product/'))) {
-    assert.doesNotMatch(htmlFor(path), /application\/ld\+json/, path);
+    const html = htmlFor(path);
+    assert.doesNotMatch(html, /data-anawin-product|data-anawin-breadcrumbs|"@type":"(?:Product|Offer)"/, path);
+    if (path !== '/') assert.doesNotMatch(html, /application\/ld\+json/, path);
   }
   const html = read('dist/404.html');
   assert.match(html, /<meta name="robots" content="noindex"/);
@@ -181,5 +193,47 @@ test('every prerendered page offers a skip link to its single main landmark', ()
     assert.equal(matches(html, /<a class="skip-link" href="#main-content"/g).length, 1, path);
     assert.equal(matches(html, /<main id="main-content" tabindex="-1"/g).length, 1, path);
     assert.ok(html.indexOf('class="skip-link"') < html.indexOf('class="site-header"'), path);
+  }
+});
+
+const jsonLd = (html, attribute) => matches(html, new RegExp(`<script type="application/ld\\+json" ${attribute}>(.*?)</script>`, 'g')).map(match => JSON.parse(match[1]));
+
+test('the homepage identifies the ANAWIN organization, its profiles, and its published U.S. return policy', () => {
+  const [blocks, ...extra] = jsonLd(htmlFor('/'), 'data-anawin-site');
+  assert.equal(extra.length, 0);
+  const [organization, website] = blocks;
+  assert.equal(organization['@type'], 'Organization');
+  assert.equal(organization.url, `${canonicalOrigin}/`);
+  assert.equal(organization.logo, `${canonicalOrigin}/images/anawin-mark.png`);
+  assert.ok(existsSync(join(root, 'dist/images/anawin-mark.png')));
+  assert.deepEqual(organization.sameAs, ['https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial']);
+  assert.equal(organization.email, 'support@anawinofficial.com');
+  assert.deepEqual(organization.hasMerchantReturnPolicy, {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'US',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: 30,
+    returnMethod: 'https://schema.org/ReturnByMail',
+    returnFees: 'https://schema.org/FreeReturn',
+    merchantReturnLink: `${canonicalOrigin}/returns`
+  });
+  assert.match(htmlFor('/returns'), /Eligible items may be returned within 30 days of delivery\./);
+  assert.match(htmlFor('/returns'), /ANAWIN will provide a prepaid return shipping label\./);
+  assert.equal(website['@type'], 'WebSite');
+  assert.deepEqual(website.publisher, { '@id': organization['@id'] });
+});
+
+test('product pages carry one breadcrumb trail from home through shop to the glove', () => {
+  for (const product of localProducts) {
+    const path = productPath(product);
+    const crumbs = jsonLd(htmlFor(path), 'data-anawin-breadcrumbs');
+    assert.equal(crumbs.length, 1, path);
+    assert.equal(crumbs[0]['@type'], 'BreadcrumbList');
+    assert.deepEqual(crumbs[0].itemListElement.map(item => [item.position, item.name, item.item]), [
+      [1, 'Home', `${canonicalOrigin}/`],
+      [2, 'Shop', `${canonicalOrigin}/shop`],
+      [3, product.name, canonicalOrigin + path]
+    ]);
+    assert.equal(jsonLd(htmlFor(path), 'data-anawin-site').length, 0, path);
   }
 });
