@@ -19,6 +19,7 @@ import { createJudgeMeService, shopifyProductId } from './judgeme.js';
 import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
+import { rememberScroll, savedScrollY, scrollToInstant } from './scroll-memory.js';
 
 const app = document.querySelector('#app');
 let commerceError = '';
@@ -40,6 +41,7 @@ let checkoutBusy = false;
 let checkoutNeedsReview = false;
 let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
+let scrollMemoryTimer = null;
 const runCartAction = createCartActionGate();
 const verifyCheckout = commerce.mode === 'shopify'
   ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
@@ -133,7 +135,8 @@ function syncProductDisplayOrder() {
   });
 }
 
-function render() {
+// Navigation passes the scroll position to show; data refreshes keep the shopper where they are.
+function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
   const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
@@ -142,7 +145,7 @@ function render() {
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
-  fitHeroHeading(); bind(); window.scrollTo(0, 0);
+  fitHeroHeading(); bind(); scrollToInstant(window, scrollTop);
   stickyPurchase = createStickyPurchase({
     bar: document.querySelector('[data-sticky-purchase]'),
     original: document.querySelector('[data-add]'),
@@ -214,7 +217,12 @@ function setupNewsletterPopup() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) newsletterPopup.schedule(); });
   newsletterPopup.schedule();
 }
-function navigate(path) { history.pushState({}, '', path); render(); loadReviews(); }
+function navigate(path) {
+  clearTimeout(scrollMemoryTimer);
+  rememberScroll(history, window.scrollY);
+  history.pushState({}, '', path);
+  render(0); loadReviews();
+}
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
   cartIsOpen = true;
@@ -582,7 +590,8 @@ async function loadCommerce() {
 }
 
 async function boot() {
-  render();
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  render(savedScrollY(history.state));
   setupNewsletterPopup();
   await loadCommerce();
 }
@@ -609,7 +618,7 @@ window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
 });
 mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
-window.addEventListener('popstate', () => { render(); loadReviews(); });
+window.addEventListener('popstate', () => { clearTimeout(scrollMemoryTimer); render(savedScrollY(history.state)); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
 window.addEventListener('storage', event => {
   if (commerce.mode !== 'shopify' || !isCartStorageKey(event.key)) return;
@@ -628,7 +637,10 @@ window.addEventListener('scroll', () => {
       Boolean(document.activeElement?.closest('.site-header-stack')) });
   document.querySelector('.site-header-stack')?.classList.toggle('is-hidden', headerHidden);
   lastHeaderScrollY = scrollY;
+  clearTimeout(scrollMemoryTimer);
+  scrollMemoryTimer = setTimeout(() => rememberScroll(history, window.scrollY), 200);
 }, { passive: true });
+window.addEventListener('pagehide', () => rememberScroll(history, window.scrollY));
 document.addEventListener('focusin', event => {
   if (!event.target.closest?.('.site-header-stack')) return;
   headerHidden = false;
