@@ -237,3 +237,11 @@ test('product pages carry one breadcrumb trail from home through shop to the glo
     assert.equal(jsonLd(htmlFor(path), 'data-anawin-site').length, 0, path);
   }
 });
+
+test('the 404 page links lost visitors to every glove and home', () => {
+  const html = read('dist/404.html');
+  for (const product of localProducts) {
+    assert.equal(matches(html, new RegExp(`<a class="other-glove-card" href="${productPath(product)}"`, 'g')).length, 1, product.name);
+  }
+  assert.match(html, /<main[^>]*class="not-found">[\s\S]*<a href="\/" data-link>Return home/);
+});
