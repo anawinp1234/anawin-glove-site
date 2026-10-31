@@ -13,8 +13,8 @@ test('homepage community invitation follows shopping and links to the community 
   const html = views.route('/');
   assert.match(html, /<section class="collection">[\s\S]*?<\/section>\s*<section class="community-spotlight"/);
   assert.match(html, /ANAWIN COMMUNITY<\/p><h2 id="discord-heading">BUILT<br>WITH YOU\.<\/h2>/);
-  assert.ok(html.includes('Talk baseball. Share your setup. Help shape what comes next.'));
-  assert.match(html, /href="\/community" data-link>Explore the community/);
+  assert.ok(html.includes('Talk directly with us, vote on what we make next, and win free gear.'));
+  assert.match(html, /href="\/community" data-link>See what members get/);
 });
 
 test('community has its own route, heading hierarchy and three promised discussion sections', () => {
@@ -25,9 +25,9 @@ test('community has its own route, heading hierarchy and three promised discussi
   assert.match(html, /BUILT FOR<br>THE GAME\.<br>BUILT WITH YOU\./);
   assert.ok(html.includes('Built for the baseball community. Built with the baseball community.'));
   for (const [heading, copy] of [
-    ['TALK BASEBALL', 'Discuss the game and gear.'],
-    ['SHARE YOUR SETUP', 'Share your glove setup with the community.'],
-    ['SHAPE WHAT’S NEXT', 'Share feedback and ideas with ANAWIN.']
+    ['TALK TO THE FOUNDERS', 'Ask us about leather, patterns, break-in, anything. Literally anything.'],
+    ['VOTE ON WHAT’S NEXT', 'Colorways, patterns, and new models get tested in the server first.'],
+    ['WIN FREE GEAR', 'Learn how to win free gear, gloves, and more!']
   ]) {
     assert.ok(html.includes(`>${heading}</h2><p>${copy}</p>`));
   }

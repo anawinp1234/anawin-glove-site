@@ -59,7 +59,7 @@ export const seoRoutes = Object.freeze({
   },
   '/community': {
     title: 'ANAWIN Community | Built With You',
-    description: 'Join the ANAWIN community on Discord to talk baseball, share your glove setup, and help shape what comes next.',
+    description: 'Join the ANAWIN Discord to talk directly with the team, vote on future baseball glove designs, and connect with the community.',
     image: communityImage,
     type: 'website'
   },
