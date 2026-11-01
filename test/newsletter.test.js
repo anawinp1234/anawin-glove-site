@@ -37,7 +37,7 @@ test('affirmative marketing consent is required and sent with a valid signup', a
   assert.equal(requests.length, 0);
   const result = await signup.submit(' hello@example.com ', true);
   assert.equal(result.status, 'accepted');
-  assert.equal(result.message, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
+  assert.equal(result.message, 'THANK YOU FOR JOINING\nExisting email preferences are preserved.');
   assert.equal(requests[0].url, '/api/newsletter');
   assert.deepEqual(JSON.parse(requests[0].options.body), { email: 'hello@example.com', consent: true });
 });

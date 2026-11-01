@@ -40,7 +40,7 @@ export function createNewsletterSignup({ fetchImpl = fetch, endpoint = '/api/new
           throw new Error('Signup request failed.');
         }
         const result = await response.json();
-        if (result?.status === 'accepted') return { status: 'accepted', message: 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.' };
+        if (result?.status === 'accepted') return { status: 'accepted', message: 'THANK YOU FOR JOINING\nExisting email preferences are preserved.' };
         throw new Error('Signup request was not acknowledged.');
       } catch {
         return { status: 'error', message: 'We couldn’t complete your signup. Please try again later.' };

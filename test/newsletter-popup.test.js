@@ -74,7 +74,7 @@ test('popup and inline markup use the same labeled, unchecked newsletter form wi
     assert.match(markup, /type="checkbox"[^>]*required/);
     assert.doesNotMatch(markup, /type="checkbox"[^>]*checked/);
     assert.match(markup, /class="newsletter-success" hidden/);
-    assert.match(markup, /THANK YOU FOR YOUR REQUEST/);
+    assert.match(markup, /THANK YOU FOR JOINING/);
     assert.match(markup, /Existing email preferences are preserved\./);
   }
 });
@@ -90,7 +90,7 @@ test('accepted popup request shows the shared success panel and updates dialog l
   assert.equal(popup.container.getAttribute('aria-labelledby'), 'test-success-heading');
   assert.equal(popup.container.getAttribute('aria-describedby'), 'test-success-copy');
   assert.equal(popup.message.getAttribute('role'), 'status');
-  assert.equal(popup.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
+  assert.equal(popup.message.textContent, 'THANK YOU FOR JOINING\nExisting email preferences are preserved.');
 });
 
 test('popup waits ten seconds and never opens immediately', () => {
@@ -206,13 +206,13 @@ test('popup and inline bindings share one Shopify signup controller and show neu
   assert.equal(inline.container.getAttribute('aria-labelledby'), 'test-success-heading');
   assert.equal(inline.form.classList.contains('is-success'), true);
   await popup.form.submit();
-  assert.equal(popup.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
+  assert.equal(popup.message.textContent, 'THANK YOU FOR JOINING\nExisting email preferences are preserved.');
   assert.equal(popup.fields.hidden, true);
   assert.equal(popup.success.hidden, false);
   popup.email.value = 'hello@example.com'; popup.consent.checked = true;
   await popup.form.submit();
   assert.deepEqual(results, ['accepted', 'accepted']);
-  assert.equal(inline.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
+  assert.equal(inline.message.textContent, 'THANK YOU FOR JOINING\nExisting email preferences are preserved.');
   assert.equal(inline.message.getAttribute('role'), 'status');
   assert.equal(inline.message.classList.contains('visually-hidden'), true);
   assert.equal(popup.message.getAttribute('role'), 'alert');
