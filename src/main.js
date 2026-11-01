@@ -1,6 +1,6 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
-import { createStorefrontRenderer, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
+import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
@@ -23,6 +23,7 @@ import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 
 const app = document.querySelector('#app');
+let destroyFooterAccordion = () => {};
 let commerceError = '';
 let commerce;
 try {
@@ -144,7 +145,9 @@ function render(scrollTop = window.scrollY) {
   stickyPurchase = null;
   const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
+  destroyFooterAccordion();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();

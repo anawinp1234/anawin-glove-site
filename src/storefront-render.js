@@ -89,11 +89,15 @@ function commerceNotice() {
   return '';
 }
 
+function footerGroup(id, title, links) {
+  return `<section class="footer-group"><h2 class="footer-heading eyebrow"><span class="footer-heading-label">${title}</span><button class="footer-toggle" type="button" aria-expanded="false" aria-controls="footer-${id}">${title}<svg class="footer-chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></h2><div class="footer-panel" id="footer-${id}"><div class="footer-links">${links}</div></div></section>`;
+}
+
 function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block">${wordmark('calc(100vw - 56px)', 'lazy')}</a></div><div class="footer-grid">
-    <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a></div>
-    <div><p class="eyebrow">Connect</p><a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a></div>
+    ${footerGroup('navigation', 'Navigation', `<a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>`)}
+    ${footerGroup('connect', 'Connect', `<a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a>`)}
+    ${footerGroup('information', 'Information', `<a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a>`)}
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
@@ -309,4 +313,50 @@ function routeView(pathname) {
 }
 
   return { header, commerceNotice, footer, route, notFound, productCardRatingMarkup, productReviewsSection };
+}
+
+// Enhance the rendered footer; without JavaScript all destinations stay visible.
+export function installFooterAccordion(footer, { windowRef = window, documentRef = document } = {}) {
+  if (!footer) return () => {};
+  const media = windowRef.matchMedia('(max-width: 760px)');
+  const groups = [...footer.querySelectorAll('.footer-group')].map(group => ({
+    trigger: group.querySelector('.footer-toggle'),
+    panel: group.querySelector('.footer-panel'),
+  }));
+  function setExpanded({ trigger, panel }, expanded) {
+    if (!expanded && panel.contains(documentRef.activeElement)) trigger.focus({ preventScroll: true });
+    trigger.setAttribute('aria-expanded', String(expanded));
+    panel.inert = media.matches && !expanded;
+    if (panel.inert) panel.setAttribute('aria-hidden', 'true');
+    else panel.removeAttribute('aria-hidden');
+    panel.classList.toggle('is-expanded', expanded);
+  }
+  function syncLayout() {
+    if (media.matches) footer.classList.add('footer-mobile');
+    // Move focus before CSS hides the control when leaving the mobile layout.
+    if (!media.matches) {
+      for (const { trigger, panel } of groups) {
+        panel.inert = false;
+        if (documentRef.activeElement === trigger) panel.querySelector('a')?.focus({ preventScroll: true });
+      }
+    }
+    for (const group of groups) setExpanded(group, !media.matches);
+    footer.classList.toggle('footer-mobile', media.matches);
+  }
+  const handlers = groups.map(group => {
+    const toggle = () => {
+      if (!media.matches) return;
+      const expand = group.trigger.getAttribute('aria-expanded') !== 'true';
+      for (const candidate of groups) setExpanded(candidate, candidate === group && expand);
+    };
+    group.trigger.addEventListener('click', toggle);
+    return toggle;
+  });
+  syncLayout();
+  footer.classList.add('has-footer-accordion');
+  media.addEventListener('change', syncLayout);
+  return () => {
+    media.removeEventListener('change', syncLayout);
+    groups.forEach(({ trigger }, index) => trigger.removeEventListener('click', handlers[index]));
+  };
 }
