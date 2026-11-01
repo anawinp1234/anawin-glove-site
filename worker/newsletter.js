@@ -13,12 +13,6 @@ const CREATE_CUSTOMER = `mutation NewsletterCustomerCreate($input: CustomerInput
     userErrors { field message }
   }
 }`;
-const UPDATE_CONSENT = `mutation NewsletterConsentUpdate($input: CustomerEmailMarketingConsentUpdateInput!) {
-  customerEmailMarketingConsentUpdate(input: $input) {
-    customer { id defaultEmailAddress { emailAddress marketingState } }
-    userErrors { field message }
-  }
-}`;
 
 class ApiError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
@@ -187,21 +181,11 @@ function consentInput(now) {
   };
 }
 
-async function subscribeExisting(customer, email, config, fetchImpl, authCache, now) {
-  const state = customer.defaultEmailAddress?.marketingState;
-  if (state === 'SUBSCRIBED' || state === 'PENDING') return state;
-  if (state !== 'NOT_SUBSCRIBED' && state !== 'UNSUBSCRIBED') throw new ApiError(503, 'shopify_unavailable');
-  const data = await shopify(config, UPDATE_CONSENT, {
-    input: { customerId: customer.id, emailMarketingConsent: consentInput(now) }
-  }, fetchImpl, authCache);
-  const result = data.customerEmailMarketingConsentUpdate;
-  if (result?.userErrors?.length) throw new ApiError(503, 'shopify_unavailable');
-  return confirmedState(result?.customer, email);
-}
-
 async function subscribe(email, config, fetchImpl, authCache, now) {
   const existing = await findCustomer(email, config, fetchImpl, authCache);
-  if (existing) return subscribeExisting(existing, email, config, fetchImpl, authCache, now);
+  // Public submissions cannot verify renewed consent. Preserve every existing
+  // customer’s consent, including opt-outs and pending subscriptions.
+  if (existing) return;
   const data = await shopify(config, CREATE_CUSTOMER, {
     input: { email, emailMarketingConsent: consentInput(now) }
   }, fetchImpl, authCache);
@@ -209,7 +193,7 @@ async function subscribe(email, config, fetchImpl, authCache, now) {
   if (result?.userErrors?.length) {
     // A concurrent signup may have created the customer after the first lookup.
     const racedCustomer = await findCustomer(email, config, fetchImpl, authCache);
-    if (racedCustomer) return subscribeExisting(racedCustomer, email, config, fetchImpl, authCache, now);
+    if (racedCustomer) return;
     throw new ApiError(503, 'shopify_unavailable');
   }
   return confirmedState(result?.customer, email);
@@ -232,8 +216,8 @@ export async function handleNewsletter(request, env, { fetchImpl = fetch, now = 
     if (body.consent !== true) throw new ApiError(400, 'consent_required');
     const config = getConfig(env);
     await enforceLimits(request, email, env);
-    const marketingState = await subscribe(email, config, fetchImpl, authCache, now);
-    return json(200, { marketingState });
+    await subscribe(email, config, fetchImpl, authCache, now);
+    return json(200, { status: 'accepted' });
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 503;
     const code = error instanceof ApiError ? error.code : 'signup_unavailable';

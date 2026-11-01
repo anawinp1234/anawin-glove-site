@@ -199,8 +199,7 @@ function loadReviews() {
 }
 function handleNewsletterResult(result) {
   newsletterPopupUi?.accept();
-  if (result.status === 'success') newsletterPopup?.subscribe();
-  if (result.status === 'pending') newsletterPopup?.pending();
+  if (result.status === 'accepted') newsletterPopup?.pending();
 }
 
 function setupNewsletterPopup() {

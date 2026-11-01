@@ -49,7 +49,7 @@ test('new subscriber is created with single opt-in and returned only after Shopi
   const f = fixture([graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: customer('SUBSCRIBED') } })]);
   const response = await f.run(request({ email: ' HELLO@Example.com ', consent: true }));
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { marketingState: 'SUBSCRIBED' });
+  assert.deepEqual(await response.json(), { status: 'accepted' });
   assert.match(f.calls[0].body.query, /customers\(/);
   assert.match(f.calls[1].body.query, /customerCreate\(/);
   assert.deepEqual(f.calls[1].body.variables.input, {
@@ -82,44 +82,43 @@ test('new Dev Dashboard app credentials obtain and reuse a server-side 24-hour A
   assert.equal(f.calls[3].init.headers['X-Shopify-Access-Token'], runtimeToken);
 });
 
-test('existing unsubscribed customer receives a consent update, not a new customer', async () => {
-  const f = fixture([
-    graphql({ customers: { nodes: [customer('UNSUBSCRIBED')] } }),
-    graphql({ customerEmailMarketingConsentUpdate: { userErrors: [], customer: customer('SUBSCRIBED') } })
-  ]);
-  assert.deepEqual(await (await f.run()).json(), { marketingState: 'SUBSCRIBED' });
-  assert.equal(f.calls.length, 2);
-  assert.match(f.calls[1].body.query, /customerEmailMarketingConsentUpdate\(/);
-  assert.equal(f.calls[1].body.variables.input.customerId, 'gid://shopify/Customer/1');
-});
-
-test('already subscribed and pending customers keep their Shopify states without mutation', async () => {
-  for (const state of ['SUBSCRIBED', 'PENDING']) {
-    const f = fixture([graphql({ customers: { nodes: [customer(state)] } })]);
-    assert.deepEqual(await (await f.run()).json(), { marketingState: state });
+test('all existing consent states are preserved without any mutation or public disclosure', async () => {
+  // These are all CustomerEmailAddressMarketingState values in Admin 2026-07.
+  // Also preserve future/missing states rather than trying to repair consent.
+  for (const state of ['UNSUBSCRIBED', 'NOT_SUBSCRIBED', 'SUBSCRIBED', 'PENDING', 'INVALID', 'REDACTED', 'FUTURE_STATE', null]) {
+    const existing = customer(state);
+    const before = structuredClone(existing);
+    const f = fixture([graphql({ customers: { nodes: [existing] } })]);
+    const response = await f.run();
+    assert.equal(response.status, 200, String(state));
+    assert.deepEqual(await response.json(), { status: 'accepted' });
+    assert.deepEqual(existing, before);
     assert.equal(f.calls.length, 1);
+    assert.match(f.calls[0].body.query, /^query NewsletterCustomer/);
+    assert.doesNotMatch(JSON.stringify(f.calls), /mutation|customerEmailMarketingConsentUpdate|consentUpdatedAt|marketingOptInLevel/);
   }
 });
 
-test('a concurrent duplicate creation re-queries and updates the existing customer', async () => {
-  const f = fixture([
-    graphql({ customers: { nodes: [] } }),
-    graphql({ customerCreate: { userErrors: [{ field: ['email'], message: 'already taken' }], customer: null } }),
-    graphql({ customers: { nodes: [customer('NOT_SUBSCRIBED')] } }),
-    graphql({ customerEmailMarketingConsentUpdate: { userErrors: [], customer: customer('SUBSCRIBED') } })
-  ]);
-  assert.deepEqual(await (await f.run()).json(), { marketingState: 'SUBSCRIBED' });
-  assert.equal(f.calls.length, 4);
+test('concurrent duplicate creation preserves every existing consent state without an update', async () => {
+  for (const state of ['UNSUBSCRIBED', 'NOT_SUBSCRIBED', 'SUBSCRIBED', 'PENDING', 'INVALID']) {
+    const f = fixture([
+      graphql({ customers: { nodes: [] } }),
+      graphql({ customerCreate: { userErrors: [{ field: ['email'], message: 'already taken' }], customer: null } }),
+      graphql({ customers: { nodes: [customer(state)] } })
+    ]);
+    const response = await f.run();
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: 'accepted' });
+    assert.equal(f.calls.length, 3);
+    assert.equal(f.calls.filter(call => /mutation/.test(call.body.query)).length, 1);
+    assert.match(f.calls[1].body.query, /customerCreate\(/);
+    assert.doesNotMatch(JSON.stringify(f.calls), /customerEmailMarketingConsentUpdate/);
+  }
 });
 
-test('new and existing customers can return pending without a subscribed claim', async () => {
-  const created = fixture([graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: customer('PENDING') } })]);
-  assert.deepEqual(await (await created.run()).json(), { marketingState: 'PENDING' });
-  const updated = fixture([
-    graphql({ customers: { nodes: [customer('NOT_SUBSCRIBED')] } }),
-    graphql({ customerEmailMarketingConsentUpdate: { userErrors: [], customer: customer('PENDING') } })
-  ]);
-  assert.deepEqual(await (await updated.run()).json(), { marketingState: 'PENDING' });
+test('Shopify-confirmed pending creation receives the same neutral acknowledgment', async () => {
+  const f = fixture([graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: customer('PENDING') } })]);
+  assert.deepEqual(await (await f.run()).json(), { status: 'accepted' });
 });
 
 test('request validation rejects missing or malformed email, consent, body, type, method, and origin', async () => {
@@ -147,10 +146,13 @@ test('request validation rejects missing or malformed email, consent, body, type
 test('Shopify userErrors, GraphQL errors, HTTP and network errors fail closed', async () => {
   const cases = [
     [graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [{ message: 'private Shopify error' }], customer: null } }), graphql({ customers: { nodes: [] } })],
-    [graphql({ customers: { nodes: [customer('UNSUBSCRIBED')] } }), graphql({ customerEmailMarketingConsentUpdate: { userErrors: [{ message: 'private Shopify error' }], customer: null } })],
     [Response.json({ errors: [{ message: 'private Shopify error' }] })],
     [new Response('bad gateway', { status: 502 })],
     [new Error('private network error')],
+    [new Response('not json')],
+    [graphql({ customers: { nodes: [] } }), new Error('private network error')],
+    [graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: null } })],
+    [graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: customer('SUBSCRIBED', 'other@example.com') } })],
     [graphql({ customers: { nodes: [] } }), graphql({ customerCreate: { userErrors: [], customer: customer('NOT_SUBSCRIBED') } })]
   ];
   for (const replies of cases) {
@@ -158,7 +160,6 @@ test('Shopify userErrors, GraphQL errors, HTTP and network errors fail closed', 
     const response = await f.run();
     assert.equal(response.status, 503);
     assert.deepEqual(await response.json(), { error: 'shopify_unavailable' });
-    assert.doesNotMatch(await response.text().catch(() => ''), /private Shopify error|private network error/);
   }
 });
 
@@ -179,7 +180,7 @@ test('an expired client-credentials token is renewed once after Shopify returns 
     Response.json({ access_token: 'renewed-runtime-sentinel', expires_in: 86399 }),
     graphql({ customers: { nodes: [customer('SUBSCRIBED')] } })
   ], { SHOPIFY_ADMIN_ACCESS_TOKEN: '', SHOPIFY_CLIENT_ID: 'test-client-id', SHOPIFY_CLIENT_SECRET: 'test-client-secret' });
-  assert.deepEqual(await (await f.run()).json(), { marketingState: 'SUBSCRIBED' });
+  assert.deepEqual(await (await f.run()).json(), { status: 'accepted' });
   assert.equal(f.calls[3].init.headers['X-Shopify-Access-Token'], 'renewed-runtime-sentinel');
 });
 

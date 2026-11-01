@@ -80,16 +80,29 @@ Worker; use a local Wrangler preview to exercise the API after configuring
 development-only credentials.
 
 The Worker uses Shopify Admin GraphQL `2026-07` to find a customer by exact
-email, create one with email marketing consent if absent, or update consent
-for an existing unsubscribed customer. Already subscribed and pending customers
-retain their Shopify state. The browser only receives `SUBSCRIBED` or `PENDING`
-when Shopify reports that state. Shopify Admin errors and credentials never
-appear in the response. A checked checkbox records `SINGLE_OPT_IN`. The
-production Wrangler config explicitly selects `single` opt-in; if ANAWIN needs
-double opt-in, change this configuration before deployment. Admin API mutations
-do not themselves provide a complete confirmation-email workflow. That needs a
-separate verified confirmation flow before this endpoint can be used for those
-customers.
+email and create one with email marketing consent if absent. Existing customers
+retain all consent fields without mutation, including `UNSUBSCRIBED`,
+`NOT_SUBSCRIBED`, `PENDING`, `SUBSCRIBED`, and `INVALID`. The same rule applies
+when a concurrent creation is detected. Public submissions do not verify renewed
+consent and cannot resubscribe an existing customer.
+
+Handled requests return only `{ status: "accepted" }`, without exposing customer
+existence or consent state. The UI acknowledges the request without claiming a
+subscription or email delivery. Shopify Admin errors and credentials never
+appear in the response. For new customers, a checked checkbox records
+`SINGLE_OPT_IN`; the production Wrangler config explicitly selects `single`.
+Admin API mutations do not themselves provide a complete confirmation-email
+workflow; this endpoint does not implement one.
+
+Consent fields and states are based on Shopify Admin GraphQL `2026-07`:
+[CustomerEmailAddress](https://shopify.dev/docs/api/admin-graphql/2026-07/objects/CustomerEmailAddress),
+[CustomerEmailAddressMarketingState](https://shopify.dev/docs/api/admin-graphql/2026-07/enums/CustomerEmailAddressMarketingState), and
+[CustomerEmailMarketingConsentInput](https://shopify.dev/docs/api/admin-graphql/2026-07/input-objects/CustomerEmailMarketingConsentInput).
+
+`npm run build` builds only storefront assets. The fix also requires publishing
+the Worker entry point in `wrangler.jsonc`. That configuration bundles the Worker
+and `dist/` assets in one Cloudflare Workers deployment; a separate storefront
+asset upload alone will not update the API.
 
 Before a live test:
 
