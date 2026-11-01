@@ -33,19 +33,17 @@ export function bindNewsletterForm(form, signup, onResult = () => {}) {
       control.setAttribute('aria-invalid', 'true');
       control.focus();
     }
-    if (result.status === 'success' || result.status === 'pending') {
+    if (result.status === 'accepted') {
       form.reset();
-      if (result.status === 'success') {
-        fields.hidden = true;
-        success.hidden = false;
-        form.classList.add('is-success');
-        const container = form.closest('.newsletter, .newsletter-dialog');
-        container?.classList.add('is-success');
-        container?.setAttribute('aria-labelledby', success.querySelector('h3').id);
-        if (container?.matches('.newsletter-dialog')) container.setAttribute('aria-describedby', success.querySelector('p').id);
-        message.classList.add('visually-hidden');
-        success.querySelector('h3').focus({ preventScroll: true });
-      }
+      fields.hidden = true;
+      success.hidden = false;
+      form.classList.add('is-success');
+      const container = form.closest('.newsletter, .newsletter-dialog');
+      container?.classList.add('is-success');
+      container?.setAttribute('aria-labelledby', success.querySelector('h3').id);
+      if (container?.matches('.newsletter-dialog')) container.setAttribute('aria-describedby', success.querySelector('p').id);
+      message.classList.add('visually-hidden');
+      success.querySelector('h3').focus({ preventScroll: true });
       onResult(result);
     }
   });

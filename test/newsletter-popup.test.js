@@ -74,15 +74,15 @@ test('popup and inline markup use the same labeled, unchecked newsletter form wi
     assert.match(markup, /type="checkbox"[^>]*required/);
     assert.doesNotMatch(markup, /type="checkbox"[^>]*checked/);
     assert.match(markup, /class="newsletter-success" hidden/);
-    assert.match(markup, /THANK YOU FOR JOINING OUR COMMUNITY/);
-    assert.match(markup, /You’re signed up\. Keep an eye on your inbox\./);
+    assert.match(markup, /THANK YOU FOR YOUR REQUEST/);
+    assert.match(markup, /Existing email preferences are preserved\./);
   }
 });
 
-test('confirmed popup signup shows the shared success panel and updates dialog labeling', async () => {
+test('accepted popup request shows the shared success panel and updates dialog labeling', async () => {
   const popup = formFixture();
   popup.container.matches = selector => selector === '.newsletter-dialog';
-  const signup = createNewsletterSignup({ fetchImpl: async () => ({ ok: true, json: async () => ({ marketingState: 'SUBSCRIBED' }) }) });
+  const signup = createNewsletterSignup({ fetchImpl: async () => ({ ok: true, json: async () => ({ status: 'accepted' }) }) });
   bindNewsletterForm(popup.form, signup);
   await popup.form.submit();
   assert.equal(popup.fields.hidden, true);
@@ -90,7 +90,7 @@ test('confirmed popup signup shows the shared success panel and updates dialog l
   assert.equal(popup.container.getAttribute('aria-labelledby'), 'test-success-heading');
   assert.equal(popup.container.getAttribute('aria-describedby'), 'test-success-copy');
   assert.equal(popup.message.getAttribute('role'), 'status');
-  assert.equal(popup.message.textContent, 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.');
+  assert.equal(popup.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
 });
 
 test('popup waits ten seconds and never opens immediately', () => {
@@ -169,7 +169,7 @@ test('close button and Escape dismiss modal, contain focus, and restore previous
   assert.equal(documentRef.activeElement, opener);
 });
 
-test('accepted signup leaves the success or pending message visible until close', async () => {
+test('accepted request leaves the acknowledgment visible until close', async () => {
   const documentRef = { activeElement: null, body: { classList: { add() {}, remove() {} } } };
   const opener = element(documentRef); documentRef.activeElement = opener;
   const closeButton = element(documentRef);
@@ -186,14 +186,14 @@ test('accepted signup leaves the success or pending message visible until close'
   assert.equal(dismissals, 0);
 });
 
-test('popup and inline bindings share one Shopify signup controller and preserve pending and failure states', async () => {
+test('popup and inline bindings share one Shopify signup controller and show neutral acknowledgment and failure states', async () => {
   const requests = [];
-  const states = ['SUBSCRIBED', 'PENDING', 'FAIL'];
+  const states = ['ACCEPTED', 'ACCEPTED', 'FAIL'];
   const signup = createNewsletterSignup({ fetchImpl: async (url, options) => {
     requests.push({ url, body: JSON.parse(options.body) });
     const state = states.shift();
     return state === 'FAIL' ? { ok: false, status: 503, json: async () => ({ error: 'shopify_unavailable' }) }
-      : { ok: true, json: async () => ({ marketingState: state }) };
+      : { ok: true, json: async () => ({ status: 'accepted' }) };
   } });
   const inline = formFixture();
   const popup = formFixture();
@@ -206,13 +206,13 @@ test('popup and inline bindings share one Shopify signup controller and preserve
   assert.equal(inline.container.getAttribute('aria-labelledby'), 'test-success-heading');
   assert.equal(inline.form.classList.contains('is-success'), true);
   await popup.form.submit();
-  assert.equal(popup.message.textContent, 'Check your email to confirm your signup.');
-  assert.equal(popup.fields.hidden, false);
-  assert.equal(popup.success.hidden, true);
+  assert.equal(popup.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
+  assert.equal(popup.fields.hidden, true);
+  assert.equal(popup.success.hidden, false);
   popup.email.value = 'hello@example.com'; popup.consent.checked = true;
   await popup.form.submit();
-  assert.deepEqual(results, ['success', 'pending']);
-  assert.equal(inline.message.textContent, 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.');
+  assert.deepEqual(results, ['accepted', 'accepted']);
+  assert.equal(inline.message.textContent, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
   assert.equal(inline.message.getAttribute('role'), 'status');
   assert.equal(inline.message.classList.contains('visually-hidden'), true);
   assert.equal(popup.message.getAttribute('role'), 'alert');

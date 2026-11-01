@@ -31,20 +31,22 @@ test('affirmative marketing consent is required and sent with a valid signup', a
   const requests = [];
   const signup = createNewsletterSignup({ fetchImpl: async (url, options) => {
     requests.push({ url, options });
-    return { ok: true, json: async () => ({ marketingState: 'SUBSCRIBED' }) };
+    return { ok: true, json: async () => ({ status: 'accepted' }) };
   } });
   assert.equal((await signup.submit('hello@example.com', false)).field, 'consent');
   assert.equal(requests.length, 0);
   const result = await signup.submit(' hello@example.com ', true);
-  assert.equal(result.status, 'success');
-  assert.equal(result.message, 'THANK YOU FOR JOINING OUR COMMUNITY\nYou’re signed up. Keep an eye on your inbox.');
+  assert.equal(result.status, 'accepted');
+  assert.equal(result.message, 'THANK YOU FOR YOUR REQUEST\nExisting email preferences are preserved.');
   assert.equal(requests[0].url, '/api/newsletter');
   assert.deepEqual(JSON.parse(requests[0].options.body), { email: 'hello@example.com', consent: true });
 });
 
-test('pending consent asks for confirmation rather than claiming subscription', async () => {
-  const signup = createNewsletterSignup({ fetchImpl: async () => ({ ok: true, json: async () => ({ marketingState: 'PENDING' }) }) });
-  assert.equal((await signup.submit('hello@example.com', true)).status, 'pending');
+test('legacy consent-state responses do not produce subscription or email claims', async () => {
+  for (const marketingState of ['SUBSCRIBED', 'PENDING', 'UNSUBSCRIBED']) {
+    const signup = createNewsletterSignup({ fetchImpl: async () => ({ ok: true, json: async () => ({ marketingState }) }) });
+    assert.equal((await signup.submit('hello@example.com', true)).status, 'error');
+  }
 });
 
 test('server validation and rate-limit responses have useful client messages', async () => {
@@ -85,7 +87,7 @@ test('duplicate submissions are blocked until the first request completes', asyn
   assert.equal(signup.busy, true);
   assert.deepEqual(await signup.submit('hello@example.com', true), { status: 'busy' });
   assert.equal(calls, 1);
-  release({ ok: true, json: async () => ({ marketingState: 'SUBSCRIBED' }) });
-  assert.equal((await first).status, 'success');
+  release({ ok: true, json: async () => ({ status: 'accepted' }) });
+  assert.equal((await first).status, 'accepted');
   assert.equal(signup.busy, false);
 });
