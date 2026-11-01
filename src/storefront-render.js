@@ -74,7 +74,7 @@ function header() {
   const announcementBar = announcement.enabled === true
     ? `<aside class="announcement-bar" aria-label="Store announcement"><p>${escapeHtml(announcement.message)}</p></aside>`
     : '';
-  return `<div class="site-header-stack">${announcementBar}<header class="site-header">
+  return `<a class="skip-link" href="#main-content" data-skip-link>Skip to content</a><div class="site-header-stack">${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}</nav>
     <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
@@ -89,11 +89,15 @@ function commerceNotice() {
   return '';
 }
 
+function footerGroup(id, title, links) {
+  return `<section class="footer-group"><h2 class="footer-heading eyebrow"><span class="footer-heading-label">${title}</span><button class="footer-toggle" type="button" aria-expanded="false" aria-controls="footer-${id}">${title}<svg class="footer-chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="m3 6 5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button></h2><div class="footer-panel" id="footer-${id}"><div class="footer-links">${links}</div></div></section>`;
+}
+
 function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block">${wordmark('calc(100vw - 56px)', 'lazy')}</a></div><div class="footer-grid">
-    <div><p class="eyebrow">Navigation</p><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a></div>
-    <div><p class="eyebrow">Connect</p><a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a></div>
-    <div><p class="eyebrow">Information</p><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a></div>
+    ${footerGroup('navigation', 'Navigation', `<a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>`)}
+    ${footerGroup('connect', 'Connect', `<a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="mailto:ray@anawinofficial.com">ray@anawinofficial.com</a><a href="mailto:anawin@anawinofficial.com">anawin@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a>`)}
+    ${footerGroup('information', 'Information', `<a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Breaking In Your Glove</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a>`)}
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span><span>Baseball gloves</span></div></footer>`;
 }
 
@@ -219,7 +223,11 @@ function productPage(product) {
       <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Free U.S. standard shipping. International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines. International rates are calculated at checkout. Orders process in 1–3 business days; Break-In Service adds 2–5 business days. U.S. standard delivery is typically 3–7 business days after shipment. Eligible returns are accepted within 30 days of delivery. Prepaid return labels are provided for eligible U.S. returns.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
       <details><summary>Warranty <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(warrantyParagraphs[0])}</p><div class="pdp-policy-links"><a href="/warranty" data-link>Full Warranty</a></div></details>
-    </aside></div><div class="mobile-purchase" data-sticky-purchase hidden style="--sticky-accent:${escapeHtml(stickyPurchaseAccent(product))}"><span class="mobile-purchase-price" data-sticky-price aria-label="Selected price">${commerceLoading ? 'Checking price…' : commerceError ? 'Price unavailable' : money(product.price, product.currencyCode)}</span><button type="button" data-sticky-add aria-label="${escapeHtml(buttonLabel)} ${escapeHtml(product.name)}" ${unavailable ? 'disabled' : ''}>${escapeHtml(buttonLabel)}</button></div>${productReviewsSection(product)}${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(other => `<a class="other-glove-card" href="${productPath(other)}" data-link data-product="${escapeHtml(other.id)}">${productImage(other.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(other.name)}</strong><small>${escapeHtml(other.tone)}</small></span>${arrow()}</a>`).join('')}</div></section>` : ''}</main>`;
+    </aside></div><div class="mobile-purchase" data-sticky-purchase hidden style="--sticky-accent:${escapeHtml(stickyPurchaseAccent(product))}"><span class="mobile-purchase-price" data-sticky-price aria-label="Selected price">${commerceLoading ? 'Checking price…' : commerceError ? 'Price unavailable' : money(product.price, product.currencyCode)}</span><button type="button" data-sticky-add aria-label="${escapeHtml(buttonLabel)} ${escapeHtml(product.name)}" ${unavailable ? 'disabled' : ''}>${escapeHtml(buttonLabel)}</button></div>${productReviewsSection(product)}${otherGloves.length ? `<section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${otherGloves.map(gloveLinkCard).join('')}</div></section>` : ''}</main>`;
+}
+
+function gloveLinkCard(product) {
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${productImage(product.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.tone)}</small></span>${arrow()}</a>`;
 }
 
 function about() {
@@ -278,9 +286,16 @@ function breakInPolicy() {
   return `<main class="policy-page"><h1>Breaking In Your Glove</h1><section><p>${escapeHtml(breakInIntro)}</p></section>${breakInPageContent()}</main>`;
 }
 
-const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><a href="/" data-link>Return home ${arrow()}</a></main>`;
+const notFound = () => `<main class="not-found"><p class="eyebrow">Error / 404</p><h1>PAGE NOT<br><em>FOUND.</em></h1><p class="not-found-copy">This page doesn’t exist or has moved. Our gloves are right here:</p><section class="not-found-gloves" aria-labelledby="not-found-gloves-heading"><h2 id="not-found-gloves-heading" class="visually-hidden">ANAWIN gloves</h2><div class="other-gloves-grid">${products.map(gloveLinkCard).join('')}</div></section><a href="/" data-link>Return home ${arrow()}</a></main>`;
+
+// Every view starts with its <main>; give it the skip link's target.
+const withMainTarget = markup => markup.replace(/^<main\b/, '<main id="main-content" tabindex="-1"');
 
 function route(pathname) {
+  return withMainTarget(routeView(pathname));
+}
+
+function routeView(pathname) {
   const path = normalizePath(pathname);
   if (!routeMetadata(path)) return notFound();
   if (path === '/') return home();
@@ -298,4 +313,50 @@ function route(pathname) {
 }
 
   return { header, commerceNotice, footer, route, notFound, productCardRatingMarkup, productReviewsSection };
+}
+
+// Enhance the rendered footer; without JavaScript all destinations stay visible.
+export function installFooterAccordion(footer, { windowRef = window, documentRef = document } = {}) {
+  if (!footer) return () => {};
+  const media = windowRef.matchMedia('(max-width: 760px)');
+  const groups = [...footer.querySelectorAll('.footer-group')].map(group => ({
+    trigger: group.querySelector('.footer-toggle'),
+    panel: group.querySelector('.footer-panel'),
+  }));
+  function setExpanded({ trigger, panel }, expanded) {
+    if (!expanded && panel.contains(documentRef.activeElement)) trigger.focus({ preventScroll: true });
+    trigger.setAttribute('aria-expanded', String(expanded));
+    panel.inert = media.matches && !expanded;
+    if (panel.inert) panel.setAttribute('aria-hidden', 'true');
+    else panel.removeAttribute('aria-hidden');
+    panel.classList.toggle('is-expanded', expanded);
+  }
+  function syncLayout() {
+    if (media.matches) footer.classList.add('footer-mobile');
+    // Move focus before CSS hides the control when leaving the mobile layout.
+    if (!media.matches) {
+      for (const { trigger, panel } of groups) {
+        panel.inert = false;
+        if (documentRef.activeElement === trigger) panel.querySelector('a')?.focus({ preventScroll: true });
+      }
+    }
+    for (const group of groups) setExpanded(group, !media.matches);
+    footer.classList.toggle('footer-mobile', media.matches);
+  }
+  const handlers = groups.map(group => {
+    const toggle = () => {
+      if (!media.matches) return;
+      const expand = group.trigger.getAttribute('aria-expanded') !== 'true';
+      for (const candidate of groups) setExpanded(candidate, candidate === group && expand);
+    };
+    group.trigger.addEventListener('click', toggle);
+    return toggle;
+  });
+  syncLayout();
+  footer.classList.add('has-footer-accordion');
+  media.addEventListener('change', syncLayout);
+  return () => {
+    media.removeEventListener('change', syncLayout);
+    groups.forEach(({ trigger }, index) => trigger.removeEventListener('click', handlers[index]));
+  };
 }

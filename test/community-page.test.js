@@ -20,7 +20,7 @@ test('homepage community invitation follows shopping and links to the community 
 test('community has its own route, heading hierarchy and three promised discussion sections', () => {
   const html = views.route('/community');
   assert.equal(html, views.route('/community/'));
-  assert.match(html, /<main class="community-page">/);
+  assert.match(html, /<main id="main-content" tabindex="-1" class="community-page">/);
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
   assert.match(html, /BUILT FOR<br>THE GAME\.<br>BUILT WITH YOU\./);
   assert.ok(html.includes('Built for the baseball community. Built with the baseball community.'));

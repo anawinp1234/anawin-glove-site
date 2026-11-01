@@ -1,6 +1,6 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
-import { createStorefrontRenderer, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
+import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
@@ -11,6 +11,7 @@ import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focu
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { loadZoomImage } from './zoom-image.js';
+import { lightboxCounter, stepLightboxIndex } from './lightbox-nav.js';
 import { updateSeo, productPath } from './seo.js';
 import { createNewsletterSignup } from './newsletter.js';
 import { bindNewsletterForm } from './newsletter-form.js';
@@ -19,8 +20,10 @@ import { createJudgeMeService, shopifyProductId } from './judgeme.js';
 import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
+import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 
 const app = document.querySelector('#app');
+let destroyFooterAccordion = () => {};
 let commerceError = '';
 let commerce;
 try {
@@ -40,6 +43,7 @@ let checkoutBusy = false;
 let checkoutNeedsReview = false;
 let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
+const scrollMemory = installScrollMemory(window, top => { render(top); loadReviews(); });
 const runCartAction = createCartActionGate();
 const verifyCheckout = commerce.mode === 'shopify'
   ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
@@ -54,6 +58,8 @@ let cartCloseTimer = null;
 let lightboxOverlay = null;
 let lightboxReturnFocus = null;
 let lightboxImageController = null;
+let lightboxGallery = [];
+let lightboxIndex = 0;
 const newsletterSignup = createNewsletterSignup();
 let newsletterPopup = null;
 let newsletterDialog = null;
@@ -133,16 +139,19 @@ function syncProductDisplayOrder() {
   });
 }
 
-function render() {
+// Navigation passes the scroll position to show; data refreshes keep the shopper where they are.
+function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
   const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
+  destroyFooterAccordion();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
-  fitHeroHeading(); bind(); window.scrollTo(0, 0);
+  fitHeroHeading(); bind(); scrollToInstant(window, scrollTop);
   stickyPurchase = createStickyPurchase({
     bar: document.querySelector('[data-sticky-purchase]'),
     original: document.querySelector('[data-add]'),
@@ -214,7 +223,9 @@ function setupNewsletterPopup() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) newsletterPopup.schedule(); });
   newsletterPopup.schedule();
 }
-function navigate(path) { history.pushState({}, '', path); render(); loadReviews(); }
+function navigate(path) {
+  scrollMemory.navigate(path);
+}
 function openCart(opener = null) {
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
   cartIsOpen = true;
@@ -443,6 +454,10 @@ function bindCart() {
 }
 
 function bind() {
+  document.querySelector('[data-skip-link]')?.addEventListener('click', event => {
+    event.preventDefault();
+    document.querySelector('#main-content')?.focus();
+  });
   const newsletterForm = app.querySelector('.newsletter [data-newsletter-form]');
   if (newsletterForm) bindNewsletterForm(newsletterForm, newsletterSignup, handleNewsletterResult);
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
@@ -494,34 +509,78 @@ function bind() {
   });
   document.querySelectorAll('[data-add]').forEach(element => element.addEventListener('click', () =>
     addProductFromButton(element.dataset.add, element)));
-  document.querySelectorAll('[data-image]').forEach(element => element.addEventListener('click', () => {
-    lightboxReturnFocus = element;
-    lightboxOverlay = document.createElement('div');
-    lightboxOverlay.className = 'lightbox';
-    lightboxOverlay.setAttribute('role', 'dialog');
-    lightboxOverlay.setAttribute('aria-modal', 'true');
-    lightboxOverlay.setAttribute('aria-label', 'Product image');
-    lightboxOverlay.setAttribute('aria-busy', 'true');
-    lightboxOverlay.innerHTML = '<button aria-label="Close image">Close</button><p class="lightbox-status" role="status">Loading image…</p>';
-    const overlay = lightboxOverlay;
-    const status = overlay.querySelector('[role="status"]');
-    const image = document.createElement('img');
-    image.alt = [document.querySelector('.pdp-info h1')?.textContent, element.querySelector('img')?.alt].filter(Boolean).join(' — ') || 'Expanded product view';
-    lightboxImageController = new AbortController();
-    const loaded = loadZoomImage(image, element.dataset.image, lightboxImageController.signal);
-    overlay.append(image);
-    loaded.then(result => {
-      if (lightboxOverlay !== overlay || result === 'aborted') return;
-      overlay.setAttribute('aria-busy', 'false');
-      if (result === 'loaded') status.remove();
-      else status.textContent = 'Image unavailable. Close and try again.';
-    });
-    document.body.append(lightboxOverlay);
-    document.body.classList.add('lightbox-open');
-    app.inert = true;
-    lightboxOverlay.addEventListener('click', closeLightbox);
-    lightboxOverlay.querySelector('button').focus();
-  }));
+  const galleryButtons = [...document.querySelectorAll('[data-image]')];
+  galleryButtons.forEach((element, index) => element.addEventListener('click', () => openLightbox(galleryButtons, index)));
+}
+
+const lightboxChevron = direction => `<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="${direction < 0 ? 'M10 3 5 8l5 5' : 'M6 3l5 5-5 5'}" /></svg>`;
+
+function openLightbox(buttons, index) {
+  lightboxGallery = buttons;
+  lightboxReturnFocus = buttons[index];
+  lightboxOverlay = document.createElement('div');
+  lightboxOverlay.className = 'lightbox';
+  lightboxOverlay.setAttribute('role', 'dialog');
+  lightboxOverlay.setAttribute('aria-modal', 'true');
+  lightboxOverlay.setAttribute('aria-label', 'Product image');
+  const nav = buttons.length > 1
+    ? `<div class="lightbox-nav"><button type="button" data-lightbox-step="-1" aria-label="Previous image">${lightboxChevron(-1)}</button><span class="lightbox-count" aria-live="polite"></span><button type="button" data-lightbox-step="1" aria-label="Next image">${lightboxChevron(1)}</button></div>`
+    : '';
+  lightboxOverlay.innerHTML = `<button type="button" class="lightbox-close" aria-label="Close image">Close</button><p class="lightbox-status" role="status"></p>${nav}`;
+  // The backdrop and image close the viewer; the navigation bar never does.
+  lightboxOverlay.addEventListener('click', event => {
+    const step = event.target.closest('[data-lightbox-step]');
+    if (step) stepLightbox(Number(step.dataset.lightboxStep));
+    else if (!event.target.closest('.lightbox-nav')) closeLightbox();
+  });
+  // A deliberate horizontal swipe steps; a tap or vertical drag keeps the existing behavior.
+  let touchStart = null;
+  lightboxOverlay.addEventListener('touchstart', event => {
+    touchStart = event.touches.length === 1 ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null;
+  }, { passive: true });
+  lightboxOverlay.addEventListener('touchend', event => {
+    if (!touchStart || event.changedTouches.length !== 1) return;
+    const dx = event.changedTouches[0].clientX - touchStart.x;
+    const dy = event.changedTouches[0].clientY - touchStart.y;
+    touchStart = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    event.preventDefault();
+    stepLightbox(dx < 0 ? 1 : -1);
+  });
+  document.body.append(lightboxOverlay);
+  document.body.classList.add('lightbox-open');
+  app.inert = true;
+  showLightboxImage(index);
+  lightboxOverlay.querySelector('.lightbox-close').focus();
+}
+
+function showLightboxImage(index) {
+  const overlay = lightboxOverlay;
+  const element = lightboxGallery[index];
+  lightboxIndex = index;
+  lightboxImageController?.abort();
+  const controller = new AbortController();
+  lightboxImageController = controller;
+  overlay.querySelector('img')?.remove();
+  overlay.setAttribute('aria-busy', 'true');
+  const status = overlay.querySelector('.lightbox-status');
+  status.textContent = 'Loading image…';
+  const counter = overlay.querySelector('.lightbox-count');
+  if (counter) counter.textContent = lightboxCounter(index, lightboxGallery.length);
+  const image = document.createElement('img');
+  image.alt = [document.querySelector('.pdp-info h1')?.textContent, element.querySelector('img')?.alt].filter(Boolean).join(' — ') || 'Expanded product view';
+  const loaded = loadZoomImage(image, element.dataset.image, controller.signal);
+  overlay.insertBefore(image, overlay.querySelector('.lightbox-nav'));
+  loaded.then(result => {
+    if (lightboxOverlay !== overlay || lightboxImageController !== controller || result === 'aborted') return;
+    overlay.setAttribute('aria-busy', 'false');
+    status.textContent = result === 'loaded' ? '' : 'Image unavailable. Close and try again.';
+  });
+}
+
+function stepLightbox(step) {
+  if (!lightboxOverlay || lightboxGallery.length < 2) return;
+  showLightboxImage(stepLightboxIndex(lightboxIndex, step, lightboxGallery.length));
 }
 
 function closeLightbox() {
@@ -532,8 +591,9 @@ function closeLightbox() {
   lightboxOverlay = null;
   document.body.classList.remove('lightbox-open');
   app.inert = cartIsOpen;
-  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus();
+  if (lightboxReturnFocus?.isConnected) lightboxReturnFocus.focus({ preventScroll: true });
   lightboxReturnFocus = null;
+  lightboxGallery = [];
 }
 
 async function loadCommerce() {
@@ -582,7 +642,7 @@ async function loadCommerce() {
 }
 
 async function boot() {
-  render();
+  render(scrollMemory.initialY);
   setupNewsletterPopup();
   await loadCommerce();
 }
@@ -591,6 +651,10 @@ document.addEventListener('keydown', event => {
   if (newsletterDialog?.open) return;
   if (lightboxOverlay) {
     if (event.key === 'Escape') { event.preventDefault(); closeLightbox(); }
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      stepLightbox(event.key === 'ArrowLeft' ? -1 : 1);
+    }
     else containTab(event, lightboxOverlay, document.activeElement);
   } else if (cartIsOpen) {
     if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
@@ -609,7 +673,6 @@ window.matchMedia('(min-width: 761px)').addEventListener('change', event => {
   if (event.matches) closeMobileMenu();
 });
 mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
-window.addEventListener('popstate', () => { render(); loadReviews(); });
 window.addEventListener('resize', fitHeroHeading);
 window.addEventListener('storage', event => {
   if (commerce.mode !== 'shopify' || !isCartStorageKey(event.key)) return;
