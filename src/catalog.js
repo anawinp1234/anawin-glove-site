@@ -76,7 +76,7 @@ export function productHandleMap(env = {}) {
 
 // Full-size gloves are shown as "Coming soon" until they have Shopify listings.
 // They are kept out of localProducts so the cart and checkout never see them.
-// Names, copy and colors are placeholders: edit them here before launch.
+// Colorway names and swatches reflect the approved launch colors.
 const fullSizeAngles = Object.freeze([
   ['back', 'back view'],
   ['palm', 'palm view showing the pocket and web'],
@@ -96,11 +96,10 @@ const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
   width: fullSizePhotoSizes[color][angle],
   alt: `${tone} full-size ANAWIN glove, ${view}`
 }));
-const fullSizePitch = 'Our first full-size game glove, shaped by feedback from the ANAWIN community. Sign up below and we’ll email you the moment it drops.';
 
 export const fullSizeProducts = Object.freeze([
-  { id: 'full-mint', color: 'mint', name: 'MINT', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Mint / Black / Silver', swatches: ['#3fd6a6', '#1d1f20', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint') },
-  { id: 'full-black', color: 'black', name: 'BLACK', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Black / Brown / Silver', swatches: ['#1b1c1e', '#8a5a3a', '#b4b7ba'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black') },
-  { id: 'full-camel', color: 'camel', name: 'CAMEL', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Camel / Black / Red', swatches: ['#e6d6b8', '#1d1d1d', '#c8322b'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel') },
-  { id: 'full-orange', color: 'orange', name: 'ORANGE', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Orange / Dark Brown / Gold', swatches: ['#e8732a', '#3a2418', '#b9973f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange') }
+  { id: 'full-mint', color: 'mint', name: 'MINT', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: "Our first pitcher's glove, shaped by feedback from the ANAWIN community. Sign up below and we’ll email you the moment it drops.", tone: 'Mint / Silver', swatches: ['#3fd6a6', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint') },
+  { id: 'full-black', color: 'black', name: 'BLACK', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: 'Our first outfield glove, shaped by feedback from the ANAWIN community. Sign up below and we’ll email you the moment it drops.', tone: 'Black / White / Brown', swatches: ['#1b1c1e', '#ffffff', '#8a5a3a'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black') },
+  { id: 'full-camel', color: 'camel', name: 'CAMEL', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: 'Our first infield glove, shaped by feedback from the ANAWIN community. Sign up below and we’ll email you the moment it drops.', tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel') },
+  { id: 'full-orange', color: 'orange', name: 'ORANGE', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: 'Our first Japanese infield glove, shaped by feedback from the ANAWIN community and inspired by Japanese heritage. Sign up below and we’ll email you the moment it drops.', tone: 'Orange / Gold / Chestnut Brown', swatches: ['#e8732a', '#b9973f', '#70452f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange') }
 ]);

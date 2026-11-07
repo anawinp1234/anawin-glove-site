@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
 import { createStorefrontRenderer } from '../src/storefront-render.js';
 import { productPath } from '../src/seo.js';
@@ -53,4 +54,67 @@ test('each full-size page shows four photos, all colorways, and a notify form in
     assert.doesNotMatch(html, /data-add=|data-sticky-purchase|data-break-in/);
     assert.equal((html.match(/<h1\b/g) || []).length, 1);
   }
+});
+
+function jpegMetadata(buffer) {
+  const profiles = [];
+  let width, height;
+  for (let offset = 2; offset < buffer.length;) {
+    assert.equal(buffer[offset], 0xff);
+    const marker = buffer[offset + 1];
+    if (marker === 0xda || marker === 0xd9) break;
+    const length = buffer.readUInt16BE(offset + 2);
+    const payload = buffer.subarray(offset + 4, offset + 2 + length);
+    if (marker === 0xe2 && payload.toString('ascii', 0, 12) === 'ICC_PROFILE\0') {
+      profiles.push({ sequence: payload[12], bytes: payload.subarray(14) });
+    }
+    if (marker === 0xc0 || marker === 0xc2) {
+      height = payload.readUInt16BE(1);
+      width = payload.readUInt16BE(3);
+    }
+    offset += 2 + length;
+  }
+  return { profile: Buffer.concat(profiles.sort((a, b) => a.sequence - b.sequence).map(part => part.bytes)), width, height };
+}
+
+function webpChunks(buffer) {
+  assert.equal(buffer.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(buffer.toString('ascii', 8, 12), 'WEBP');
+  const chunks = new Map();
+  for (let offset = 12; offset < buffer.length;) {
+    const length = buffer.readUInt32LE(offset + 4);
+    chunks.set(buffer.toString('ascii', offset, offset + 4), buffer.subarray(offset + 8, offset + 8 + length));
+    offset += 8 + length + (length % 2);
+  }
+  return chunks;
+}
+
+// Fingerprint of the 520-byte LS34H55xG RGB ICC embedded in the approved
+// orange_back.png, orange_palm.png and orange_finger_side.png sources.
+// The raw photos stay outside Git; CI checks against their captured profile.
+const orangeSourceIccHash = '9520dfb2bad1d955a65ba8a3ffecef068e3715ae09486b41067dca1bbd234c29';
+for (const [angle, side] of [['back', 548], ['palm', 422], ['finger-side', 567]]) {
+  test(`orange ${angle} JPEG and responsive WebPs preserve the approved source ICC and dimensions`, () => {
+    const jpeg = jpegMetadata(readFileSync(publicFile(`/images/full-size/orange-${angle}.jpg`)));
+    assert.equal(jpeg.profile.length, 520);
+    assert.equal(createHash('sha256').update(jpeg.profile).digest('hex'), orangeSourceIccHash);
+    assert.equal(jpeg.profile.toString('ascii', 36, 40), 'acsp');
+    assert.deepEqual([jpeg.width, jpeg.height], [side, side]);
+    for (const width of [480, 960].filter(width => width < side).concat(side)) {
+      const chunks = webpChunks(readFileSync(publicFile(`/images/full-size/orange-${angle}-${width}.webp`)));
+      assert.deepEqual(chunks.get('ICCP'), jpeg.profile);
+      const extended = chunks.get('VP8X');
+      assert.ok(extended[0] & 0x20, 'WebP ICC flag must be set');
+      assert.deepEqual([extended.readUIntLE(4, 3) + 1, extended.readUIntLE(7, 3) + 1], [width, width]);
+    }
+  });
+}
+
+test('the low-resolution orange palm offers only its native 422px canvas', () => {
+  const image = fullSizeProducts.find(product => product.color === 'orange').images[1];
+  assert.equal(image.width, 422);
+  const html = renderer.route('/full-size/orange');
+  assert.ok(html.includes('srcset="/images/full-size/orange-palm-422.webp 422w"'));
+  assert.ok(html.includes('data-image="/images/full-size/orange-palm-422.webp"'));
+  for (const width of [480, 960]) assert.equal(existsSync(publicFile(`/images/full-size/orange-palm-${width}.webp`)), false);
 });

@@ -26,6 +26,9 @@ for color, folder in MODELS:
         continue
     for angle in ANGLES:
         image = ImageOps.exif_transpose(Image.open(ROOT / 'images' / folder / f'{color}_{angle}.png'))
+        # Keep the source RGB interpretation through newly created canvases.
+        # Dropping a non-sRGB ICC profile changes its appearance in the browser.
+        profile = image.info.get('icc_profile')
         if image.mode in ('RGBA', 'LA', 'P'):
             image = image.convert('RGBA')
             flat = Image.new('RGB', image.size, 'white')
@@ -43,11 +46,11 @@ for color, folder in MODELS:
         square = Image.new('RGB', (side, side), background)
         square.paste(image, ((side - image.width) // 2, (side - image.height) // 2))
         name = f'{color}-{angle.replace("_", "-")}'
-        square.save(OUT / f'{name}.jpg', quality=88, optimize=True, progressive=True)
+        square.save(OUT / f'{name}.jpg', quality=88, optimize=True, progressive=True, icc_profile=profile)
         with tempfile.TemporaryDirectory() as temporary:
             for width in sorted(set([w for w in (480, 960) if w < side] + [side])):
                 resized = square if width == side else square.resize((width, width), Image.Resampling.LANCZOS)
                 png = Path(temporary) / 'in.png'
-                resized.save(png)
-                subprocess.run(['cwebp', '-quiet', '-q', '86', '-m', '6', str(png), '-o', str(OUT / f'{name}-{width}.webp')], check=True)
+                resized.save(png, icc_profile=profile)
+                subprocess.run(['cwebp', '-quiet', '-q', '86', '-m', '6', '-metadata', 'icc', str(png), '-o', str(OUT / f'{name}-{width}.webp')], check=True)
         print(name, side)

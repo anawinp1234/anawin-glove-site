@@ -59,25 +59,25 @@ export const seoRoutes = Object.freeze({
   },
   '/full-size/mint': {
     title: 'Mint Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Mint ANAWIN full-size baseball glove in mint, black, and silver. Coming soon: sign up to be the first to know when it drops.',
+    description: 'The Mint ANAWIN full-size baseball glove in mint and silver. Coming soon: sign up to be the first to know when it drops.',
     image: '/images/full-size/mint-back.jpg',
     type: 'product'
   },
   '/full-size/black': {
     title: 'Black Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Black ANAWIN full-size baseball glove in black, brown, and silver. Coming soon: sign up to be the first to know when it drops.',
+    description: 'The Black ANAWIN full-size baseball glove in black, white, and brown. Coming soon: sign up to be the first to know when it drops.',
     image: '/images/full-size/black-back.jpg',
     type: 'product'
   },
   '/full-size/camel': {
     title: 'Camel Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Camel ANAWIN full-size baseball glove in camel, black, and red. Coming soon: sign up to be the first to know when it drops.',
+    description: 'The Camel ANAWIN full-size baseball glove in camel, red, and black. Coming soon: sign up to be the first to know when it drops.',
     image: '/images/full-size/camel-back.jpg',
     type: 'product'
   },
   '/full-size/orange': {
     title: 'Orange Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Orange ANAWIN full-size baseball glove in orange, dark brown, and gold. Coming soon: sign up to be the first to know when it drops.',
+    description: 'The Orange ANAWIN full-size baseball glove in orange, gold, and chestnut brown. Coming soon: sign up to be the first to know when it drops.',
     image: '/images/full-size/orange-back.jpg',
     type: 'product'
   },
