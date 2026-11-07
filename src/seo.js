@@ -1,12 +1,17 @@
-import { localProducts } from './catalog.js';
+import { fullSizeProducts, localProducts } from './catalog.js';
 
 export const canonicalOrigin = 'https://anawinofficial.com';
 
 export const productPaths = Object.freeze({
   black: '/product/br16',
   blue: '/product/ob16',
-  brown: '/product/cl16'
+  brown: '/product/cl16',
+  'full-mint': '/full-size/mint',
+  'full-black': '/full-size/black',
+  'full-camel': '/full-size/camel',
+  'full-orange': '/full-size/orange'
 });
+const allProducts = [...localProducts, ...fullSizeProducts];
 export const productPath = product => productPaths[product.id];
 
 const homeImage = '/images/hero-background.jpg';
@@ -16,7 +21,8 @@ const imageAlts = Object.freeze({
   [homeImage]: 'Black and red ANAWIN glove on grass',
   '/images/black1.PNG': 'BR16 ANAWIN glove in black, red, and gray',
   '/images/blue1.PNG': 'OB16 ANAWIN glove in baby blue, royal, and navy',
-  '/images/brown1.PNG': 'CL16 ANAWIN glove in olive brown, tan, and brown'
+  '/images/brown1.PNG': 'CL16 ANAWIN glove in olive brown, tan, and brown',
+  ...Object.fromEntries(fullSizeProducts.map(product => [product.images[0].src, product.images[0].alt]))
 });
 export const socialImageAlt = imagePath => imageAlts[imagePath] || '';
 
@@ -29,7 +35,7 @@ export const seoRoutes = Object.freeze({
   },
   '/shop': {
     title: 'Shop Baseball Gloves | ANAWIN',
-    description: 'Explore ANAWIN BR16, OB16, and CL16 training baseball gloves: 10.25-inch gloves made with US steerhide leather.',
+    description: 'Shop ANAWIN BR16, OB16, and CL16 10.25-inch training gloves and preview our first full-size gloves in mint, black, camel, and orange.',
     image: homeImage,
     type: 'website'
   },
@@ -49,6 +55,30 @@ export const seoRoutes = Object.freeze({
     title: 'CL16 Brown Training Baseball Glove | ANAWIN',
     description: 'Meet the CL16: an olive brown, tan, and brown 10.25-inch ANAWIN training glove made with US steerhide leather.',
     image: '/images/brown1.PNG',
+    type: 'product'
+  },
+  '/full-size/mint': {
+    title: 'Mint Full-Size Baseball Glove | Coming Soon | ANAWIN',
+    description: 'The Mint ANAWIN full-size baseball glove in mint, black, and silver. Coming soon: sign up to be the first to know when it drops.',
+    image: '/images/full-size/mint-back.jpg',
+    type: 'product'
+  },
+  '/full-size/black': {
+    title: 'Black Full-Size Baseball Glove | Coming Soon | ANAWIN',
+    description: 'The Black ANAWIN full-size baseball glove in black, brown, and silver. Coming soon: sign up to be the first to know when it drops.',
+    image: '/images/full-size/black-back.jpg',
+    type: 'product'
+  },
+  '/full-size/camel': {
+    title: 'Camel Full-Size Baseball Glove | Coming Soon | ANAWIN',
+    description: 'The Camel ANAWIN full-size baseball glove in camel, black, and red. Coming soon: sign up to be the first to know when it drops.',
+    image: '/images/full-size/camel-back.jpg',
+    type: 'product'
+  },
+  '/full-size/orange': {
+    title: 'Orange Full-Size Baseball Glove | Coming Soon | ANAWIN',
+    description: 'The Orange ANAWIN full-size baseball glove in orange, dark brown, and gold. Coming soon: sign up to be the first to know when it drops.',
+    image: '/images/full-size/orange-back.jpg',
     type: 'product'
   },
   '/about': {
@@ -109,6 +139,7 @@ export function productJsonLd(path) {
   const normalizedPath = normalizePath(path);
   if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
   const product = localProducts.find(item => normalizedPath === productPath(item));
+  // Coming-soon gloves have no price yet, so they get no Product offer markup.
   if (!product) return null;
   return {
     '@context': 'https://schema.org',
@@ -177,7 +208,7 @@ export function siteJsonLd(path) {
 
 export function breadcrumbJsonLd(path) {
   const normalizedPath = normalizePath(path);
-  const product = localProducts.find(item => normalizedPath === productPath(item));
+  const product = allProducts.find(item => normalizedPath === productPath(item));
   if (!product) return null;
   const crumbs = [['Home', '/'], ['Shop', '/shop'], [product.name, normalizedPath]];
   return {

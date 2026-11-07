@@ -6,6 +6,7 @@ import { localProducts } from '../src/catalog.js';
 
 const paths = [
   '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
+  '/full-size/mint', '/full-size/black', '/full-size/camel', '/full-size/orange',
   '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
@@ -19,7 +20,7 @@ test('metadata covers exactly the public routes with unique titles and descripti
     assert.ok(existsSync(new URL(`../public${route.image}`, import.meta.url)));
     assert.ok(socialImageAlt(route.image));
     assert.equal(new URL(canonicalOrigin + route.image).origin, canonicalOrigin);
-    assert.equal(route.type, path.startsWith('/product/') ? 'product' : 'website');
+    assert.equal(route.type, /^\/(?:product|full-size)\//.test(path) ? 'product' : 'website');
   }
 });
 

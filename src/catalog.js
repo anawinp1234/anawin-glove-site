@@ -73,3 +73,34 @@ export function productHandleMap(env = {}) {
     brown: env.VITE_SHOPIFY_CL16_HANDLE || ''
   };
 }
+
+// Full-size gloves are shown as "Coming soon" until they have Shopify listings.
+// They are kept out of localProducts so the cart and checkout never see them.
+// Names, copy and colors are placeholders: edit them here before launch.
+const fullSizeAngles = Object.freeze([
+  ['back', 'back view'],
+  ['palm', 'palm view showing the pocket and web'],
+  ['side', 'thumb-side view'],
+  ['finger-side', 'finger-side view with the ANAWIN wordmark']
+]);
+// Square photo size per colorway, from scripts/prepare-full-size-images.py.
+const fullSizePhotoSizes = Object.freeze({
+  mint: { back: 1254, palm: 1254, side: 1254, 'finger-side': 1254 },
+  black: { back: 1402, palm: 1402, side: 1402, 'finger-side': 1402 },
+  camel: { back: 1449, palm: 724, side: 724, 'finger-side': 724 },
+  orange: { back: 548, palm: 586, side: 599, 'finger-side': 567 }
+});
+const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
+  src: `/images/full-size/${color}-${angle}.jpg`,
+  name: `${color}-${angle}`,
+  width: fullSizePhotoSizes[color][angle],
+  alt: `${tone} full-size ANAWIN glove, ${view}`
+}));
+const fullSizePitch = 'Our first full-size game glove, shaped by feedback from the ANAWIN community. Sign up below and we’ll email you the moment it drops.';
+
+export const fullSizeProducts = Object.freeze([
+  { id: 'full-mint', color: 'mint', name: 'MINT', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Mint / Black / Silver', swatches: ['#3fd6a6', '#1d1f20', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint') },
+  { id: 'full-black', color: 'black', name: 'BLACK', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Black / Brown / Silver', swatches: ['#1b1c1e', '#8a5a3a', '#b4b7ba'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black') },
+  { id: 'full-camel', color: 'camel', name: 'CAMEL', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Camel / Black / Red', swatches: ['#e6d6b8', '#1d1d1d', '#c8322b'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel') },
+  { id: 'full-orange', color: 'orange', name: 'ORANGE', line: 'full-size', comingSoon: true, descriptor: 'Full-Size Glove', pitch: fullSizePitch, tone: 'Orange / Dark Brown / Gold', swatches: ['#e8732a', '#3a2418', '#b9973f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange') }
+]);

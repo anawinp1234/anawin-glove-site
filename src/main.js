@@ -211,7 +211,7 @@ function setupNewsletterPopup() {
     closeButton: newsletterDialog.querySelector('[data-newsletter-close]'),
     documentRef: document,
     canOpen: () => {
-      const inline = document.querySelector('.newsletter')?.getBoundingClientRect();
+      const inline = document.querySelector('.newsletter, .pdp-notify')?.getBoundingClientRect();
       const inlineVisible = inline && inline.top < window.innerHeight && inline.bottom > 0;
       return !document.hidden && !cartIsOpen && !lightboxOverlay && !inlineVisible && !document.activeElement?.closest('[data-newsletter-form]');
     },
@@ -457,8 +457,8 @@ function bind() {
     event.preventDefault();
     document.querySelector('#main-content')?.focus();
   });
-  const newsletterForm = app.querySelector('.newsletter [data-newsletter-form]');
-  if (newsletterForm) bindNewsletterForm(newsletterForm, newsletterSignup, handleNewsletterResult);
+  app.querySelectorAll(':is(.newsletter, .pdp-notify) [data-newsletter-form]')
+    .forEach(form => bindNewsletterForm(form, newsletterSignup, handleNewsletterResult));
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();

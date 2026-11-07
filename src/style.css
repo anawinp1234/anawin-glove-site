@@ -714,3 +714,21 @@ body.newsletter-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .footer-chevron,.has-footer-accordion .footer-panel{transition:none}
 }
+/* Full-size gloves (coming soon) */
+.full-size-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.full-size-collection{border-top:1px solid var(--line)}
+.collection.full-size-collection{padding-top:110px}
+.shop-products.full-size-collection{padding-top:56px;padding-bottom:110px}
+.shop-line-heading{margin:0 0 6px;font-family:var(--font-display);font-size:clamp(30px,3.6vw,52px);font-weight:900;letter-spacing:-.04em;line-height:.9}
+.shop-products .collection-cue{margin:0 0 24px}
+.coming-soon-label{white-space:nowrap;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--card-accent)}
+.full-size-pdp .coming-soon-price{text-transform:uppercase;letter-spacing:.06em;color:var(--pdp-accent)}
+.pdp-notify{margin:28px 0;padding:28px;background:var(--ink);color:#fff}
+.pdp-notify h2{margin:0 0 8px;font-family:var(--font-display);font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1;text-transform:uppercase}
+.pdp-notify>p{margin:0 0 20px;color:#d1d1d1;font-size:14px;line-height:1.5}
+.pdp-notify .newsletter-controls button{flex-basis:112px}
+.pdp-notify .newsletter-success h3{font-size:30px;margin:18px 0 10px}
+.pdp-notify :is(input,button):focus-visible{outline:2px solid #fff;outline-offset:3px}
+.full-size-pdp .purchase-trust{margin-bottom:12px}
+@media(max-width:1100px){.full-size-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.collection.full-size-collection{padding-top:80px}.shop-products.full-size-collection{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
