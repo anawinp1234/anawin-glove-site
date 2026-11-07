@@ -9,6 +9,16 @@ import { normalizePath, productPath, routeMetadata } from './seo.js';
 import { stickyPurchaseAccent } from './sticky-purchase.js';
 
 const discordInviteUrl = 'https://discord.com/invite/acstj7uMt';
+const otherGlovePairings = {
+  brown: 'full-camel',
+  blue: 'full-mint',
+  black: 'full-black',
+  'full-mint': 'blue',
+  'full-black': 'black',
+  'full-camel': 'brown',
+  'full-orange': 'blue'
+};
+
 
 const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits, maximumFractionDigits: 2
@@ -219,7 +229,8 @@ function fullSizePage(product) {
   const modelSwitcher = `<nav class="model-switcher" aria-label="Full-size glove colorways"><span class="model-switcher-label">Colorways</span><div class="model-switcher-options">${fullSizeProducts.map(model => model.id === product.id
     ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}<small>Current</small></span>`
     : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;
-  const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...products];
+  const trainer = products.find(other => other.id === otherGlovePairings[product.id]);
+  const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
   return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
     <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="price coming-soon-price">Coming soon</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
       <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name.toLowerCase())} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
@@ -237,7 +248,8 @@ function productPage(product) {
   const buttonLabel = commerceLoading ? 'Checking availability…' : commerceError ? 'Unavailable' : product.available ? 'Add to cart' : 'Sold out';
   const purchaseStatus = commerceLoading ? 'Checking glove and Break-In Service availability…' : commerceError ? 'Unable to confirm availability. Add to Cart is disabled.' : breakInService.available === false ? 'Break-In Service is unavailable.' : '';
   const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
-  const otherGloves = products.filter(other => other.id !== product.id);
+  const fullSizeGlove = fullSizeProducts.find(other => other.id === otherGlovePairings[product.id]);
+  const otherGloves = [...products.filter(other => other.id !== product.id), ...(fullSizeGlove ? [fullSizeGlove] : [])];
   const modelSwitcher = `<nav class="model-switcher" aria-label="Glove models"><span class="model-switcher-label">Models</span><div class="model-switcher-options">${products.map(model => model.id === product.id
     ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}<small>Current</small></span>`
     : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;

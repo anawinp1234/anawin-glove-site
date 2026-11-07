@@ -16,7 +16,11 @@ export function scrollToInstant(windowRef, top) {
 
 // popstate runs after history.state changes to the destination. Keep the outgoing
 // entry's identity separately so its final position never replaces the destination's.
-export function installScrollMemory(windowRef, onRestore, { createKey = () => crypto.randomUUID() } = {}) {
+export function installScrollMemory(windowRef, onRestore, {
+  // LAN previews use HTTP, where randomUUID is unavailable. These keys only
+  // identify history entries; they do not need cryptographic randomness.
+  createKey = () => windowRef.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+} = {}) {
   const historyRef = windowRef.history;
   const positions = new Map();
   let timer;
