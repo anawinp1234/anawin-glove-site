@@ -507,9 +507,9 @@ function bind() {
       description.disabled = !enabled || !otherSelected;
       description.setCustomValidity(description.required && !description.value.trim() ? 'Describe your finger placement.' : '');
     }
-    const hand = selected('full-size-throw-hand') || 'Choose throw hand';
+    const hand = selected('full-size-throw-hand');
     const selectedHand = document.querySelector('[data-full-size-selected-hand]');
-    if (selectedHand) selectedHand.textContent = hand;
+    if (selectedHand) selectedHand.textContent = hand || 'Choose throw hand above';
     const summary = document.querySelector('[data-full-size-setup-summary]');
     if (!summary) return;
     const style = otherSelected ? (description?.value.trim() ? `Other: ${description.value.trim()}` : 'Describe your finger placement')
@@ -517,7 +517,7 @@ function bind() {
     const closure = selected('full-size-closure-point');
     const firmness = selected('full-size-firmness') || 'Choose firmness';
     const notes = document.querySelector('#full-size-break-in-notes')?.value.trim();
-    summary.textContent = `Your setup: ${summary.dataset.model} · ${hand} · ${enabled
+    summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · ${enabled
       ? `${style} · ${closure ? `Thumb to ${closure.toLowerCase()}` : 'Choose closure'} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
       : 'No break-in service'}.`;
   };

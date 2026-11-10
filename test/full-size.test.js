@@ -118,3 +118,29 @@ test('the low-resolution orange palm offers only its native 422px canvas', () =>
   assert.ok(html.includes('data-image="/images/full-size/orange-palm-422.webp"'));
   for (const width of [480, 960]) assert.equal(existsSync(publicFile(`/images/full-size/orange-palm-${width}.webp`)), false);
 });
+
+test('full-size pages offer the confirmed throw-hand options and stay in teaser mode', () => {
+  const expected = {
+    mint: ['Right-Hand Throw (worn on left hand)', 'Left-Hand Throw (worn on right hand)'],
+    black: ['Right-Hand Throw (worn on left hand)', 'Left-Hand Throw (worn on right hand)'],
+    orange: ['Right-Hand Throw (worn on left hand)', 'Left-Hand Throw (worn on right hand)'],
+    camel: ['Right-Hand Throw (worn on left hand)']
+  };
+  for (const product of fullSizeProducts) {
+    const html = renderer.route(productPath(product));
+    const fieldset = html.match(/<fieldset class="full-size-throw-hand">[\s\S]*?<\/fieldset>/)[0];
+    const options = [...fieldset.matchAll(/<input type="radio" name="full-size-throw-hand" value="([^"]+)"><span><strong>([^<]+)<\/strong>/g)];
+    assert.deepEqual(options.map(match => match[1]), expected[product.color], product.color);
+    assert.deepEqual(options.map(match => match[2]), expected[product.color], product.color);
+    assert.doesNotMatch(fieldset, /checked/);
+    assert.match(html, /Throw hand: Choose one · No break-in service\./);
+    assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Add to cart — Coming soon<\/button>/);
+    assert.match(html, /class="pdp-notify"/);
+    assert.doesNotMatch(html, /in stock|InStock|units? (left|available)|\b\d+ (RHT|LHT)\b/i);
+    const spec = product.specs.find(([label]) => label === 'Throw hand')[1];
+    assert.equal(spec, expected[product.color].join(' or '));
+  }
+  const orange = fullSizeProducts.find(product => product.color === 'orange');
+  assert.doesNotMatch(orange.metaDescription, /Right-hand throw\.$/);
+  assert.match(orange.metaDescription, /Choose right-hand or left-hand throw\./);
+});
