@@ -754,6 +754,10 @@ body.newsletter-open{overflow:hidden}
 .full-size-selected-glove{color:var(--muted);margin:0 0 20px}
 .full-size-setup-summary{font-size:13px;line-height:1.6;padding:16px;border:1px solid var(--line);overflow-wrap:anywhere}
 
+/* Bring product photos closer to the gallery edges without changing the layout. */
+.pdp-gallery .gallery-image{overflow:hidden}
+.pdp-gallery .gallery-image img{transform:scale(1.08)}
+
 /* Keep desktop product photos beside the details as the page scrolls. */
 @media(min-width:761px){
   .pdp{--pdp-gallery-top:92px}
