@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
 import { createStorefrontRenderer } from '../src/storefront-render.js';
-import { productPath } from '../src/seo.js';
+import { productJsonLd, productPath } from '../src/seo.js';
 
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
 const publicFile = path => new URL(`../public${path}`, import.meta.url);
@@ -14,7 +14,29 @@ test('full-size gloves stay out of the purchasable catalog', () => {
   for (const product of fullSizeProducts) {
     assert.equal(product.comingSoon, true);
     assert.ok(!localProducts.some(local => local.id === product.id));
-    assert.equal(productPath(product), `/full-size/${product.name.toLowerCase()}`);
+    assert.equal(productPath(product), `/product/${product.name.toLowerCase()}`);
+  }
+});
+
+test('shared product routes choose the glove type rather than enabling full-size purchases', () => {
+  for (const product of [...localProducts, ...fullSizeProducts]) {
+    const path = productPath(product);
+    assert.ok(path.startsWith('/product/'));
+    const html = renderer.route(path);
+    assert.match(html, new RegExp(`<h1>${product.name}</h1>`));
+    if (product.line === 'full-size') {
+      assert.match(html, /class="pdp full-size-pdp"/);
+      assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Add to cart — Coming soon<\/button>/);
+      assert.doesNotMatch(html, /data-add=|data-break-in/);
+      assert.equal(productJsonLd(path), null);
+    } else {
+      assert.match(html, new RegExp(`data-add="${product.id}"`));
+      assert.match(html, /data-break-in/);
+      assert.equal(productJsonLd(path)['@type'], 'Product');
+    }
+  }
+  for (const path of ['/product/unknown', '/product/mi26/unknown', '/product/full-mint']) {
+    assert.match(renderer.route(path), /class="not-found"/);
   }
 });
 
@@ -113,7 +135,7 @@ for (const [angle, side] of [['back', 548], ['palm', 422], ['finger-side', 567]]
 test('the low-resolution orange palm offers only its native 422px canvas', () => {
   const image = fullSizeProducts.find(product => product.color === 'orange').images[1];
   assert.equal(image.width, 422);
-  const html = renderer.route('/full-size/or17');
+  const html = renderer.route('/product/or17');
   assert.ok(html.includes('srcset="/images/full-size/orange-palm-422.webp 422w"'));
   assert.ok(html.includes('data-image="/images/full-size/orange-palm-422.webp"'));
   for (const width of [480, 960]) assert.equal(existsSync(publicFile(`/images/full-size/orange-palm-${width}.webp`)), false);

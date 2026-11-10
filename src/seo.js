@@ -6,10 +6,10 @@ export const productPaths = Object.freeze({
   black: '/product/br16',
   blue: '/product/ob16',
   brown: '/product/cl16',
-  'full-mint': '/full-size/mi26',
-  'full-black': '/full-size/bl50',
-  'full-camel': '/full-size/cm24',
-  'full-orange': '/full-size/or17'
+  'full-mint': '/product/mi26',
+  'full-black': '/product/bl50',
+  'full-camel': '/product/cm24',
+  'full-orange': '/product/or17'
 });
 const allProducts = [...localProducts, ...fullSizeProducts];
 export const productPath = product => productPaths[product.id];

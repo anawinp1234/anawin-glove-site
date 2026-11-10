@@ -6,7 +6,7 @@ import { fullSizeProducts, localProducts } from '../src/catalog.js';
 
 const paths = [
   '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
-  '/full-size/mi26', '/full-size/bl50', '/full-size/cm24', '/full-size/or17',
+  '/product/mi26', '/product/bl50', '/product/cm24', '/product/or17',
   '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
@@ -47,10 +47,14 @@ test('old product URLs have exact permanent redirects', () => {
     '/product/black /product/br16 301',
     '/product/blue /product/ob16 301',
     '/product/brown /product/cl16 301',
-    '/full-size/mint /full-size/mi26 301',
-    '/full-size/black /full-size/bl50 301',
-    '/full-size/camel /full-size/cm24 301',
-    '/full-size/orange /full-size/or17 301'
+    '/full-size/mint /product/mi26 301',
+    '/full-size/black /product/bl50 301',
+    '/full-size/camel /product/cm24 301',
+    '/full-size/orange /product/or17 301',
+    '/full-size/mi26 /product/mi26 301',
+    '/full-size/bl50 /product/bl50 301',
+    '/full-size/cm24 /product/cm24 301',
+    '/full-size/or17 /product/or17 301'
   ]);
 });
 
@@ -69,9 +73,10 @@ test('full-size titles lead with the model and old color routes have no canonica
   ];
   for (const [model, color, title] of expected) {
     const product = fullSizeProducts.find(item => item.color === color);
-    assert.equal(productPath(product), `/full-size/${model}`);
+    assert.equal(productPath(product), `/product/${model}`);
     assert.equal(routeMetadata(productPath(product)).title, title);
     assert.equal(routeMetadata(`/full-size/${color}`), null);
-    assert.equal(routeMetadata(`/full-size/${model}/unknown`), null);
+    assert.equal(routeMetadata(`/full-size/${model}`), null);
+    assert.equal(routeMetadata(`/product/${model}/unknown`), null);
   }
 });
