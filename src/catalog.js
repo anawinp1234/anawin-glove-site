@@ -73,3 +73,90 @@ export function productHandleMap(env = {}) {
     brown: env.VITE_SHOPIFY_CL16_HANDLE || ''
   };
 }
+
+// Full-size gloves are shown as "Coming soon" until they have Shopify listings.
+// They are kept out of localProducts so the cart and checkout never see them.
+// Colorway names and swatches reflect the approved launch colors.
+const fullSizeAngles = Object.freeze([
+  ['back', 'back view'],
+  ['palm', 'palm view showing the pocket and web'],
+  ['side', 'thumb-side view'],
+  ['finger-side', 'finger-side view with the ANAWIN wordmark']
+]);
+// Square photo size per colorway, from scripts/prepare-full-size-images.py.
+const fullSizePhotoSizes = Object.freeze({
+  mint: { back: 1254, palm: 1254, side: 1254, 'finger-side': 1254 },
+  black: { back: 1402, palm: 1402, side: 1448, 'finger-side': 1402 },
+  camel: { back: 1449, palm: 1402, side: 724, 'finger-side': 1402 },
+  orange: { back: 548, palm: 422, side: 1448, 'finger-side': 567 }
+});
+const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
+  src: `/images/full-size/${color}-${angle}.jpg`,
+  name: `${color}-${angle}`,
+  width: fullSizePhotoSizes[color][angle],
+  alt: `${tone} full-size ANAWIN glove, ${view}`
+}));
+
+export const fullSizeBreakInService = Object.freeze({
+  name: 'Full-Service Break-In',
+  price: 75,
+  currencyCode: 'USD',
+  summary: 'Choose your finger placement, how you want the glove to close, and your preferred firmness. You can add notes about how you wear or shape your glove.',
+  copy: 'Tell us how you wear your glove and how you want it to close. We’ll break it in and shape it around the setup you choose.',
+  timing: 'Allow 2–5 additional business days for processing.',
+  wearingStyles: ['Traditional — index finger in', 'Traditional — index finger out', 'Two in the Pinky — index finger in', 'Two in the Pinky — index finger out', 'Other — describe your finger placement'],
+  closurePoints: ['Middle finger', 'Ring finger', 'Pinky'],
+  firmness: ['Firm', 'Medium', 'Game Ready'],
+  notes: 'Optional. Tell us about a glove you’re used to, how you like your pocket shaped, or any other detail you want us to know.'
+});
+
+// Throw-hand labels shared by the option list, specs, and setup summary.
+export const throwHandLabels = Object.freeze({
+  'Right-Hand Throw': 'Right-Hand Throw (worn on left hand)',
+  'Left-Hand Throw': 'Left-Hand Throw (worn on right hand)'
+});
+const rightHandOnly = Object.freeze(['Right-Hand Throw']);
+const bothThrowHands = Object.freeze(['Right-Hand Throw', 'Left-Hand Throw']);
+const fullSizeSpecs = (size, position, web, details, throwHands) => [
+  ['Size', `${size} inches`], ['Position', position], ['Leather', 'Japanese Kip'], ['Web', web],
+  ...details, ['Throw hand', throwHands.map(hand => throwHandLabels[hand]).join(' or ')]
+];
+
+export const fullSizeProducts = Object.freeze([
+  {
+    id: 'full-mint', color: 'mint', name: 'MI26', line: 'full-size', comingSoon: true,
+    title: 'Mint 12″ Japanese Kip Pitcher’s Glove', descriptor: '12″ Japanese Kip Pitcher’s Glove',
+    price: 290, currencyCode: 'USD', throwHands: bothThrowHands,
+    pitch: 'A 12-inch Japanese Kip pitcher’s glove with a closed web and an external index finger hood. The solid panel helps keep your grip out of view on the mound, and the carved design on the outside gives this glove its signature look. If you wear your index finger outside the glove, you can tuck it under the hood.',
+    specs: fullSizeSpecs('12', 'Pitcher', 'Closed web with a carved outer design', [['Index finger', 'External finger hood'], ['Wrist lining', 'Fur']], bothThrowHands),
+    metaDescription: 'ANAWIN Mint is a 12-inch Japanese Kip pitcher’s glove with a carved closed web and index finger hood. Choose right-hand or left-hand throw.',
+    tone: 'Mint / Silver', swatches: ['#3fd6a6', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint')
+  },
+  {
+    id: 'full-black', color: 'black', name: 'BL50', line: 'full-size', comingSoon: true,
+    title: 'Black 12.75″ Japanese Kip Outfield Glove', descriptor: '12.75″ Japanese Kip Outfield Glove',
+    price: 290, currencyCode: 'USD', throwHands: bothThrowHands,
+    pitch: 'A 12.75-inch Japanese Kip glove built for the outfield. It’s the longest model in the ANAWIN Kip Series and pairs that extra length with an open H-web. A carved ANAWIN logo on the thumb adds detail to the all-black design.',
+    specs: fullSizeSpecs('12.75', 'Outfield', 'H-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
+    metaDescription: 'ANAWIN Black is a 12.75-inch Japanese Kip outfield glove with an H-web and carved thumb logo. Choose right-hand or left-hand throw.',
+    tone: 'Black / White / Brown', swatches: ['#1b1c1e', '#ffffff', '#8a5a3a'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black')
+  },
+  {
+    id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: true,
+    title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
+    price: 285, currencyCode: 'USD', throwHands: rightHandOnly,
+    pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. Camel is the more compact of the two infield models. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
+    specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
+    metaDescription: 'ANAWIN Camel is an 11.5-inch Japanese Kip infield glove with a Diamond web, sheepskin-lined finger stalls, and a moisture-wicking wrist pad.',
+    tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel')
+  },
+  {
+    id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: true,
+    title: 'Orange 11.75″ Japanese Kip Infield Glove', descriptor: '11.75″ Japanese Kip Infield Glove',
+    price: 290, currencyCode: 'USD', throwHands: bothThrowHands,
+    pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. Orange is the larger of the two infield models in the ANAWIN Kip Series, giving you a quarter inch more length than Camel. The thumb features a carved ANAWIN logo, and the Modified T-web makes sure you swallow every ball in the infield.',
+    specs: fullSizeSpecs('11.75', 'Infield', 'Modified T-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
+    metaDescription: 'ANAWIN Orange is an 11.75-inch Japanese Kip infield glove with a Modified T-web, a carved thumb logo, and a fur wrist lining. Choose right-hand or left-hand throw.',
+    tone: 'Orange / Gold / Chestnut Brown', swatches: ['#e8732a', '#b9973f', '#70452f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange')
+  }
+]);

@@ -211,7 +211,7 @@ function setupNewsletterPopup() {
     closeButton: newsletterDialog.querySelector('[data-newsletter-close]'),
     documentRef: document,
     canOpen: () => {
-      const inline = document.querySelector('.newsletter')?.getBoundingClientRect();
+      const inline = document.querySelector('.newsletter, .pdp-notify')?.getBoundingClientRect();
       const inlineVisible = inline && inline.top < window.innerHeight && inline.bottom > 0;
       return !document.hidden && !cartIsOpen && !lightboxOverlay && !inlineVisible && !document.activeElement?.closest('[data-newsletter-form]');
     },
@@ -457,8 +457,8 @@ function bind() {
     event.preventDefault();
     document.querySelector('#main-content')?.focus();
   });
-  const newsletterForm = app.querySelector('.newsletter [data-newsletter-form]');
-  if (newsletterForm) bindNewsletterForm(newsletterForm, newsletterSignup, handleNewsletterResult);
+  app.querySelectorAll(':is(.newsletter, .pdp-notify) [data-newsletter-form]')
+    .forEach(form => bindNewsletterForm(form, newsletterSignup, handleNewsletterResult));
   document.querySelectorAll('[data-link]').forEach(element => element.addEventListener('click', event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
@@ -490,6 +490,42 @@ function bind() {
     openCart(element.closest('.mobile-nav') ? menuToggle : element);
   }));
   bindMobileGallery();
+  const fullSizeServiceCheckbox = document.querySelector('[data-full-size-break-in]');
+  const updateFullSizeSetup = () => {
+    if (!fullSizeServiceCheckbox) return;
+    const selected = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    const enabled = fullSizeServiceCheckbox.checked;
+    const otherSelected = selected('full-size-wearing-style')?.startsWith('Other —');
+    const customization = document.querySelector('[data-full-size-customization]');
+    if (customization) customization.hidden = !enabled;
+    fullSizeServiceCheckbox.setAttribute('aria-expanded', String(enabled));
+    const otherPlacement = document.querySelector('[data-full-size-other-placement]');
+    if (otherPlacement) otherPlacement.hidden = !otherSelected;
+    const description = document.querySelector('#full-size-finger-placement');
+    if (description) {
+      description.required = enabled && Boolean(otherSelected);
+      description.disabled = !enabled || !otherSelected;
+      description.setCustomValidity(description.required && !description.value.trim() ? 'Describe your finger placement.' : '');
+    }
+    const hand = selected('full-size-throw-hand');
+    const selectedHand = document.querySelector('[data-full-size-selected-hand]');
+    if (selectedHand) selectedHand.textContent = hand || 'Choose throw hand above';
+    const summary = document.querySelector('[data-full-size-setup-summary]');
+    if (!summary) return;
+    const style = otherSelected ? (description?.value.trim() ? `Other: ${description.value.trim()}` : 'Describe your finger placement')
+      : selected('full-size-wearing-style') || 'Choose finger placement';
+    const closure = selected('full-size-closure-point');
+    const firmness = selected('full-size-firmness') || 'Choose firmness';
+    const notes = document.querySelector('#full-size-break-in-notes')?.value.trim();
+    summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · ${enabled
+      ? `${style} · ${closure ? `Thumb to ${closure.toLowerCase()}` : 'Choose closure'} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
+      : 'No break-in service'}.`;
+  };
+  document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"]').forEach(input => {
+    input.addEventListener('input', updateFullSizeSetup);
+    input.addEventListener('change', updateFullSizeSetup);
+  });
+  updateFullSizeSetup();
   const serviceCheckbox = document.querySelector('[data-break-in]');
   serviceCheckbox?.addEventListener('change', () => {
     const customization = document.querySelector('[data-break-in-customization]');

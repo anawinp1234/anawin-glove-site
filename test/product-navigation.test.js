@@ -10,7 +10,7 @@ test('Home and Shop identify three trainer gloves and name each card image link'
   for (const path of ['/', '/shop']) {
     const html = renderer.route(path);
     assert.match(html, /3 trainer gloves/);
-    assert.deepEqual([...html.matchAll(/<article class="product-card[^>]*data-product="([^"]+)"/g)].map(match => match[1]), ['brown', 'blue', 'black']);
+    assert.deepEqual([...html.matchAll(/<article class="product-card reveal"[^>]*data-product="([^"]+)"/g)].map(match => match[1]), ['brown', 'blue', 'black']);
     for (const product of localProducts) {
       assert.match(html, new RegExp(`href="${productPath(product)}" data-link class="product-image" aria-label="View ${product.name}:`));
     }
