@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { localProducts } from '../src/catalog.js';
+import { fullSizeProducts, localProducts } from '../src/catalog.js';
 import { canonicalOrigin, productPath, seoRoutes } from '../src/seo.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -247,12 +247,29 @@ test('the 404 page links lost visitors to every glove and home', () => {
 });
 
 test('full-size coming-soon pages have breadcrumbs but no Product offer or purchase controls', () => {
-  for (const color of ['mint', 'black', 'camel', 'orange']) {
+  for (const color of ['mi26', 'bl50', 'cm24', 'or17']) {
     const html = htmlFor(`/full-size/${color}`);
     assert.match(html, /data-anawin-breadcrumbs/, color);
     assert.doesNotMatch(html, /data-anawin-product|"@type":"(?:Product|Offer)"/, color);
     assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in/, color);
     assert.match(html, /Coming soon/, color);
     assert.match(html, /data-newsletter-form/, color);
+  }
+});
+
+test('full-size model routes replace color URLs throughout the built HTML and metadata', () => {
+  const oldPath = /\/full-size\/(?:mint|black|camel|orange)(?=["<\s?#/]|$)/;
+  for (const path of [...Object.keys(seoRoutes), '/404']) {
+    assert.doesNotMatch(htmlFor(path), oldPath, path);
+  }
+  for (const product of fullSizeProducts) {
+    assert.equal(existsSync(join(root, `dist/full-size/${product.color}.html`)), false);
+    const path = productPath(product);
+    const html = htmlFor(path);
+    assert.ok(html.includes(`<title>${product.name} ${product.title} | ANAWIN</title>`));
+    assert.ok(html.includes(`<meta property="og:title" content="${product.name} ${product.title} | ANAWIN" />`));
+    assert.ok(html.includes(`<meta name="twitter:title" content="${product.name} ${product.title} | ANAWIN" />`));
+    const crumbs = jsonLd(html, 'data-anawin-breadcrumbs');
+    assert.equal(crumbs[0].itemListElement.at(-1).item, canonicalOrigin + path);
   }
 });

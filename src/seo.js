@@ -6,10 +6,10 @@ export const productPaths = Object.freeze({
   black: '/product/br16',
   blue: '/product/ob16',
   brown: '/product/cl16',
-  'full-mint': '/full-size/mint',
-  'full-black': '/full-size/black',
-  'full-camel': '/full-size/camel',
-  'full-orange': '/full-size/orange'
+  'full-mint': '/full-size/mi26',
+  'full-black': '/full-size/bl50',
+  'full-camel': '/full-size/cm24',
+  'full-orange': '/full-size/or17'
 });
 const allProducts = [...localProducts, ...fullSizeProducts];
 export const productPath = product => productPaths[product.id];
@@ -58,7 +58,7 @@ export const seoRoutes = Object.freeze({
     type: 'product'
   },
   ...Object.fromEntries(fullSizeProducts.map(product => [productPath(product), {
-    title: `${product.title} | ANAWIN`,
+    title: `${product.name} ${product.title} | ANAWIN`,
     description: product.metaDescription,
     image: product.images[0].src,
     type: 'product'
