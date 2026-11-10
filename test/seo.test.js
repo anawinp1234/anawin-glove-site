@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { canonicalOrigin, normalizePath, productPath, routeMetadata, seoRoutes, socialImageAlt } from '../src/seo.js';
-import { localProducts } from '../src/catalog.js';
+import { fullSizeProducts, localProducts } from '../src/catalog.js';
 
 const paths = [
   '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
-  '/full-size/mint', '/full-size/black', '/full-size/camel', '/full-size/orange',
+  '/full-size/mi26', '/full-size/bl50', '/full-size/cm24', '/full-size/or17',
   '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
@@ -46,7 +46,11 @@ test('old product URLs have exact permanent redirects', () => {
   assert.deepEqual(redirects, [
     '/product/black /product/br16 301',
     '/product/blue /product/ob16 301',
-    '/product/brown /product/cl16 301'
+    '/product/brown /product/cl16 301',
+    '/full-size/mint /full-size/mi26 301',
+    '/full-size/black /full-size/bl50 301',
+    '/full-size/camel /full-size/cm24 301',
+    '/full-size/orange /full-size/or17 301'
   ]);
 });
 
@@ -54,4 +58,20 @@ test('sitemap lists each canonical public URL once', () => {
   const xml = readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
   const urls = [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map(match => match[1]);
   assert.deepEqual(urls, paths.map(path => canonicalOrigin + path));
+});
+
+test('full-size titles lead with the model and old color routes have no canonical metadata', () => {
+  const expected = [
+    ['mi26', 'mint', 'MI26 Mint 12″ Japanese Kip Pitcher’s Glove | ANAWIN'],
+    ['bl50', 'black', 'BL50 Black 12.75″ Japanese Kip Outfield Glove | ANAWIN'],
+    ['cm24', 'camel', 'CM24 Camel 11.5″ Japanese Kip Infield Glove | ANAWIN'],
+    ['or17', 'orange', 'OR17 Orange 11.75″ Japanese Kip Infield Glove | ANAWIN']
+  ];
+  for (const [model, color, title] of expected) {
+    const product = fullSizeProducts.find(item => item.color === color);
+    assert.equal(productPath(product), `/full-size/${model}`);
+    assert.equal(routeMetadata(productPath(product)).title, title);
+    assert.equal(routeMetadata(`/full-size/${color}`), null);
+    assert.equal(routeMetadata(`/full-size/${model}/unknown`), null);
+  }
 });
