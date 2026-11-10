@@ -247,23 +247,24 @@ test('the 404 page links lost visitors to every glove and home', () => {
 });
 
 test('full-size coming-soon pages have breadcrumbs but no Product offer or purchase controls', () => {
-  for (const color of ['mi26', 'bl50', 'cm24', 'or17']) {
-    const html = htmlFor(`/full-size/${color}`);
-    assert.match(html, /data-anawin-breadcrumbs/, color);
-    assert.doesNotMatch(html, /data-anawin-product|"@type":"(?:Product|Offer)"/, color);
-    assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in/, color);
-    assert.match(html, /Coming soon/, color);
-    assert.match(html, /data-newsletter-form/, color);
+  for (const model of ['mi26', 'bl50', 'cm24', 'or17']) {
+    const html = htmlFor(`/product/${model}`);
+    assert.match(html, /data-anawin-breadcrumbs/, model);
+    assert.doesNotMatch(html, /data-anawin-product|"@type":"(?:Product|Offer)"/, model);
+    assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in/, model);
+    assert.match(html, /Coming soon/, model);
+    assert.match(html, /data-newsletter-form/, model);
   }
 });
 
-test('full-size model routes replace color URLs throughout the built HTML and metadata', () => {
-  const oldPath = /\/full-size\/(?:mint|black|camel|orange)(?=["<\s?#/]|$)/;
+test('full-size product routes replace both legacy URL formats throughout built HTML and metadata', () => {
+  const oldPath = /\/full-size\/(?:mint|black|camel|orange|mi26|bl50|cm24|or17)(?=["<\s?#/]|$)/;
   for (const path of [...Object.keys(seoRoutes), '/404']) {
     assert.doesNotMatch(htmlFor(path), oldPath, path);
   }
   for (const product of fullSizeProducts) {
     assert.equal(existsSync(join(root, `dist/full-size/${product.color}.html`)), false);
+    assert.equal(existsSync(join(root, `dist/full-size/${product.name.toLowerCase()}.html`)), false);
     const path = productPath(product);
     const html = htmlFor(path);
     assert.ok(html.includes(`<title>${product.name} ${product.title} | ANAWIN</title>`));
