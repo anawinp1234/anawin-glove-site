@@ -11,8 +11,8 @@ const read = path => readFileSync(join(root, path), 'utf8');
 const htmlFor = path => read(path === '/' ? 'dist/index.html' : `dist/${path.slice(1)}.html`);
 const matches = (html, pattern) => [...html.matchAll(pattern)];
 
-test('all 12 public routes have complete raw HTML and unique route metadata', () => {
-  assert.equal(Object.keys(seoRoutes).length, 12);
+test('all 16 public routes have complete raw HTML and unique route metadata', () => {
+  assert.equal(Object.keys(seoRoutes).length, 16);
   for (const [path, metadata] of Object.entries(seoRoutes)) {
     const html = htmlFor(path);
     const canonical = canonicalOrigin + path;
@@ -125,7 +125,7 @@ test('old product pages are absent from the build and redirects are deployed', (
 });
 
 test('non-product routes have no Product JSON-LD and 404 is noindex', () => {
-  for (const path of Object.keys(seoRoutes).filter(value => !value.startsWith('/product/'))) {
+  for (const path of Object.keys(seoRoutes).filter(value => !/^\/(?:product|full-size)\//.test(value))) {
     const html = htmlFor(path);
     assert.doesNotMatch(html, /data-anawin-product|data-anawin-breadcrumbs|"@type":"(?:Product|Offer)"/, path);
     if (path !== '/') assert.doesNotMatch(html, /application\/ld\+json/, path);
@@ -244,4 +244,15 @@ test('the 404 page links lost visitors to every glove and home', () => {
     assert.equal(matches(html, new RegExp(`<a class="other-glove-card" href="${productPath(product)}"`, 'g')).length, 1, product.name);
   }
   assert.match(html, /<main[^>]*class="not-found">[\s\S]*<a href="\/" data-link>Return home/);
+});
+
+test('full-size coming-soon pages have breadcrumbs but no Product offer or purchase controls', () => {
+  for (const color of ['mint', 'black', 'camel', 'orange']) {
+    const html = htmlFor(`/full-size/${color}`);
+    assert.match(html, /data-anawin-breadcrumbs/, color);
+    assert.doesNotMatch(html, /data-anawin-product|"@type":"(?:Product|Offer)"/, color);
+    assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in/, color);
+    assert.match(html, /Coming soon/, color);
+    assert.match(html, /data-newsletter-form/, color);
+  }
 });

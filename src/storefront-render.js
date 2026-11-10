@@ -1,4 +1,4 @@
-import { purchasePrice } from './catalog.js';
+import { fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -9,6 +9,15 @@ import { normalizePath, productPath, routeMetadata } from './seo.js';
 import { stickyPurchaseAccent } from './sticky-purchase.js';
 
 const discordInviteUrl = 'https://discord.com/invite/acstj7uMt';
+const otherGlovePairings = {
+  brown: 'full-camel',
+  blue: 'full-mint',
+  black: 'full-black',
+  'full-mint': 'blue',
+  'full-black': 'black',
+  'full-camel': 'brown',
+  'full-orange': 'blue'
+};
 
 const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits, maximumFractionDigits: 2
@@ -52,6 +61,17 @@ function productImage(src, alt, sizes, loading, card = false) {
   const srcset = [480, ...(card ? [768] : []), 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${fullWidth}" height="${fullHeight}" loading="${loading}" /></picture>`;
 }
+
+// Full-size photos are square, white-backed, and stored in /images/full-size/.
+function fullSizePhoto(image, alt, sizes, loading) {
+  const widths = [...new Set([480, 960].filter(width => width < image.width).concat(image.width))];
+  const srcset = widths.map(width => `/images/full-size/${image.name}-${width}.webp ${width}w`).join(', ');
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(image.src)}" alt="${escapeHtml(alt)}" width="${image.width}" height="${image.width}" loading="${loading}" /></picture>`;
+}
+const fullSizeZoomSource = image => `/images/full-size/${image.name}-${image.width}.webp`;
+const gloveThumbnail = (product, alt, sizes, loading, card = false) => product.line === 'full-size'
+  ? fullSizePhoto(product.images[0], alt, sizes, loading)
+  : productImage(product.images[0], alt, sizes, loading, card);
 
 function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '', fetchPriority = '') {
   const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
@@ -108,6 +128,15 @@ function productCard(product, index, eagerFirst) {
     <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p><div data-review-slot="${escapeHtml(product.name.toLowerCase())}"${reviewSummary(product).status === 'loading' ? ' class="review-slot-loading"' : ''}>${productCardRatingMarkup(product)}</div>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
+
+function fullSizeCard(product, index) {
+  return `<article class="product-card full-size-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor)}">
+    <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)} full-size glove: ${escapeHtml(product.tone)}">${gloveThumbnail(product, `${product.tone} full-size ANAWIN glove`, fullSizeCardSizes, 'lazy')}<span class="view-product">View ${arrow()}</span></a>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p></div><strong class="coming-soon-label">Coming soon</strong></div>
+  </article>`;
+}
+const fullSizeCardSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 92px) / 4)';
+const fullSizeGrid = () => `<div class="product-grid full-size-grid">${fullSizeProducts.map(fullSizeCard).join('')}</div>`;
 
 const productGrid = (eagerFirst = false) => `<div class="product-grid">${products.map((product, index) => productCard(product, index, eagerFirst)).join('')}</div>`;
 
@@ -184,21 +213,64 @@ function communityPage() {
 function home() {
   return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high')}<div class="hero-copy"><p class="eyebrow">ANAWIN / 2026</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
+    <section class="collection full-size-collection" aria-labelledby="full-size-heading"><div class="section-heading"><div><p class="eyebrow">New / Full-size</p><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p></div><h2 id="full-size-heading">FULL-SIZE<br><em>GLOVES</em></h2></div>${fullSizeGrid()}</section>
     <section class="community-spotlight" aria-labelledby="discord-heading"><div class="community-spotlight-copy"><p class="eyebrow">ANAWIN COMMUNITY</p><h2 id="discord-heading">BUILT<br>WITH YOU.</h2><p class="community-description">Talk directly with us, vote on what we make next, and win free gear.</p><div class="community-actions">${discordButton()}<a class="community-explore" href="/community" data-link>See what members get ${arrow()}</a></div></div><div class="community-spotlight-photo">${communityPhoto('lazy')}</div></section>
     ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><picture><source type="image/webp" srcset="/images/optimized/anawin-mark-240.webp 240w, /images/optimized/anawin-mark-480.webp 480w, /images/optimized/anawin-mark-860.webp 860w" sizes="(max-width: 760px) 55vw, min(38vw, 430px)"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></picture></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
     <section class="newsletter" aria-labelledby="newsletter-heading"><div class="newsletter-copy"><p class="eyebrow">ANAWIN / Email</p><h2 id="newsletter-heading">JOIN OUR<br>COMMUNITY</h2><p>Be the first to hear about new gloves, releases, and what’s next.</p></div>${newsletterFormMarkup('newsletter')}</section></main>`;
 }
 
-const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>MINI<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="visually-hidden">Shop ANAWIN gloves</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section></main>`;
+const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>ALL<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="shop-line-heading">MINI GLOVES</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section><section class="shop-products full-size-collection" aria-labelledby="shop-full-size-heading"><h2 id="shop-full-size-heading" class="shop-line-heading">FULL-SIZE GLOVES</h2><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p>${fullSizeGrid()}</section></main>`;
+
+// Coming-soon page: approved product details and an email signup until launch.
+function fullSizeBreakInDetails(product) {
+  const service = fullSizeBreakInService;
+  const firmnessHelp = { Firm: 'Arrives with a structured feel and more break-in left to do.', Medium: 'Arrives easier to close while keeping some structure.', 'Game Ready': 'Arrives with the softest feel and easiest closure.' };
+  const choices = (name, values) => values.map(value => `<label class="break-in-choice"><input type="radio" name="${name}" value="${escapeHtml(value)}"><span><strong>${escapeHtml(value)}</strong>${name === 'full-size-firmness' ? `<small>${escapeHtml(firmnessHelp[value])}</small>` : ''}</span></label>`).join('');
+  return `<section class="full-size-service" aria-label="Full-Service Break-In">
+    <label class="service-option"><input type="checkbox" data-full-size-break-in aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
+    <p class="full-size-service-availability">Available to add when this glove launches.</p>
+    <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
+      <fieldset><legend>How do you wear your glove?</legend>${choices('full-size-wearing-style', service.wearingStyles)}</fieldset>
+      <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea></div>
+      <fieldset><legend>Where should the thumb meet when the glove closes?</legend>${choices('full-size-closure-point', service.closurePoints)}</fieldset>
+      <fieldset><legend>How firm do you want the glove?</legend>${choices('full-size-firmness', service.firmness)}</fieldset>
+      <div class="break-in-text-field"><label for="full-size-break-in-notes">Anything else we should know?</label><p id="full-size-break-in-notes-help">${escapeHtml(service.notes)} For example, “slight thumb flare” or “keep the fingers straight.”</p><textarea id="full-size-break-in-notes" name="full-size-break-in-notes" rows="4" maxlength="2000" aria-describedby="full-size-break-in-notes-help"></textarea></div>
+    </section></section>`;
+}
+
+function fullSizePage(product) {
+  const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};`;
+  const count = product.images.length;
+  const modelSwitcher = `<nav class="model-switcher" aria-label="Full-size glove colorways"><span class="model-switcher-label">Colorways</span><div class="model-switcher-options">${fullSizeProducts.map(model => model.id === product.id
+    ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}<small>Current</small></span>`
+    : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;
+  const trainer = products.find(other => other.id === otherGlovePairings[product.id]);
+  const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
+  return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
+    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p><p class="coming-soon-price">Coming soon</p><p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
+      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}</fieldset>
+      ${fullSizeBreakInDetails(product)}
+      <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · No break-in service.</p>
+      <button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>
+      <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
+      <section class="product-details" aria-labelledby="product-details-heading"><h2 id="product-details-heading">Glove specs</h2><dl class="product-specs">${product.specs.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
+
+      <div class="purchase-trust" aria-label="Store information"><p><a href="/shipping" data-link>Free U.S. shipping</a> <span aria-hidden="true">·</span> <a href="/returns" data-link>30-day returns</a> <span aria-hidden="true">·</span> <a href="/warranty" data-link>1-year limited warranty</a></p></div>
+      <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
+      <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Free U.S. standard shipping. International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines. Eligible returns are accepted within 30 days of delivery.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
+    </aside></div><section class="other-gloves" aria-labelledby="other-gloves-heading"><h2 id="other-gloves-heading">OTHER GLOVES</h2><div class="other-gloves-grid">${others.map(gloveLinkCard).join('')}</div></section></main>`;
+}
 
 function productPage(product) {
   if (!product) return notFound();
+  if (product.line === 'full-size') return fullSizePage(product);
   const unavailable = commerceLoading || Boolean(commerceError) || !product.available;
   const serviceDisabled = unavailable || breakInService.available === false;
   const buttonLabel = commerceLoading ? 'Checking availability…' : commerceError ? 'Unavailable' : product.available ? 'Add to cart' : 'Sold out';
   const purchaseStatus = commerceLoading ? 'Checking glove and Break-In Service availability…' : commerceError ? 'Unable to confirm availability. Add to Cart is disabled.' : breakInService.available === false ? 'Break-In Service is unavailable.' : '';
   const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
-  const otherGloves = products.filter(other => other.id !== product.id);
+  const fullSizeGlove = fullSizeProducts.find(other => other.id === otherGlovePairings[product.id]);
+  const otherGloves = [...products.filter(other => other.id !== product.id), ...(fullSizeGlove ? [fullSizeGlove] : [])];
   const modelSwitcher = `<nav class="model-switcher" aria-label="Glove models"><span class="model-switcher-label">Models</span><div class="model-switcher-options">${products.map(model => model.id === product.id
     ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}<small>Current</small></span>`
     : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;
@@ -227,7 +299,7 @@ function productPage(product) {
 }
 
 function gloveLinkCard(product) {
-  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${productImage(product.images[0], '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.tone)}</small></span>${arrow()}</a>`;
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.line === 'full-size' ? `Full-size · ${product.tone}` : product.tone)}</small></span>${arrow()}</a>`;
 }
 
 function about() {
@@ -307,7 +379,7 @@ function routeView(pathname) {
   if (path === '/warranty') return warrantyPolicy();
   if (path === '/care') return carePolicy();
   if (path === '/break-in') return breakInPolicy();
-  const product = products.find(item => productPath(item) === path);
+  const product = [...products, ...fullSizeProducts].find(item => productPath(item) === path);
   if (product) return productPage(product);
   return notFound();
 }

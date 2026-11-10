@@ -1,0 +1,548 @@
+[
+  {
+    "model": "mint",
+    "angle": "back",
+    "source": "images/mint_glove/mint_back.png",
+    "sha256": "0dce0f5202a0c6a33b5f8f7359168492bbd55795fbc636bd589581c5410c67f6",
+    "sourceDimensions": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 1133892,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": true,
+    "usable": true,
+    "note": "",
+    "alt": "Mint Japanese Kip baseball glove, back view showing finger stalls, web and wrist logo",
+    "outputs": [
+      {
+        "file": "mint-back-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 149600
+      },
+      {
+        "file": "mint-back-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 517766
+      },
+      {
+        "file": "mint-back-1254.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 749960
+      }
+    ]
+  },
+  {
+    "model": "mint",
+    "angle": "palm",
+    "source": "images/mint_glove/mint_palm.png",
+    "sha256": "87c8575d3b0176e47bd2a3cac96837cb04debfbeccbb5c44174ad6c737158dff",
+    "sourceDimensions": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 1401565,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Mint Japanese Kip baseball glove, open palm view showing pocket, web and lacing",
+    "outputs": [
+      {
+        "file": "mint-palm-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 157300
+      },
+      {
+        "file": "mint-palm-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 586236
+      },
+      {
+        "file": "mint-palm-1254.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 892722
+      }
+    ]
+  },
+  {
+    "model": "mint",
+    "angle": "side",
+    "source": "images/mint_glove/mint_side.png",
+    "sha256": "840c29790ec77d907511210844ef5aaefd51b47eda4b60c93b6c2c4c0944e424",
+    "sourceDimensions": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 928029,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Mint Japanese Kip baseball glove, thumb and web side view",
+    "outputs": [
+      {
+        "file": "mint-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 118562
+      },
+      {
+        "file": "mint-side-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 415918
+      },
+      {
+        "file": "mint-side-1254.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 612432
+      }
+    ]
+  },
+  {
+    "model": "mint",
+    "angle": "finger_side",
+    "source": "images/mint_glove/mint_finger_side.png",
+    "sha256": "e0e18a13e4f878edd742b47951d5e9d2dbde7618e51253142c6a0f4fd27f987c",
+    "sourceDimensions": [
+      1254,
+      1254
+    ],
+    "sourceBytes": 1298360,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Mint Japanese Kip baseball glove, finger side view showing embroidered ANAWIN wordmark",
+    "outputs": [
+      {
+        "file": "mint-finger-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 156748
+      },
+      {
+        "file": "mint-finger-side-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 571090
+      },
+      {
+        "file": "mint-finger-side-1254.webp",
+        "width": 1254,
+        "height": 1254,
+        "bytes": 843500
+      }
+    ]
+  },
+  {
+    "model": "black",
+    "angle": "back",
+    "source": "images/black_glove/black_back.png",
+    "sha256": "3b058aaa361b8f39dbb40d8c58aaa5a5ddc20d8439ca6c998aa47f488cc54971",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 1943753,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": true,
+    "usable": true,
+    "note": "",
+    "alt": "Black Japanese Kip baseball glove, back view showing finger stalls, web and wrist logo",
+    "outputs": [
+      {
+        "file": "black-back-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 146458
+      },
+      {
+        "file": "black-back-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 575072
+      },
+      {
+        "file": "black-back-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 1134618
+      }
+    ]
+  },
+  {
+    "model": "black",
+    "angle": "palm",
+    "source": "images/black_glove/black_palm.png",
+    "sha256": "aa2d52c048b28e13254b1544f16859de8b29259206f840eb72c61adf28747a1c",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 2099370,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Black Japanese Kip baseball glove, open palm view showing pocket, web and lacing",
+    "outputs": [
+      {
+        "file": "black-palm-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 160624
+      },
+      {
+        "file": "black-palm-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 642202
+      },
+      {
+        "file": "black-palm-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 1272026
+      }
+    ]
+  },
+  {
+    "model": "black",
+    "angle": "side",
+    "source": "images/black_glove/black_side.png",
+    "sha256": "5342662ccda48ab2fc7ad575e18597b4c8fa7c2c9e49bd7595d8972ede691933",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 1869778,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Black Japanese Kip baseball glove, thumb and web side view",
+    "outputs": [
+      {
+        "file": "black-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 143226
+      },
+      {
+        "file": "black-side-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 563146
+      },
+      {
+        "file": "black-side-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 1105470
+      }
+    ]
+  },
+  {
+    "model": "black",
+    "angle": "finger_side",
+    "source": "images/black_glove/black_finger_side.png",
+    "sha256": "8f2a5dfc1c4bae4db05bbfcc01c2095d42b389468fb92eba9f45f4cc9f8b21b2",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 1891183,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Black Japanese Kip baseball glove, finger side view showing embroidered ANAWIN wordmark",
+    "outputs": [
+      {
+        "file": "black-finger-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 138784
+      },
+      {
+        "file": "black-finger-side-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 560970
+      },
+      {
+        "file": "black-finger-side-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 1117308
+      }
+    ]
+  },
+  {
+    "model": "orange",
+    "angle": "back",
+    "source": "images/orange_glove/orange_back.png",
+    "sha256": "1beb939f247c9cae6f8cd3fa2bd9ac0f476134ec457eab2c8b45b38c8706e4c9",
+    "sourceDimensions": [
+      548,
+      415
+    ],
+    "sourceBytes": 336754,
+    "sourceProfile": "embedded ICC",
+    "hero": true,
+    "usable": true,
+    "note": "Screenshot metadata; low resolution. Back view has a faint foreign strip at the top edge. Confirm color and request original photos.",
+    "alt": "Orange Japanese Kip baseball glove, back view showing finger stalls, web and wrist logo",
+    "outputs": [
+      {
+        "file": "orange-back-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 148890
+      },
+      {
+        "file": "orange-back-548.webp",
+        "width": 548,
+        "height": 548,
+        "bytes": 181328
+      }
+    ]
+  },
+  {
+    "model": "orange",
+    "angle": "palm",
+    "source": "images/orange_glove/orange_palm.png",
+    "sha256": "2a29923dfd245ee8d85f844bb6ac59db686cf3cfe529f8e29e8051a98070fb4a",
+    "sourceDimensions": [
+      586,
+      358
+    ],
+    "sourceBytes": 314033,
+    "sourceProfile": "embedded ICC",
+    "hero": false,
+    "usable": true,
+    "note": "Screenshot metadata; low resolution. Back view has a faint foreign strip at the top edge. Confirm color and request original photos.",
+    "alt": "Orange Japanese Kip baseball glove, open palm view showing pocket, web and lacing",
+    "outputs": [
+      {
+        "file": "orange-palm-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 125574
+      },
+      {
+        "file": "orange-palm-586.webp",
+        "width": 586,
+        "height": 586,
+        "bytes": 170192
+      }
+    ]
+  },
+  {
+    "model": "orange",
+    "angle": "side",
+    "source": "images/orange_glove/orange_side.png",
+    "sha256": "9b769b88ff4df27b7d6fa195629f5a66e441ec19d9c6a91ccdb427e58469fb7a",
+    "sourceDimensions": [
+      599,
+      426
+    ],
+    "sourceBytes": 357802,
+    "sourceProfile": "embedded ICC",
+    "hero": false,
+    "usable": true,
+    "note": "Screenshot metadata; low resolution. Back view has a faint foreign strip at the top edge. Confirm color and request original photos.",
+    "alt": "Orange Japanese Kip baseball glove, thumb and web side view",
+    "outputs": [
+      {
+        "file": "orange-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 135212
+      },
+      {
+        "file": "orange-side-599.webp",
+        "width": 599,
+        "height": 599,
+        "bytes": 191210
+      }
+    ]
+  },
+  {
+    "model": "orange",
+    "angle": "finger_side",
+    "source": "images/orange_glove/orange_finger_side.png",
+    "sha256": "b37957d1c632954d684d6122501c4c3902d1dd0ba285b879d3e326b7de03ee39",
+    "sourceDimensions": [
+      567,
+      364
+    ],
+    "sourceBytes": 330810,
+    "sourceProfile": "embedded ICC",
+    "hero": false,
+    "usable": true,
+    "note": "Screenshot metadata; low resolution. Back view has a faint foreign strip at the top edge. Confirm color and request original photos.",
+    "alt": "Orange Japanese Kip baseball glove, finger side view showing embroidered ANAWIN wordmark",
+    "outputs": [
+      {
+        "file": "orange-finger-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 146048
+      },
+      {
+        "file": "orange-finger-side-567.webp",
+        "width": 567,
+        "height": 567,
+        "bytes": 189726
+      }
+    ]
+  },
+  {
+    "model": "camel",
+    "angle": "back",
+    "source": "images/camel/camel_back.png",
+    "sha256": "69dfd916813ceae67af50c9107c818c5736963cd96a79c658e590d390227086c",
+    "sourceDimensions": [
+      1085,
+      1449
+    ],
+    "sourceBytes": 1549958,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": true,
+    "usable": true,
+    "note": "",
+    "alt": "Camel Japanese Kip baseball glove, back view showing finger stalls, web and wrist logo",
+    "outputs": [
+      {
+        "file": "camel-back-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 131996
+      },
+      {
+        "file": "camel-back-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 483396
+      },
+      {
+        "file": "camel-back-1449.webp",
+        "width": 1449,
+        "height": 1449,
+        "bytes": 979766
+      }
+    ]
+  },
+  {
+    "model": "camel",
+    "angle": "palm",
+    "source": "images/camel/camel_palm.png",
+    "sha256": "4d917610ffef6b203826e54a906da6af25987f355c7ac999a931b373713a64ae",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 1837061,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Camel Japanese Kip baseball glove, open palm view showing pocket, web and lacing",
+    "outputs": [
+      {
+        "file": "camel-palm-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 152910
+      },
+      {
+        "file": "camel-palm-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 587202
+      },
+      {
+        "file": "camel-palm-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 1172584
+      }
+    ]
+  },
+  {
+    "model": "camel",
+    "angle": "side",
+    "source": "images/camel/camel_side.png",
+    "sha256": "25c3b71744002b7509e689dae75cd92de6678b7c1ea82bad4b0c00d54714bdac",
+    "sourceDimensions": [
+      543,
+      724
+    ],
+    "sourceBytes": 458928,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "Lower-resolution source (543 \u00d7 724); request a larger original for high-density displays.",
+    "alt": "Camel Japanese Kip baseball glove, thumb and web side view",
+    "outputs": [
+      {
+        "file": "camel-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 146534
+      },
+      {
+        "file": "camel-side-724.webp",
+        "width": 724,
+        "height": 724,
+        "bytes": 297644
+      }
+    ]
+  },
+  {
+    "model": "camel",
+    "angle": "finger_side",
+    "source": "images/camel/camel_finger_side.png",
+    "sha256": "4e0c6864253c4683ba5ca1e93163a01c1ee0645cb05fab4574c90e5dfb0deb11",
+    "sourceDimensions": [
+      1122,
+      1402
+    ],
+    "sourceBytes": 1525554,
+    "sourceProfile": "untagged; assumed sRGB",
+    "hero": false,
+    "usable": true,
+    "note": "",
+    "alt": "Camel Japanese Kip baseball glove, finger side view showing embroidered ANAWIN wordmark",
+    "outputs": [
+      {
+        "file": "camel-finger-side-480.webp",
+        "width": 480,
+        "height": 480,
+        "bytes": 128480
+      },
+      {
+        "file": "camel-finger-side-960.webp",
+        "width": 960,
+        "height": 960,
+        "bytes": 475540
+      },
+      {
+        "file": "camel-finger-side-1402.webp",
+        "width": 1402,
+        "height": 1402,
+        "bytes": 947388
+      }
+    ]
+  }
+]

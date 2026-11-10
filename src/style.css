@@ -714,3 +714,53 @@ body.newsletter-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .footer-chevron,.has-footer-accordion .footer-panel{transition:none}
 }
+/* Full-size gloves (coming soon) */
+.full-size-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.full-size-collection{border-top:1px solid var(--line)}
+.collection.full-size-collection{padding-top:110px}
+.shop-products.full-size-collection{padding-top:56px;padding-bottom:110px}
+.shop-line-heading{margin:0 0 6px;font-family:var(--font-display);font-size:clamp(30px,3.6vw,52px);font-weight:900;letter-spacing:-.04em;line-height:.9}
+.shop-products .collection-cue{margin:0 0 24px}
+.coming-soon-label{white-space:nowrap;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--card-accent)}
+.full-size-pdp .coming-soon-price{text-transform:uppercase;letter-spacing:.06em;color:var(--pdp-accent)}
+.pdp-notify{margin:28px 0;padding:28px;background:var(--ink);color:#fff}
+.pdp-notify h2{margin:0 0 8px;font-family:var(--font-display);font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1;text-transform:uppercase}
+.pdp-notify>p{margin:0 0 20px;color:#d1d1d1;font-size:14px;line-height:1.5}
+.pdp-notify .newsletter-controls button{flex-basis:112px}
+.pdp-notify .newsletter-success h3{font-size:30px;margin:18px 0 10px}
+.pdp-notify :is(input,button):focus-visible{outline:2px solid #fff;outline-offset:3px}
+.full-size-pdp .purchase-trust{margin-bottom:12px}
+/* Full-size photos are shot on white, so the gallery column matches them and the white details panel. */
+.full-size-pdp :is(.pdp-main,.pdp-gallery,.gallery-image){background:var(--white)}
+@media(max-width:1100px){.full-size-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.collection.full-size-collection{padding-top:80px}.shop-products.full-size-collection{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
+
+/* Full-size launch details share the existing PDP typography and accordions. */
+.full-size-pdp .hand-orientation{margin-bottom:20px}
+.full-size-pdp .product-specs dt{flex:0 0 31%}
+.full-size-pdp .product-specs dd{min-width:0;overflow-wrap:break-word}
+.full-size-service{margin:28px 0}
+.full-size-service h2{font-size:15px;line-height:1.4;margin:0 0 12px}
+.full-size-service p,.full-size-service li{font-size:13px;line-height:1.6}
+.full-size-service-availability{color:var(--muted);margin:0 0 20px}
+.break-in-text-field{margin:0 0 20px}
+.break-in-text-field[hidden]{display:none}
+.break-in-text-field label{display:block;font-size:13px;line-height:1.4;font-weight:700;margin:0 0 9px}
+.break-in-text-field p{color:var(--muted);margin:0 0 10px}
+.break-in-text-field textarea{display:block;box-sizing:border-box;width:100%;max-width:100%;min-height:90px;padding:12px;border:1px solid var(--line);border-radius:0;background:var(--white);color:var(--ink);font:inherit;font-size:16px;line-height:1.5;resize:vertical}
+.break-in-text-field textarea:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.full-size-throw-hand{min-width:0;border:0;padding:0;margin:28px 0 16px}
+.full-size-throw-hand legend{font-size:13px;font-weight:700;margin-bottom:9px}
+.full-size-selected-glove{color:var(--muted);margin:0 0 20px}
+.full-size-setup-summary{font-size:13px;line-height:1.6;padding:16px;border:1px solid var(--line);overflow-wrap:anywhere}
+
+/* Keep desktop product photos beside the details as the page scrolls. */
+@media(min-width:761px){
+  .pdp{--pdp-gallery-top:92px}
+  .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
+  .pdp-main > .pdp-info{position:static}
+  .pdp-main > .pdp-gallery-wrap{position:sticky;top:var(--pdp-gallery-top);align-self:start}
+  .pdp-gallery-wrap .pdp-gallery{aspect-ratio:1;max-height:calc(100svh - var(--pdp-gallery-top) - 16px);grid-template-rows:repeat(2,minmax(0,1fr))}
+  .pdp-gallery-wrap .gallery-image{min-width:0;min-height:0;aspect-ratio:auto}
+  .pdp-gallery-wrap .gallery-image img{object-fit:contain}
+}

@@ -55,6 +55,20 @@ function historyWindow({ storage = new Map() } = {}) {
   return { windowRef, entries, restores, restore, flush, scroll, storage, timers };
 }
 
+test('HTTP previews initialize and navigate when randomUUID is unavailable', () => {
+  const env = historyWindow();
+  env.windowRef.crypto = {};
+  env.entries[1] = { scrollY: 200 };
+  const memory = installScrollMemory(env.windowRef, env.restore);
+  const initialKey = env.windowRef.history.state.anawinScrollEntry;
+  assert.equal(typeof initialKey, 'string');
+  assert.ok(initialKey.length > 0);
+  memory.navigate('/product/br16');
+  assert.notEqual(env.windowRef.history.state.anawinScrollEntry, initialKey);
+  env.windowRef.history.go(-1);
+  assert.equal(env.windowRef.scrollY, 200);
+});
+
 test('rapid Back/Forward saves the outgoing position without overwriting destination history state', () => {
   const env = historyWindow();
   installScrollMemory(env.windowRef, env.restore);

@@ -1,12 +1,17 @@
-import { localProducts } from './catalog.js';
+import { fullSizeProducts, localProducts } from './catalog.js';
 
 export const canonicalOrigin = 'https://anawinofficial.com';
 
 export const productPaths = Object.freeze({
   black: '/product/br16',
   blue: '/product/ob16',
-  brown: '/product/cl16'
+  brown: '/product/cl16',
+  'full-mint': '/full-size/mint',
+  'full-black': '/full-size/black',
+  'full-camel': '/full-size/camel',
+  'full-orange': '/full-size/orange'
 });
+const allProducts = [...localProducts, ...fullSizeProducts];
 export const productPath = product => productPaths[product.id];
 
 const homeImage = '/images/hero-background.jpg';
@@ -16,7 +21,8 @@ const imageAlts = Object.freeze({
   [homeImage]: 'Black and red ANAWIN glove on grass',
   '/images/black1.PNG': 'BR16 ANAWIN glove in black, red, and gray',
   '/images/blue1.PNG': 'OB16 ANAWIN glove in baby blue, royal, and navy',
-  '/images/brown1.PNG': 'CL16 ANAWIN glove in olive brown, tan, and brown'
+  '/images/brown1.PNG': 'CL16 ANAWIN glove in olive brown, tan, and brown',
+  ...Object.fromEntries(fullSizeProducts.map(product => [product.images[0].src, product.images[0].alt]))
 });
 export const socialImageAlt = imagePath => imageAlts[imagePath] || '';
 
@@ -29,7 +35,7 @@ export const seoRoutes = Object.freeze({
   },
   '/shop': {
     title: 'Shop Baseball Gloves | ANAWIN',
-    description: 'Explore ANAWIN BR16, OB16, and CL16 training baseball gloves: 10.25-inch gloves made with US steerhide leather.',
+    description: 'Shop ANAWIN BR16, OB16, and CL16 10.25-inch training gloves and preview our first full-size gloves in mint, black, camel, and orange.',
     image: homeImage,
     type: 'website'
   },
@@ -51,6 +57,12 @@ export const seoRoutes = Object.freeze({
     image: '/images/brown1.PNG',
     type: 'product'
   },
+  ...Object.fromEntries(fullSizeProducts.map(product => [productPath(product), {
+    title: `${product.title} | ANAWIN`,
+    description: product.metaDescription,
+    image: product.images[0].src,
+    type: 'product'
+  }])),
   '/about': {
     title: 'About ANAWIN | Built with the Baseball Community',
     description: 'Learn how two friends started ANAWIN and shaped the brand with the baseball community.',
@@ -109,6 +121,7 @@ export function productJsonLd(path) {
   const normalizedPath = normalizePath(path);
   if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
   const product = localProducts.find(item => normalizedPath === productPath(item));
+  // Coming-soon gloves are not purchasable, so they get no Product offer markup.
   if (!product) return null;
   return {
     '@context': 'https://schema.org',
@@ -177,7 +190,7 @@ export function siteJsonLd(path) {
 
 export function breadcrumbJsonLd(path) {
   const normalizedPath = normalizePath(path);
-  const product = localProducts.find(item => normalizedPath === productPath(item));
+  const product = allProducts.find(item => normalizedPath === productPath(item));
   if (!product) return null;
   const crumbs = [['Home', '/'], ['Shop', '/shop'], [product.name, normalizedPath]];
   return {
