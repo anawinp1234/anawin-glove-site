@@ -1,0 +1,46 @@
+{
+  "branch": "claude-full-size",
+  "head": "481664e",
+  "realSignup": "UNVERIFIED",
+  "shopifyConsent": "UNVERIFIED",
+  "blockers": [
+    "No verified live anawin-test runtime: checked-in Worker domain is ignvv0-zh.myshopify.com",
+    "No local test-store Admin credentials",
+    "No authorized real test email supplied"
+  ],
+  "unitTests": 346,
+  "unitTestsFailed": 0,
+  "build": "PASS (VITE_COMMERCE_MODE=local)",
+  "sitemapURLs": [
+    "https://anawinofficial.com/",
+    "https://anawinofficial.com/shop",
+    "https://anawinofficial.com/product/br16",
+    "https://anawinofficial.com/product/ob16",
+    "https://anawinofficial.com/product/cl16",
+    "https://anawinofficial.com/full-size/mint",
+    "https://anawinofficial.com/full-size/black",
+    "https://anawinofficial.com/full-size/camel",
+    "https://anawinofficial.com/full-size/orange",
+    "https://anawinofficial.com/about",
+    "https://anawinofficial.com/community",
+    "https://anawinofficial.com/shipping",
+    "https://anawinofficial.com/returns",
+    "https://anawinofficial.com/warranty",
+    "https://anawinofficial.com/care",
+    "https://anawinofficial.com/break-in"
+  ],
+  "htmlCount": 17,
+  "teaserRoutes": 4,
+  "localReviewFilesInDist": false,
+  "orangePalmSourceDimensions": [
+    422,
+    355
+  ],
+  "salesLaunchReplacementNeeded": true,
+  "teaserBuildReadiness": "UNVERIFIED overall: technical build/UI checks PASS; real signup and consent release gate blocked",
+  "browserProductViewportCases": 14,
+  "simulatedTeaserSignupCases": 8,
+  "visibleFocusCases": 24,
+  "allExistingFilesPreserved": true,
+  "realShopifyRequests": 0
+}

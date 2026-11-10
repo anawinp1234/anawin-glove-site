@@ -1,0 +1,1196 @@
+[
+  {
+    "model": "mint",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Mint full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-back-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-palm-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-finger-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "black",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-back-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/black-palm-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/black-finger-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "orange",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Orange full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-back-548.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-palm-422.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-finger-side-567.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "camel",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Camel full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-back-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-palm-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-side-724.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-finger-side-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "br16",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black / Red / Gray glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/black1-p3-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/black2-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/black3-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/black4-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "ob16",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/blue1-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/blue2-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/blue3-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/blue4-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "cl16",
+    "width": 375,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/brown1-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/brown2-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/brown3-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/brown4-960.webp",
+        "width": 337,
+        "height": 337,
+        "rendered": 337.5,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "PASS"
+  },
+  {
+    "model": "mint",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Mint full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-back-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-palm-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-finger-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "black",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-back-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/black-palm-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/black-finger-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "orange",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Orange full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-back-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-palm-422.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-finger-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "camel",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Camel full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-back-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-palm-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-finger-side-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "br16",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black / Red / Gray glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/black1-p3-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/black2-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/black3-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/black4-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "ob16",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/blue1-960.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/blue2-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/blue3-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/blue4-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "cl16",
+    "width": 768,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/brown1-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/brown2-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/brown3-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/brown4-480.webp",
+        "width": 230,
+        "height": 230,
+        "rendered": 206.578125,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "mint",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Mint full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-back-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-palm-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Mint full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/mint-finger-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "black",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-back-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/black-palm-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/black-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/black-finger-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "orange",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Orange full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-back-548.webp",
+        "width": 431,
+        "height": 431,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-palm-422.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Orange full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/orange-finger-side-567.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "camel",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Camel full-size ANAWIN glove, back view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-back-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, palm view showing the pocket and web",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-palm-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, thumb-side view",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-side-724.webp",
+        "width": 431,
+        "height": 431,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Camel full-size ANAWIN glove, finger-side view with the ANAWIN wordmark",
+        "source": "http://127.0.0.1:5197/images/full-size/camel-finger-side-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": {
+      "validation": "PASS",
+      "consent": "PASS",
+      "error503": "PASS",
+      "rate429": "PASS",
+      "success": "PASS",
+      "duplicate": "PASS",
+      "requestBody": {
+        "email": "release-review@example.com",
+        "consent": true
+      },
+      "backend": "SIMULATED; no Shopify writes"
+    },
+    "cart": "no purchase controls",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "br16",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Black / Red / Gray glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/black1-p3-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/black2-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/black3-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Black / Red / Gray glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/black4-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "ob16",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/blue1-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/blue2-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/blue3-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Baby Blue / Royal / Navy glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/blue4-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  },
+  {
+    "model": "cl16",
+    "width": 1440,
+    "overflow": false,
+    "cls": 0,
+    "images": [
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 1",
+        "source": "http://127.0.0.1:5197/images/optimized/brown1-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 2",
+        "source": "http://127.0.0.1:5197/images/optimized/brown2-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 3",
+        "source": "http://127.0.0.1:5197/images/optimized/brown3-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      },
+      {
+        "alt": "Olive Brown / Tan / Brown glove view 4",
+        "source": "http://127.0.0.1:5197/images/optimized/brown4-960.webp",
+        "width": 432,
+        "height": 432,
+        "rendered": 427,
+        "fit": "cover",
+        "blend": "multiply"
+      }
+    ],
+    "signup": null,
+    "cart": "local trainer add PASS",
+    "keyboard": "PASS",
+    "expandedViewer": "PASS",
+    "focusReturn": "PASS",
+    "pagination": "not shown"
+  }
+]

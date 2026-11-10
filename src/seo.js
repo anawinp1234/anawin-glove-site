@@ -57,30 +57,12 @@ export const seoRoutes = Object.freeze({
     image: '/images/brown1.PNG',
     type: 'product'
   },
-  '/full-size/mint': {
-    title: 'Mint Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Mint ANAWIN full-size baseball glove in mint and silver. Coming soon: sign up to be the first to know when it drops.',
-    image: '/images/full-size/mint-back.jpg',
+  ...Object.fromEntries(fullSizeProducts.map(product => [productPath(product), {
+    title: `${product.title} | ANAWIN`,
+    description: product.metaDescription,
+    image: product.images[0].src,
     type: 'product'
-  },
-  '/full-size/black': {
-    title: 'Black Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Black ANAWIN full-size baseball glove in black, white, and brown. Coming soon: sign up to be the first to know when it drops.',
-    image: '/images/full-size/black-back.jpg',
-    type: 'product'
-  },
-  '/full-size/camel': {
-    title: 'Camel Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Camel ANAWIN full-size baseball glove in camel, red, and black. Coming soon: sign up to be the first to know when it drops.',
-    image: '/images/full-size/camel-back.jpg',
-    type: 'product'
-  },
-  '/full-size/orange': {
-    title: 'Orange Full-Size Baseball Glove | Coming Soon | ANAWIN',
-    description: 'The Orange ANAWIN full-size baseball glove in orange, gold, and chestnut brown. Coming soon: sign up to be the first to know when it drops.',
-    image: '/images/full-size/orange-back.jpg',
-    type: 'product'
-  },
+  }])),
   '/about': {
     title: 'About ANAWIN | Built with the Baseball Community',
     description: 'Learn how two friends started ANAWIN and shaped the brand with the baseball community.',
@@ -139,7 +121,7 @@ export function productJsonLd(path) {
   const normalizedPath = normalizePath(path);
   if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
   const product = localProducts.find(item => normalizedPath === productPath(item));
-  // Coming-soon gloves have no price yet, so they get no Product offer markup.
+  // Coming-soon gloves are not purchasable, so they get no Product offer markup.
   if (!product) return null;
   return {
     '@context': 'https://schema.org',

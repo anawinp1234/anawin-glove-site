@@ -1,4 +1,4 @@
-import { fullSizeProducts, purchasePrice } from './catalog.js';
+import { fullSizeBreakInService, fullSizeProducts, purchasePrice } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -18,7 +18,6 @@ const otherGlovePairings = {
   'full-camel': 'brown',
   'full-orange': 'blue'
 };
-
 
 const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits, maximumFractionDigits: 2
@@ -222,7 +221,23 @@ function home() {
 
 const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>ALL<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="shop-line-heading">MINI GLOVES</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section><section class="shop-products full-size-collection" aria-labelledby="shop-full-size-heading"><h2 id="shop-full-size-heading" class="shop-line-heading">FULL-SIZE GLOVES</h2><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p>${fullSizeGrid()}</section></main>`;
 
-// Coming-soon page: photos and an email signup instead of price and Add to Cart.
+// Coming-soon page: approved product details and an email signup until launch.
+function fullSizeBreakInDetails(product) {
+  const service = fullSizeBreakInService;
+  const firmnessHelp = { Firm: 'Arrives with a structured feel and more break-in left to do.', Medium: 'Arrives easier to close while keeping some structure.', 'Game Ready': 'Arrives with the softest feel and easiest closure.' };
+  const choices = (name, values) => values.map(value => `<label class="break-in-choice"><input type="radio" name="${name}" value="${escapeHtml(value)}"><span><strong>${escapeHtml(value)}</strong>${name === 'full-size-firmness' ? `<small>${escapeHtml(firmnessHelp[value])}</small>` : ''}</span></label>`).join('');
+  return `<section class="full-size-service" aria-label="Full-Service Break-In">
+    <label class="service-option"><input type="checkbox" data-full-size-break-in aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
+    <p class="full-size-service-availability">Available to add when this glove launches.</p>
+    <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
+      <fieldset><legend>How do you wear your glove?</legend>${choices('full-size-wearing-style', service.wearingStyles)}</fieldset>
+      <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea></div>
+      <fieldset><legend>Where should the thumb meet when the glove closes?</legend>${choices('full-size-closure-point', service.closurePoints)}</fieldset>
+      <fieldset><legend>How firm do you want the glove?</legend>${choices('full-size-firmness', service.firmness)}</fieldset>
+      <div class="break-in-text-field"><label for="full-size-break-in-notes">Anything else we should know?</label><p id="full-size-break-in-notes-help">${escapeHtml(service.notes)} For example, “slight thumb flare” or “keep the fingers straight.”</p><textarea id="full-size-break-in-notes" name="full-size-break-in-notes" rows="4" maxlength="2000" aria-describedby="full-size-break-in-notes-help"></textarea></div>
+    </section></section>`;
+}
+
 function fullSizePage(product) {
   const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};`;
   const count = product.images.length;
@@ -232,8 +247,14 @@ function fullSizePage(product) {
   const trainer = products.find(other => other.id === otherGlovePairings[product.id]);
   const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
   return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
-    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="price coming-soon-price">Coming soon</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
-      <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name.toLowerCase())} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
+    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p><p class="coming-soon-price">Coming soon</p><p class="hand-orientation">${escapeHtml(product.throwHand)}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
+      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${(product.throwHand.includes('or') ? ['Right-Hand Throw', 'Left-Hand Throw'] : ['Right-Hand Throw']).map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${hand}"><span><strong>${hand}</strong><small>Worn on the ${hand === 'Right-Hand Throw' ? 'left' : 'right'} hand</small></span></label>`).join('')}</fieldset>
+      ${fullSizeBreakInDetails(product)}
+      <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Choose throw hand · No break-in service.</p>
+      <button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>
+      <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
+      <section class="product-details" aria-labelledby="product-details-heading"><h2 id="product-details-heading">Glove specs</h2><dl class="product-specs">${product.specs.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
+
       <div class="purchase-trust" aria-label="Store information"><p><a href="/shipping" data-link>Free U.S. shipping</a> <span aria-hidden="true">·</span> <a href="/returns" data-link>30-day returns</a> <span aria-hidden="true">·</span> <a href="/warranty" data-link>1-year limited warranty</a></p></div>
       <details><summary>Break-in &amp; care <span class="accordion-indicator" aria-hidden="true"></span></summary><p>${escapeHtml(careIntro)}</p><div class="pdp-policy-links"><a href="/break-in" data-link>Break-In Guide</a><a href="/care" data-link>Glove Care</a></div></details>
       <details><summary>Shipping & returns <span class="accordion-indicator" aria-hidden="true"></span></summary><p>Free U.S. standard shipping. International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines. Eligible returns are accepted within 30 days of delivery.</p><div class="pdp-policy-links"><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a></div></details>
