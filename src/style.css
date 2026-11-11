@@ -759,32 +759,52 @@ body.newsletter-open{overflow:hidden}
 .pdp-gallery .gallery-image{overflow:hidden}
 .pdp-gallery .gallery-image img{transform:scale(1.08)}
 
-/* Keep desktop product photos beside the details as the page scrolls. */
-@media(min-width:761px){
-  /* Fill the photo column with the photos' own tone so the square gallery has no visible edge. */
-  .pdp-main{background:var(--image-surface)}
-  .pdp{--pdp-gallery-top:92px}
-  .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
-  .pdp-main > .pdp-info{position:static}
-  .pdp-main > .pdp-gallery-wrap{position:sticky;top:var(--pdp-gallery-top);align-self:start}
-  .pdp-gallery-wrap .pdp-gallery{aspect-ratio:1;max-height:calc(100svh - var(--pdp-gallery-top) - 16px);grid-template-rows:repeat(2,minmax(0,1fr))}
-  .pdp-gallery-wrap .gallery-image{min-width:0;min-height:0;aspect-ratio:auto}
-  .pdp-gallery-wrap .gallery-image img{object-fit:contain}
-}
-
-/* Keep full-size photos prominent and the copy close without outer gutters. */
+/* Full-size photo and title details; the shared desktop layout is below. */
 .full-size-pdp .pdp-info h1{margin:16px 0 8px;line-height:.78}
 .full-size-pdp .gallery-image img{object-fit:contain;transform:none}
-.full-size-pdp .gallery-image:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
 @media(min-width:761px){
   .full-size-pdp .pdp-info{padding:32px 16px 64px}
-}
-@media(min-width:1101px){
-  .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) clamp(380px,32vw,560px);column-gap:24px}
-  .full-size-pdp .pdp-gallery-wrap{position:static}
-  .full-size-pdp .pdp-gallery{max-height:none}
-  .full-size-pdp .pdp-info{padding:32px 24px 64px 0}
 }
 @media(max-width:760px){
   .full-size-pdp .pdp-info{padding-top:28px}
 }
+
+/* Desktop and tablet product layout for trainers and full-size gloves.
+   The gallery is a square that fits the window below the header, so it can stay
+   pinned beside the details. Its column is exactly as wide as the square, the
+   details keep a readable width, and any extra width is split evenly on both sides. */
+@media(min-width:761px){
+  .pdp{
+    container-type:inline-size;  /* 100cqw below is the page width without the scrollbar */
+    --pdp-gap:24px;              /* between the photos and the details text */
+    --pdp-edge:24px;             /* keeps the details text off the window's right edge */
+    --pdp-text-min:320px;
+    --pdp-text-max:560px;
+    --pdp-sticky-top:var(--site-header-height,110px)
+  }
+  /* When the header slides away the gallery rises with it, and it moves back down as the header returns. */
+  .site-header-stack.is-hidden ~ .pdp{--pdp-sticky-top:0px}
+  .pdp-main{
+    --pdp-gallery-size:min(calc(100svh - var(--site-header-height,110px)),calc(100cqw - var(--pdp-text-min) - var(--pdp-gap) - var(--pdp-edge)));
+    --pdp-spare:calc(100cqw - var(--pdp-gallery-size) - var(--pdp-gap) - var(--pdp-text-max) - var(--pdp-edge));
+    grid-template-columns:var(--pdp-gallery-size) minmax(var(--pdp-text-min),var(--pdp-text-max));
+    column-gap:var(--pdp-gap);
+    justify-content:center;
+    /* With room to spare, matching the right edge on the left centers the layout exactly. */
+    padding-inline:clamp(0px,var(--pdp-spare),var(--pdp-edge)) var(--pdp-edge);
+    background:var(--white)
+  }
+  .pdp-main > .pdp-gallery-wrap{position:sticky;top:var(--pdp-sticky-top);align-self:start;transition:top .22s ease}
+  .pdp-main > .pdp-info{position:static;padding-inline:0}
+  .pdp-gallery-wrap .pdp-gallery{width:100%;aspect-ratio:1;grid-template-rows:repeat(2,minmax(0,1fr))}
+  .pdp-gallery-wrap .gallery-image{min-width:0;min-height:0;aspect-ratio:auto}
+  /* Show each photo whole: no zoom that could crop a glove at the tile edge. */
+  .pdp-gallery-wrap .gallery-image img{object-fit:contain;transform:none}
+}
+@media(min-width:1101px){
+  .pdp{--pdp-text-min:380px}
+}
+@media(min-width:761px) and (prefers-reduced-motion:reduce){
+  .pdp-main > .pdp-gallery-wrap{transition:none}
+}
+.pdp .gallery-image:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}

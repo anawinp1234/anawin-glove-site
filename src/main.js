@@ -7,6 +7,7 @@ import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey, redirectToVerifiedCheckout } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
+import { trackHeaderHeight } from './header-offset.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
@@ -55,6 +56,7 @@ let discountError = false;
 let cartIsOpen = false;
 let cartReturnFocus = null;
 let cartCloseTimer = null;
+let stopTrackingHeaderHeight = () => {};
 let lightboxOverlay = null;
 let lightboxReturnFocus = null;
 let lightboxImageController = null;
@@ -150,6 +152,8 @@ function render(scrollTop = window.scrollY) {
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
+  stopTrackingHeaderHeight();
+  stopTrackingHeaderHeight = trackHeaderHeight(document.querySelector('.site-header-stack'));
   syncProductDisplayOrder();
   fitHeroHeading(); bind(); scrollToInstant(window, scrollTop);
   stickyPurchase = createStickyPurchase({
