@@ -730,9 +730,9 @@ body.newsletter-open{overflow:hidden}
 .pdp-notify .newsletter-success h3{font-size:30px;margin:18px 0 10px}
 .pdp-notify :is(input,button):focus-visible{outline:2px solid #fff;outline-offset:3px}
 .full-size-pdp .purchase-trust{margin-bottom:12px}
-/* Full-size photos are shot on white, so the gallery column matches them and the white details panel. */
-.full-size-pdp{background:var(--white)}
-.full-size-pdp :is(.pdp-main,.pdp-gallery,.gallery-image){background:var(--white)}
+/* Match the photo backgrounds to the white gallery column and details panel. */
+.pdp{background:var(--white)}
+.pdp :is(.pdp-main,.pdp-gallery,.gallery-image){background:var(--white)}
 @media(max-width:1100px){.full-size-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.collection.full-size-collection{padding-top:80px}.shop-products.full-size-collection{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
 
@@ -758,11 +758,11 @@ body.newsletter-open{overflow:hidden}
 /* Bring product photos closer to the gallery edges without changing the layout. */
 .pdp-gallery .gallery-image{overflow:hidden}
 .pdp-gallery .gallery-image img{transform:scale(1.08)}
+/* Show every CL16 angle in full, including the palm and its laces. */
+.pdp[data-product="brown"] .gallery-image img{object-fit:contain;transform:none}
 
 /* Keep desktop product photos beside the details as the page scrolls. */
 @media(min-width:761px){
-  /* Fill the photo column with the photos' own tone so the square gallery has no visible edge. */
-  .pdp-main{background:var(--image-surface)}
   .pdp{--pdp-gallery-top:92px}
   .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
   .pdp-main > .pdp-info{position:static}
@@ -780,9 +780,8 @@ body.newsletter-open{overflow:hidden}
   .full-size-pdp .pdp-info{padding:32px 16px 64px}
 }
 @media(min-width:1101px){
+  .pdp-gallery-wrap .pdp-gallery{max-height:none}
   .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) clamp(380px,32vw,560px);column-gap:24px}
-  .full-size-pdp .pdp-gallery-wrap{position:static}
-  .full-size-pdp .pdp-gallery{max-height:none}
   .full-size-pdp .pdp-info{padding:32px 24px 64px 0}
 }
 @media(max-width:760px){
