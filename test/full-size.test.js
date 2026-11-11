@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
 import { createStorefrontRenderer } from '../src/storefront-render.js';
 import { productJsonLd, productPath } from '../src/seo.js';
@@ -111,34 +110,28 @@ function webpChunks(buffer) {
   return chunks;
 }
 
-// Fingerprint of the 520-byte LS34H55xG RGB ICC embedded in the approved
-// orange_back.png, orange_palm.png and orange_finger_side.png sources.
-// The raw photos stay outside Git; CI checks against their captured profile.
-const orangeSourceIccHash = '9520dfb2bad1d955a65ba8a3ffecef068e3715ae09486b41067dca1bbd234c29';
-for (const [angle, side] of [['back', 456], ['palm', 408], ['finger-side', 522]]) {
-  test(`orange ${angle} JPEG and responsive WebPs preserve the approved source ICC and dimensions`, () => {
+// The replacement OR17 sources use standard RGB without an embedded ICC profile.
+for (const [angle, side] of [['back', 1197], ['palm', 1322], ['side', 1206], ['finger-side', 1438]]) {
+  test(`orange ${angle} JPEG and responsive WebPs preserve source color metadata and dimensions`, () => {
     const jpeg = jpegMetadata(readFileSync(publicFile(`/images/full-size/orange-${angle}.jpg`)));
-    assert.equal(jpeg.profile.length, 520);
-    assert.equal(createHash('sha256').update(jpeg.profile).digest('hex'), orangeSourceIccHash);
-    assert.equal(jpeg.profile.toString('ascii', 36, 40), 'acsp');
+    assert.equal(jpeg.profile.length, 0);
     assert.deepEqual([jpeg.width, jpeg.height], [side, side]);
     for (const width of [480, 960].filter(width => width < side).concat(side)) {
       const chunks = webpChunks(readFileSync(publicFile(`/images/full-size/orange-${angle}-${width}.webp`)));
-      assert.deepEqual(chunks.get('ICCP'), jpeg.profile);
-      const extended = chunks.get('VP8X');
-      assert.ok(extended[0] & 0x20, 'WebP ICC flag must be set');
-      assert.deepEqual([extended.readUIntLE(4, 3) + 1, extended.readUIntLE(7, 3) + 1], [width, width]);
+      assert.equal(chunks.has('ICCP'), false);
+      const frame = chunks.get('VP8 ');
+      assert.deepEqual([frame.readUInt16LE(6) & 0x3fff, frame.readUInt16LE(8) & 0x3fff], [width, width]);
     }
   });
 }
 
-test('the low-resolution orange palm offers only its native 408px canvas', () => {
+test('the replacement orange palm offers responsive sizes and its full canvas for zoom', () => {
   const image = fullSizeProducts.find(product => product.color === 'orange').images[1];
-  assert.equal(image.width, 408);
+  assert.equal(image.width, 1322);
   const html = renderer.route('/product/or17');
-  assert.ok(html.includes('srcset="/images/full-size/orange-palm-408.webp 408w"'));
-  assert.ok(html.includes('data-image="/images/full-size/orange-palm-408.webp"'));
-  for (const width of [480, 960]) assert.equal(existsSync(publicFile(`/images/full-size/orange-palm-${width}.webp`)), false);
+  assert.ok(html.includes('srcset="/images/full-size/orange-palm-480.webp 480w, /images/full-size/orange-palm-960.webp 960w, /images/full-size/orange-palm-1322.webp 1322w"'));
+  assert.ok(html.includes('data-image="/images/full-size/orange-palm-1322.webp"'));
+  assert.equal(existsSync(publicFile('/images/full-size/orange-palm-408.webp')), false);
 });
 
 test('full-size pages offer the confirmed throw-hand options and stay in teaser mode', () => {

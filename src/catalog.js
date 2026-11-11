@@ -61,7 +61,7 @@ export function purchasePrice(product, service, includeService) {
 }
 
 export const localProducts = Object.freeze([
-  { id: 'brown', name: 'CL16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Olive Brown / Tan / Brown', swatches: ['#b97941', '#62452e'], accentColor: '#9a622d', accentBackground: '#f8f3eb', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/brown${n}.PNG`) },
+  { id: 'brown', name: 'CL16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Camel / Toffee / Black', swatches: ['#b97941', '#62452e'], accentColor: '#9a622d', accentBackground: '#f8f3eb', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/brown${n}.PNG`) },
   { id: 'blue', name: 'OB16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Baby Blue / Royal / Navy', swatches: ['#b7dce9', '#1956ac', '#202c40'], accentColor: '#2560ae', accentBackground: '#eef6fa', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/blue${n}.PNG`) },
   { id: 'black', name: 'BR16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Black / Red / Gray', swatches: ['#202326', '#d3423e', '#a7a9a8'], accentColor: '#d3423e', accentBackground: '#f8f1f0', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/black${n}.PNG`) }
 ]);
@@ -88,7 +88,7 @@ const fullSizePhotoSizes = Object.freeze({
   mint: { back: 1254, palm: 1202, side: 1254, 'finger-side': 1254 },
   black: { back: 1271, palm: 1276, side: 1442, 'finger-side': 1208 },
   camel: { back: 1198, palm: 1244, side: 612, 'finger-side': 1119 },
-  orange: { back: 456, palm: 408, side: 1206, 'finger-side': 522 }
+  orange: { back: 1197, palm: 1322, side: 1206, 'finger-side': 1438 }
 });
 const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
   src: `/images/full-size/${color}-${angle}.jpg`,

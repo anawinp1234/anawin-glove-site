@@ -299,7 +299,8 @@ function productPage(product) {
 }
 
 function gloveLinkCard(product) {
-  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.line === 'full-size' ? `Full-size · ${product.tone}` : product.tone)}</small></span>${arrow()}</a>`;
+  const role = product.line === 'full-size' ? product.specs.find(([label]) => label === 'Position')[1] : 'Trainer';
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small></span>${arrow()}</a>`;
 }
 
 function about() {
