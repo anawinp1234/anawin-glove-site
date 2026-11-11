@@ -112,7 +112,7 @@ function webpChunks(buffer) {
 }
 
 // Fingerprint of the 520-byte LS34H55xG RGB ICC embedded in the approved
-// orange_back.png, orange_palm.png and orange_finger_side.png sources.
+// or17_back.png, or17_palm.png and or17_finger_side.png sources.
 // The raw photos stay outside Git; CI checks against their captured profile.
 const orangeSourceIccHash = '9520dfb2bad1d955a65ba8a3ffecef068e3715ae09486b41067dca1bbd234c29';
 for (const [angle, side] of [['back', 456], ['palm', 408], ['finger-side', 522]]) {
