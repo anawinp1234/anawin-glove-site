@@ -85,10 +85,10 @@ const fullSizeAngles = Object.freeze([
 ]);
 // Square photo size per colorway, from scripts/prepare-full-size-images.py.
 const fullSizePhotoSizes = Object.freeze({
-  mint: { back: 1254, palm: 1254, side: 1254, 'finger-side': 1254 },
-  black: { back: 1402, palm: 1402, side: 1448, 'finger-side': 1402 },
-  camel: { back: 1449, palm: 1402, side: 724, 'finger-side': 1402 },
-  orange: { back: 548, palm: 422, side: 1448, 'finger-side': 567 }
+  mint: { back: 1254, palm: 1202, side: 1254, 'finger-side': 1254 },
+  black: { back: 1271, palm: 1276, side: 1442, 'finger-side': 1208 },
+  camel: { back: 1198, palm: 1244, side: 612, 'finger-side': 1230 },
+  orange: { back: 456, palm: 408, side: 1206, 'finger-side': 522 }
 });
 const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
   src: `/images/full-size/${color}-${angle}.jpg`,

@@ -115,7 +115,7 @@ function webpChunks(buffer) {
 // orange_back.png, orange_palm.png and orange_finger_side.png sources.
 // The raw photos stay outside Git; CI checks against their captured profile.
 const orangeSourceIccHash = '9520dfb2bad1d955a65ba8a3ffecef068e3715ae09486b41067dca1bbd234c29';
-for (const [angle, side] of [['back', 548], ['palm', 422], ['finger-side', 567]]) {
+for (const [angle, side] of [['back', 456], ['palm', 408], ['finger-side', 522]]) {
   test(`orange ${angle} JPEG and responsive WebPs preserve the approved source ICC and dimensions`, () => {
     const jpeg = jpegMetadata(readFileSync(publicFile(`/images/full-size/orange-${angle}.jpg`)));
     assert.equal(jpeg.profile.length, 520);
@@ -132,12 +132,12 @@ for (const [angle, side] of [['back', 548], ['palm', 422], ['finger-side', 567]]
   });
 }
 
-test('the low-resolution orange palm offers only its native 422px canvas', () => {
+test('the low-resolution orange palm offers only its native 408px canvas', () => {
   const image = fullSizeProducts.find(product => product.color === 'orange').images[1];
-  assert.equal(image.width, 422);
+  assert.equal(image.width, 408);
   const html = renderer.route('/product/or17');
-  assert.ok(html.includes('srcset="/images/full-size/orange-palm-422.webp 422w"'));
-  assert.ok(html.includes('data-image="/images/full-size/orange-palm-422.webp"'));
+  assert.ok(html.includes('srcset="/images/full-size/orange-palm-408.webp 408w"'));
+  assert.ok(html.includes('data-image="/images/full-size/orange-palm-408.webp"'));
   for (const width of [480, 960]) assert.equal(existsSync(publicFile(`/images/full-size/orange-palm-${width}.webp`)), false);
 });
 

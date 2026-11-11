@@ -760,6 +760,8 @@ body.newsletter-open{overflow:hidden}
 
 /* Keep desktop product photos beside the details as the page scrolls. */
 @media(min-width:761px){
+  /* Fill the photo column with the photos' own tone so the square gallery has no visible edge. */
+  .pdp-main{background:var(--image-surface)}
   .pdp{--pdp-gallery-top:92px}
   .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
   .pdp-main > .pdp-info{position:static}
