@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public' / 'images' / 'full-size'
 OUT.mkdir(parents=True, exist_ok=True)
 
-MODELS = [('mint', 'mint_glove'), ('black', 'black_glove'), ('camel', 'camel_glove'), ('orange', 'orange_glove')]
+MODELS = [('mint', 'mi26'), ('black', 'bl50'), ('camel', 'cm24'), ('orange', 'or17')]
 ANGLES = ['back', 'palm', 'side', 'finger_side']
 # Rows to trim from the top of a source photo (removes a stray screenshot strip).
-TOP_TRIM = {('orange', 'back'): 8}
+TOP_TRIM = {}
 # Share of the square the glove's longer side fills. The mini glove photos average
 # about 86%, which leaves roughly 7% white space on each side.
 GLOVE_FILL = 0.86
@@ -31,7 +31,7 @@ for color, folder in MODELS:
     if ONLY and color not in ONLY:
         continue
     for angle in ANGLES:
-        image = ImageOps.exif_transpose(Image.open(ROOT / 'images' / folder / f'{color}_{angle}.png'))
+        image = ImageOps.exif_transpose(Image.open(ROOT / 'images' / folder / f'{folder}_{angle}.png'))
         # Keep the source RGB interpretation through newly created canvases.
         # Dropping a non-sRGB ICC profile changes its appearance in the browser.
         profile = image.info.get('icc_profile')
