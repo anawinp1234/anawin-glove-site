@@ -781,7 +781,6 @@ body.newsletter-open{overflow:hidden}
 }
 @media(min-width:1101px){
   .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) clamp(380px,32vw,560px);column-gap:24px}
-  .full-size-pdp .pdp-gallery-wrap{position:static}
   .full-size-pdp .pdp-gallery{max-height:none}
   .full-size-pdp .pdp-info{padding:32px 24px 64px 0}
 }
