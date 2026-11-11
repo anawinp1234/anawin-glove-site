@@ -768,3 +768,20 @@ body.newsletter-open{overflow:hidden}
   .pdp-gallery-wrap .gallery-image{min-width:0;min-height:0;aspect-ratio:auto}
   .pdp-gallery-wrap .gallery-image img{object-fit:contain}
 }
+
+/* Keep the full-size gallery and copy together when the sticky gallery reaches
+   its viewport height limit. Scope these adjustments to the coming-soon pages. */
+.full-size-pdp .pdp-info h1{margin:16px 0 8px;line-height:.78}
+.full-size-pdp .gallery-image img{object-fit:contain;transform:none}
+.full-size-pdp .gallery-image:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
+@media(min-width:761px){
+  .full-size-pdp .pdp-info{padding:32px 16px 64px}
+}
+@media(min-width:1101px){
+  .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) 440px;column-gap:24px;max-width:1370px;margin-inline:auto;padding-inline:24px}
+  .full-size-pdp .pdp-gallery{margin-left:auto}
+  .full-size-pdp .pdp-info{padding:32px 0 64px}
+}
+@media(max-width:760px){
+  .full-size-pdp .pdp-info{padding-top:28px}
+}
