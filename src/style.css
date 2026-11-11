@@ -731,6 +731,7 @@ body.newsletter-open{overflow:hidden}
 .pdp-notify :is(input,button):focus-visible{outline:2px solid #fff;outline-offset:3px}
 .full-size-pdp .purchase-trust{margin-bottom:12px}
 /* Full-size photos are shot on white, so the gallery column matches them and the white details panel. */
+.full-size-pdp{background:var(--white)}
 .full-size-pdp :is(.pdp-main,.pdp-gallery,.gallery-image){background:var(--white)}
 @media(max-width:1100px){.full-size-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.collection.full-size-collection{padding-top:80px}.shop-products.full-size-collection{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
@@ -769,8 +770,7 @@ body.newsletter-open{overflow:hidden}
   .pdp-gallery-wrap .gallery-image img{object-fit:contain}
 }
 
-/* Keep the full-size gallery and copy together when the sticky gallery reaches
-   its viewport height limit. Scope these adjustments to the coming-soon pages. */
+/* Keep full-size photos prominent and the copy close without outer gutters. */
 .full-size-pdp .pdp-info h1{margin:16px 0 8px;line-height:.78}
 .full-size-pdp .gallery-image img{object-fit:contain;transform:none}
 .full-size-pdp .gallery-image:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
@@ -778,9 +778,10 @@ body.newsletter-open{overflow:hidden}
   .full-size-pdp .pdp-info{padding:32px 16px 64px}
 }
 @media(min-width:1101px){
-  .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) 440px;column-gap:24px;max-width:1370px;margin-inline:auto;padding-inline:24px}
-  .full-size-pdp .pdp-gallery{margin-left:auto}
-  .full-size-pdp .pdp-info{padding:32px 0 64px}
+  .full-size-pdp .pdp-main{grid-template-columns:minmax(0,1fr) clamp(380px,32vw,560px);column-gap:24px}
+  .full-size-pdp .pdp-gallery-wrap{position:static}
+  .full-size-pdp .pdp-gallery{max-height:none}
+  .full-size-pdp .pdp-info{padding:32px 24px 64px 0}
 }
 @media(max-width:760px){
   .full-size-pdp .pdp-info{padding-top:28px}
