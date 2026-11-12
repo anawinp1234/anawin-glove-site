@@ -1,5 +1,5 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts, purchasePrice } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice } from './catalog.js';
 import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
@@ -22,6 +22,39 @@ import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 
+// Errors belong to the native controls so screen readers announce them on focus.
+function clearFullSizeFieldErrors(root, name = null) {
+  root.querySelectorAll('[data-full-size-field-error]').forEach(error => {
+    const field = error.dataset.fullSizeFieldError;
+    if (name && field !== name) return;
+    error.hidden = true;
+    error.textContent = '';
+    root.querySelectorAll(`[name="${field}"]`).forEach(input => {
+      input.removeAttribute('aria-invalid');
+      const descriptions = (input.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== error.id);
+      if (descriptions.length) input.setAttribute('aria-describedby', descriptions.join(' '));
+      else input.removeAttribute('aria-describedby');
+    });
+  });
+}
+
+function showFullSizeFieldError(root, failure) {
+  if (!failure.field) return false;
+  const inputs = [...root.querySelectorAll(`[name="${failure.field}"]`)];
+  const error = root.querySelector(`[data-full-size-field-error="${failure.field}"]`);
+  if (!error || !inputs.length) return false;
+  error.hidden = false;
+  error.textContent = failure.message;
+  inputs.forEach(input => {
+    input.setAttribute('aria-invalid', 'true');
+    const descriptions = new Set((input.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    descriptions.add(error.id);
+    input.setAttribute('aria-describedby', [...descriptions].join(' '));
+  });
+  inputs[0].focus();
+  return true;
+}
+
 const app = document.querySelector('#app');
 let destroyFooterAccordion = () => {};
 let commerceError = '';
@@ -36,6 +69,7 @@ let products = [...localProducts];
 const mobileProductQuery = window.matchMedia('(max-width: 760px)');
 const mobileProductOrder = ['blue', 'brown', 'black'];
 let breakInService = localBreakInService;
+let fullSizeService = { ...fullSizeBreakInService, available: false };
 let cart = { id: null, lines: [], subtotal: 0, currencyCode: 'USD', checkoutUrl: null };
 let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
@@ -98,7 +132,7 @@ function cartDrawer() {
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     ${cartFeedback}
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
-      product, line, service, mode: commerce.mode, serviceProduct: breakInService,
+      product, line, service, mode: commerce.mode, serviceProduct: product.line === 'full-size' ? fullSizeBreakInService : breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
     ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
@@ -143,7 +177,7 @@ function syncProductDisplayOrder() {
 function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
-  const views = createStorefrontRenderer({ products, breakInService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
+  const views = createStorefrontRenderer({ products, breakInService, fullSizeService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
@@ -325,6 +359,31 @@ async function cartAction(action, opener = null, kind = 'cart') {
 }
 
 function addProductFromButton(productId, trigger) {
+  const product = products.find(product => product.id === productId);
+  if (product?.line === 'full-size') {
+    const selected = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
+    const includeBreakIn = Boolean(document.querySelector('[data-full-size-break-in]')?.checked);
+    const hand = selected('full-size-throw-hand');
+    const variant = product.variants?.find(variant => variant.selectedOptions?.some(option =>
+      option.name === 'Throwing Hand' && hand?.startsWith(`${option.value}-Hand Throw`)) ||
+      product.throwHands.length === 1 && hand && variant.selectedOptions?.some(option => option.name === 'Title' && option.value === 'Default Title'));
+    const error = document.querySelector('[data-full-size-error]');
+    clearFullSizeFieldErrors(document);
+    let options;
+    try {
+      if (!variant?.availableForSale) throw Object.assign(new Error('Choose an available throw hand.'), { field: 'full-size-throw-hand' });
+      if (includeBreakIn) options = normalizeFullSizeOptions({ type: 'full-size',
+        wearingStyle: selected('full-size-wearing-style'), closure: selected('full-size-closure-point'),
+        ...Object.fromEntries(FULL_SIZE_SHAPING_FIELDS.map(field => [field.key, selected(field.name)])),
+        firmness: selected('full-size-firmness'), placement: document.querySelector('#full-size-finger-placement')?.value,
+        notes: document.querySelector('#full-size-break-in-notes')?.value });
+    } catch (failure) {
+      if (!showFullSizeFieldError(document, failure) && error) { error.hidden = false; error.textContent = failure.message; error.focus(); }
+      return;
+    }
+    if (error) { error.hidden = true; error.textContent = ''; }
+    return cartAction(() => commerce.addProduct(productId, includeBreakIn, options, variant.id), trigger, 'add');
+  }
   const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
   const options = includeBreakIn ? {
     level: document.querySelector('input[name="break-in-level"]:checked')?.value,
@@ -493,8 +552,14 @@ function bind() {
   const fullSizeServiceCheckbox = document.querySelector('[data-full-size-break-in]');
   const updateFullSizeSetup = () => {
     if (!fullSizeServiceCheckbox) return;
+    const error = document.querySelector('[data-full-size-error]');
+    if (error) { error.hidden = true; error.textContent = ''; }
     const selected = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
     const enabled = fullSizeServiceCheckbox.checked;
+    if (!enabled) clearFullSizeFieldErrors(document);
+    document.querySelectorAll('[data-full-size-customization] input[type="radio"]').forEach(input => { input.required = enabled; input.disabled = !enabled; });
+    const notesInput = document.querySelector('#full-size-break-in-notes');
+    if (notesInput) notesInput.disabled = !enabled;
     const otherSelected = selected('full-size-wearing-style')?.startsWith('Other —');
     const customization = document.querySelector('[data-full-size-customization]');
     if (customization) customization.hidden = !enabled;
@@ -515,15 +580,17 @@ function bind() {
     const style = otherSelected ? (description?.value.trim() ? `Other: ${description.value.trim()}` : 'Describe your finger placement')
       : selected('full-size-wearing-style') || 'Choose finger placement';
     const closure = selected('full-size-closure-point');
+    const shaping = FULL_SIZE_SHAPING_FIELDS.map(field => `${field.label}: ${selected(field.name) || 'Choose one'}`).join(' · ');
     const firmness = selected('full-size-firmness') || 'Choose firmness';
     const notes = document.querySelector('#full-size-break-in-notes')?.value.trim();
     summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · ${enabled
-      ? `${style} · ${closure ? `Thumb to ${closure.toLowerCase()}` : 'Choose closure'} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
-      : 'No break-in service'}.`;
+      ? `${style} · Thumb closure: ${closure || 'Choose one'} · ${shaping} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
+      : 'No break-in service'}. Total before shipping/tax: ${money(purchasePrice({ price: Number(summary.dataset.price) }, fullSizeService, enabled), summary.dataset.currency)}.`;
   };
   document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"]').forEach(input => {
-    input.addEventListener('input', updateFullSizeSetup);
-    input.addEventListener('change', updateFullSizeSetup);
+    const update = () => { clearFullSizeFieldErrors(document, input.name); updateFullSizeSetup(); };
+    input.addEventListener('input', update);
+    input.addEventListener('change', update);
   });
   updateFullSizeSetup();
   const serviceCheckbox = document.querySelector('[data-break-in]');
@@ -636,6 +703,7 @@ async function loadCommerce() {
     if (!commerceError) {
       products = await commerce.listProducts();
       breakInService = await commerce.getBreakInService();
+      fullSizeService = await commerce.getFullSizeBreakInService?.() || fullSizeService;
       cart = await commerce.getCart();
     }
     render();
@@ -653,9 +721,10 @@ async function loadCommerce() {
       reviewData[handle] = { ...reviewData[handle], writeReviewUrl: judgeMeReviewLinks[handle] };
     }
     loadReviews();
-    const serviceLoad = commerce.getBreakInService().then(service => {
+    const serviceLoad = commerce.getBreakInService().then(async service => {
+      fullSizeService = await commerce.getFullSizeBreakInService?.() || fullSizeService;
       breakInService = service;
-      if (!commerceLoading && service.available) { render(); if (cartIsOpen) openCart(); }
+      if (!commerceLoading && (service.available || fullSizeService.available)) { render(); if (cartIsOpen) openCart(); }
     });
     try { cart = await commerce.getCart(); }
     catch (error) {

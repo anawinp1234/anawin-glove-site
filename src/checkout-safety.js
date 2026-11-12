@@ -38,7 +38,7 @@ function cartSignature(cart) {
     lines: cart.lines.map(line => ({
       remoteLineId: line.remoteLineId, parentLineId: line.parentLineId,
       merchandiseId: line.merchandiseId, productId: line.productId,
-      isBreakIn: line.isBreakIn, quantity: line.quantity,
+      isBreakIn: line.isBreakIn, serviceType: line.serviceType, quantity: line.quantity,
       attributes: [...(line.attributes || [])].sort((a, b) => a.key.localeCompare(b.key)),
       unitPrice: line.unitPrice, lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal, allDiscountAllocations: line.allDiscountAllocations

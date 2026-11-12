@@ -274,3 +274,16 @@ test('full-size product routes replace both legacy URL formats throughout built 
     assert.equal(crumbs[0].itemListElement.at(-1).item, canonicalOrigin + path);
   }
 });
+
+test('prerendered full-size prices and setup totals are $285 without publishing purchasable offers', () => {
+  for (const product of fullSizeProducts) {
+    const html = htmlFor(productPath(product));
+    assert.match(html, /class="price">\$285<\/p>/);
+    assert.match(html, /No break-in service\. Total before shipping\/tax: \$285\./);
+    assert.doesNotMatch(html, /\$290|\$365|data-anawin-product|data-add="/);
+    assert.match(html, /Add to cart — Coming soon/);
+  }
+  for (const path of Object.keys(seoRoutes)) {
+    assert.doesNotMatch(htmlFor(path), /\$290|\$365/);
+  }
+});
