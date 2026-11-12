@@ -5,6 +5,7 @@ import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
+import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
 import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey, redirectToVerifiedCheckout } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
@@ -79,6 +80,7 @@ let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
 const scrollMemory = installScrollMemory(window, top => { render(top); loadReviews(); });
 const runCartAction = createCartActionGate();
+const cartState = createCartStateTracker(() => commerce.readCartSafety?.());
 const verifyCheckout = commerce.mode === 'shopify'
   ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
 let cartError = '';
@@ -340,6 +342,7 @@ function bindMobileGallery() {
 async function cartAction(action, opener = null, kind = 'cart') {
   if (cartBusy || checkoutBusy) return;
   return runCartAction(async () => {
+    cartState.localChange();
     cartBusy = true; cartError = ''; openCart(opener);
     try {
       cart = await action();
@@ -394,6 +397,7 @@ function addProductFromButton(productId, trigger) {
 
 async function discountAction(action, code = '', removingCode = '') {
   if (cartBusy || discountBusy || checkoutBusy) return;
+  cartState.localChange();
   cartBusy = true;
   discountBusy = true;
   discountMessage = '';
@@ -479,6 +483,7 @@ function bindCart() {
   }));
   document.querySelector('[data-checkout]')?.addEventListener('click', async () => {
     if (checkoutBusy || cartBusy || !canCheckout()) return;
+    cartState.localChange();
     checkoutBusy = true;
     const button = document.querySelector('[data-checkout]');
     button.disabled = true;
@@ -713,6 +718,10 @@ async function loadCommerce() {
   commerceError = '';
   breakInService = { ...localBreakInService, available: false };
   render();
+  // The saved-cart read does not depend on product data; run it alongside the product
+  // lookups. It is applied after products load only if no newer cart state appeared.
+  const finishCartRestore = startStartupCartRestore({ getCart: () => commerce.getCart(), tracker: cartState,
+    isBusy: () => cartBusy || checkoutBusy });
   try {
     products = await commerce.listProducts();
     judgeMeReviewLinks = productReviewLinks(products);
@@ -726,11 +735,18 @@ async function loadCommerce() {
       breakInService = service;
       if (!commerceLoading && (service.available || fullSizeService.available)) { render(); if (cartIsOpen) openCart(); }
     });
-    try { cart = await commerce.getCart(); }
-    catch (error) {
-      cartError = commerceErrorMessage(error, 'cart');
+    const cartResult = await finishCartRestore();
+    if (cartResult.status === 'stale') {
+      // Another tab kept changing the cart; never show an older answer. Keep checkout blocked
+      // until the customer checks the cart (the storage handler has already said so).
+      checkoutNeedsReview = true;
       cart = { ...cart, checkoutUrl: null };
-    }
+      cartError ||= 'Your cart changed in another tab. Check your cart before checkout.';
+    } else if (cartResult.status === 'current' && 'error' in cartResult) {
+      cartError = commerceErrorMessage(cartResult.error, 'cart');
+      cart = { ...cart, checkoutUrl: null };
+    } else if (cartResult.status === 'current') cart = cartResult.value;
+    // 'superseded': a same-tab cart action owns newer state and applies it itself.
     commerceLoading = false;
     render();
     if (cartIsOpen) openCart();
@@ -780,6 +796,7 @@ mobileProductQuery.addEventListener('change', syncProductDisplayOrder);
 window.addEventListener('resize', fitHeroHeading);
 window.addEventListener('storage', event => {
   if (commerce.mode !== 'shopify' || !isCartStorageKey(event.key)) return;
+  cartState.externalChange();
   checkoutNeedsReview = true;
   cart = { ...cart, checkoutUrl: null };
   cartError = 'Your cart changed in another tab. Check your cart before checkout.';

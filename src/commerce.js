@@ -446,6 +446,19 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     return data.product;
   }
 
+  // Service lookups start alongside the required glove lookups so they do not add a
+  // network round trip. Each is consumed once; validation still runs after products load.
+  const settled = promise => promise.then(value => ({ value }), error => ({ error }));
+  const servicePrefetch = new Map();
+  const loadService = async handle => {
+    const prefetched = servicePrefetch.get(handle);
+    servicePrefetch.delete(handle);
+    if (!prefetched) return loadProduct(handle);
+    const result = await prefetched;
+    if ('error' in result) throw result.error;
+    return result.value;
+  };
+
   async function getRawCart() {
     const id = storage?.getItem(SHOPIFY_CART_KEY);
     if (!id) return emptyCart();
@@ -982,6 +995,11 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   return {
     mode: 'shopify',
     async listProducts() {
+      servicePrefetch.clear();
+      if (config.breakInHandle) servicePrefetch.set(config.breakInHandle, settled(loadProduct(config.breakInHandle)));
+      if (fullSizeProducts.some(product => config.handles[product.id])) {
+        servicePrefetch.set(FULL_SIZE_SERVICE_HANDLE, settled(loadProduct(FULL_SIZE_SERVICE_HANDLE)));
+      }
       const entries = await Promise.all(Object.entries(config.handles).map(async ([id, handle]) => [id, await loadProduct(handle)]));
       products = [...localProducts, ...fullSizeProducts.filter(product => config.handles[product.id])].map(local => {
         const remote = entries.find(([id]) => id === local.id)[1];
@@ -995,7 +1013,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       remoteBreakInService = { ...breakInService, available: false };
       if (!config.breakInHandle) return remoteBreakInService;
       try {
-        const service = await loadProduct(config.breakInHandle);
+        const service = await loadService(config.breakInHandle);
         breakInVariant = service.variants.nodes[0];
         const price = Number(breakInVariant.price.amount);
         const currencyCode = breakInVariant.price.currencyCode;
@@ -1021,7 +1039,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       fullSizeService = { ...fullSizeBreakInService, available: false };
       if (!products.some(product => product.line === 'full-size')) return fullSizeService;
       try {
-        const service = await loadProduct(FULL_SIZE_SERVICE_HANDLE);
+        const service = await loadService(FULL_SIZE_SERVICE_HANDLE);
         const variant = service.variants.nodes.find(variant => variant.id === FULL_SIZE_SERVICE_VARIANT);
         if (service.id !== FULL_SIZE_SERVICE_PRODUCT || !variant || Number(variant.price.amount) !== 75 || variant.price.currencyCode !== 'USD') throw new Error('Full-size service reference or price differs.');
         fullSizeVariant = variant;

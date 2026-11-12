@@ -1697,3 +1697,134 @@ test('Shopify discount warnings remain available alongside the returned cart', a
   assert.equal(cart.discountCodes[0].applicable, false);
   assert.deepEqual(cart.discountWarnings, ['Some discounts were not honored.']);
 });
+
+// Purchase-readiness: optional service lookups overlap the required glove lookups.
+function gatedProductFetch(fixture, gatedHandles) {
+  const started = [];
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const fetchImpl = async (url, request) => {
+    const { variables } = JSON.parse(request.body);
+    if (variables?.handle) started.push(variables.handle);
+    if (gatedHandles.includes(variables?.handle)) await gate;
+    return fixture.fetchImpl(url, request);
+  };
+  return { started, release, fetchImpl };
+}
+
+test('service lookups start alongside glove lookups instead of after them', async () => {
+  for (const fullSize of [false, true]) {
+    const fixture = shopifyFixture({ fullSize });
+    const gated = gatedProductFetch(fixture, Object.values(fixture.config.handles));
+    const commerce = createShopifyCommerce(fixture.config, fixture.storage, gated.fetchImpl);
+    const listing = commerce.listProducts();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.ok(gated.started.includes('break-in'), 'trainer service lookup starts before gloves resolve');
+    assert.equal(gated.started.includes('full-size-glove-break-in-service'), fullSize, 'full-size service lookup only when full-size gloves are configured');
+    gated.release();
+    await listing;
+    assert.equal((await commerce.getBreakInService()).available, true);
+    if (fullSize) assert.equal((await commerce.getFullSizeBreakInService()).available, true);
+    const serviceLookups = handle => gated.started.filter(item => item === handle).length;
+    assert.equal(serviceLookups('break-in'), 1, 'prefetched service is reused, not requested twice');
+    assert.equal(serviceLookups('full-size-glove-break-in-service'), fullSize ? 1 : 0);
+  }
+});
+
+test('a prefetched service is still validated against the loaded glove currency', async () => {
+  const { commerce } = shopifyFixture({ currencies: { 'break-in': 'CAD' } });
+  await commerce.listProducts();
+  const service = await commerce.getBreakInService();
+  assert.equal(service.available, false);
+  await assert.rejects(commerce.addProduct('black', true), /Break-in service is not currently available/);
+  assert.equal((await commerce.addProduct('black', false)).lines.length, 1, 'glove-only purchase still works');
+});
+
+test('a failed prefetched service lookup disables only the service and is retried on the next load', async () => {
+  for (const serviceState of ['failed', 'missing', 'sold-out', 'invalid-price']) {
+    const fixture = shopifyFixture({ serviceState });
+    const raw = createShopifyCommerce(fixture.config, fixture.storage, fixture.fetchImpl);
+    await raw.listProducts();
+    assert.equal((await raw.getBreakInService()).available, false, serviceState);
+    const lookups = () => fixture.requests.filter(({ variables }) => variables?.handle === 'break-in').length;
+    assert.equal(lookups(), 1, serviceState);
+    await raw.getBreakInService();
+    assert.equal(lookups(), 2, `${serviceState}: a later call fetches fresh state`);
+    await raw.listProducts();
+    assert.equal(lookups(), 3, `${serviceState}: each product load starts a new lookup`);
+  }
+});
+
+async function withoutUnhandledRejections(run) {
+  const unhandled = [];
+  const listener = error => unhandled.push(error);
+  process.on('unhandledRejection', listener);
+  try {
+    await run();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.deepEqual(unhandled, [], 'no unhandled rejection');
+  } finally { process.off('unhandledRejection', listener); }
+}
+
+test('a service lookup rejected before glove lookups resolve is contained and keeps glove-only purchases', async () => {
+  for (const failure of ['network', 'http']) await withoutUnhandledRejections(async () => {
+    const fixture = shopifyFixture();
+    const gated = gatedProductFetch(fixture, Object.values(fixture.config.handles));
+    const fetchImpl = async (url, request) => {
+      if (JSON.parse(request.body).variables?.handle === 'break-in') {
+        if (failure === 'network') throw new TypeError('Failed to fetch');
+        return { ok: false, status: 503 };
+      }
+      return gated.fetchImpl(url, request);
+    };
+    const commerce = createShopifyCommerce(fixture.config, fixture.storage, fetchImpl);
+    const listing = commerce.listProducts();
+    for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 0)); // service settles first
+    gated.release();
+    await listing;
+    assert.equal((await commerce.getBreakInService()).available, false, failure);
+    await assert.rejects(commerce.addProduct('black', true), /Break-in service is not currently available/);
+    const cart = await commerce.addProduct('black', false);
+    assert.equal(cart.lines.length, 1); assert.equal(cart.incomplete, false);
+  });
+});
+
+test('an early full-size service rejection leaves the trainer service and full-size glove-only paths intact', async () => {
+  await withoutUnhandledRejections(async () => {
+    const fixture = shopifyFixture({ fullSize: true });
+    const gated = gatedProductFetch(fixture, Object.values(fixture.config.handles));
+    const commerce = createShopifyCommerce(fixture.config, fixture.storage, async (url, request) => {
+      if (JSON.parse(request.body).variables?.handle === 'full-size-glove-break-in-service') throw new TypeError('Failed to fetch');
+      return gated.fetchImpl(url, request);
+    });
+    const listing = commerce.listProducts();
+    for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 0));
+    gated.release();
+    await listing;
+    assert.equal((await commerce.getBreakInService()).available, true);
+    assert.equal((await commerce.getFullSizeBreakInService()).available, false);
+    const cart = await commerce.addProduct('full-mint', false, undefined, 'gid://variant/mi26-right');
+    assert.equal(cart.incomplete, false);
+  });
+});
+
+test('a product-loading failure leaves no reusable prefetch, and a retry loads products and services fresh', async () => {
+  await withoutUnhandledRejections(async () => {
+    const fixture = shopifyFixture();
+    let failGlove = true;
+    const commerce = createShopifyCommerce(fixture.config, fixture.storage, async (url, request) => {
+      if (JSON.parse(request.body).variables?.handle === 'ob16' && failGlove) return { ok: false, status: 503 };
+      return fixture.fetchImpl(url, request);
+    });
+    await assert.rejects(commerce.listProducts(), /503/);
+    failGlove = false;
+    const products = await commerce.listProducts();
+    assert.deepEqual(products.filter(product => product.line !== 'full-size').map(product => product.available), [true, true, true]);
+    assert.equal((await commerce.getBreakInService()).available, true);
+    const lookups = fixture.requests.filter(({ variables }) => variables?.handle === 'break-in').length;
+    assert.equal(lookups, 2, 'the retry starts its own service lookup');
+    const cart = await commerce.addProduct('black', true);
+    assert.equal(cart.lines.length, 2);
+    assert.equal(cart.lines.find(line => line.isBreakIn).parentLineId, cart.lines.find(line => !line.isBreakIn).remoteLineId);
+  });
+});
