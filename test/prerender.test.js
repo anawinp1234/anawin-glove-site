@@ -144,12 +144,34 @@ test('robots, sitemap, and security headers survive the build', () => {
   assert.doesNotMatch(read('dist/sitemap.xml'), /404/);
 });
 
+function headerBlocks(source) {
+  const blocks = new Map();
+  let current = null;
+  for (const raw of source.split('\n')) {
+    if (!raw.trim() || raw.trim().startsWith('#')) continue;
+    if (!/^\s/.test(raw)) blocks.set(current = raw.trim(), []);
+    else blocks.get(current).push(raw.trim());
+  }
+  return blocks;
+}
+
+// Cloudflare applies path rules to the 404-page fallback as well, so a long-lived
+// /assets/* rule would also cache "missing asset" HTML. Asset caching is a separate task.
+test('static headers add no long-lived cache rules that a missing-asset 404 would inherit', () => {
+  const blocks = headerBlocks(read('public/_headers'));
+  assert.deepEqual([...blocks.keys()], ['/*']);
+  for (const lines of blocks.values()) {
+    assert.ok(!lines.some(line => /^cache-control:/i.test(line)), 'Cache-Control stays at the platform default');
+  }
+});
+
 test('static responses carry one restrictive report-only CSP without changing HTML or existing headers', () => {
   const source = read('public/_headers');
   const built = read('dist/_headers');
   assert.equal(built, source);
   assert.match(source, /^\/\*$/m);
-  const headerLines = source.trim().split('\n').slice(1).map(line => line.trim());
+  const blocks = headerBlocks(source);
+  const headerLines = blocks.get('/*');
   const values = new Map(headerLines.map(line => {
     const separator = line.indexOf(':');
     return [line.slice(0, separator).toLowerCase(), line.slice(separator + 1).trim()];
