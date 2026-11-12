@@ -22,6 +22,7 @@ import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
+import { installGalleryLoading } from './gallery-loading.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -101,6 +102,9 @@ let newsletterPopup = null;
 let newsletterDialog = null;
 let newsletterPopupUi = null;
 let stickyPurchase = null;
+// Routes whose held-back gallery photos were released, so re-renders and return visits show them immediately.
+const releasedGalleryPaths = new Set();
+let destroyGalleryLoading = () => {};
 const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
 let judgeMeReviewLinks = productReviewLinks(products);
 const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
@@ -179,7 +183,9 @@ function syncProductDisplayOrder() {
 function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
-  const views = createStorefrontRenderer({ products, breakInService, fullSizeService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
+  destroyGalleryLoading();
+  const path = location.pathname;
+  const views = createStorefrontRenderer({ products, breakInService, fullSizeService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData, deferGallery: !releasedGalleryPaths.has(path) });
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
@@ -188,6 +194,7 @@ function render(scrollTop = window.scrollY) {
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
   fitHeroHeading(); bind(); scrollToInstant(window, scrollTop);
+  destroyGalleryLoading = installGalleryLoading({ gallery: document.querySelector('.pdp-gallery'), onRelease: () => { releasedGalleryPaths.add(path); } });
   stickyPurchase = createStickyPurchase({
     bar: document.querySelector('[data-sticky-purchase]'),
     original: document.querySelector('[data-add]'),

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { inflateSync } from 'node:zlib';
 import { localProducts, breakInService } from '../src/catalog.js';
-import { createStorefrontRenderer } from '../src/storefront-render.js';
+import { createStorefrontRenderer, GALLERY_DESKTOP_MEDIA, GALLERY_PLACEHOLDER } from '../src/storefront-render.js';
 import { zoomImageSource } from '../src/zoom-image.js';
 
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
@@ -26,8 +26,11 @@ test('BR16 gallery selects only color-correct variants with unchanged responsive
   assert.match(first, /srcset="\/images\/optimized\/black1-p3-480.webp 480w, \/images\/optimized\/black1-p3-960.webp 960w, \/images\/optimized\/black1-zoom-1045.webp 1045w"/);
   assert.match(first, /sizes="\(max-width: 760px\) 90vw, 30vw"/);
   assert.match(first, /data-image="\/images\/black1.PNG" aria-label="View image 1"/);
-  assert.match(first, /<img src="\/images\/black1.PNG" alt="Black \/ Red \/ Gray glove view 1" width="1045" height="1044" loading="eager"/);
+  assert.match(first, /<img src="\/images\/black1.PNG" alt="Black \/ Red \/ Gray glove view 1" width="1045" height="1044" loading="eager" fetchpriority="high"/);
 });
+
+const tones = { br16: 'Black / Red / Gray', ob16: 'Baby Blue / Royal / Navy', cl16: 'Camel / Toffee / Black' };
+const alt = (model, index) => `${tones[model]} glove view ${index + 1}`;
 
 test('all other gallery photographs keep their sources, order, labels and loading behavior', () => {
   for (const [model, color] of [['br16', 'black'], ['ob16', 'blue'], ['cl16', 'brown']]) {
@@ -36,7 +39,18 @@ test('all other gallery photographs keep their sources, order, labels and loadin
     for (let index = 0; index < 4; index++) {
       const name = `${color}${index + 1}`, html = images[index];
       assert.ok(html.includes(`data-image="/images/${name}.PNG" aria-label="View image ${index + 1}"`));
-      assert.ok(html.includes(`loading="${index < 2 ? 'eager' : 'lazy'}"`));
+      assert.ok(html.includes(`loading="${index === 0 ? 'eager' : 'lazy'}"`));
+      if (index > 0) {
+        // Held back on mobile until released; desktop's grid still selects the same WebP set.
+        assert.ok(html.includes(`<source type="image/webp" media="${GALLERY_DESKTOP_MEDIA}" srcset=`));
+        assert.ok(html.includes(`<img src="${GALLERY_PLACEHOLDER}" alt="${alt(model, index)}" width="1254" height="1254" data-gallery-src="/images/${name}.PNG" loading="lazy" />`));
+        // Without scripting the <noscript> copy is the normal picture with the original fallback.
+        assert.ok(html.includes(`<noscript><picture><source type="image/webp" srcset="/images/optimized/${name}-480.webp`));
+        assert.ok(html.includes(`<img src="/images/${name}.PNG" alt="${alt(model, index)}" width="1254" height="1254" loading="lazy" /></picture></noscript>`));
+        assert.ok(!html.includes('fetchpriority'));
+      } else {
+        assert.ok(!html.includes('media=') && !html.includes('data-gallery-src'));
+      }
       if (name === 'black1') continue;
       assert.ok(html.includes(`srcset="/images/optimized/${name}-480.webp 480w, /images/optimized/${name}-960.webp 960w, /images/optimized/${name}-1254.webp 1254w"`));
     }
