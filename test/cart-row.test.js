@@ -33,9 +33,9 @@ test('cart row places Shopify entry totals in the right price rail', () => {
 
 test('serviced MI26 labels the combined total and identifies the service as included', () => {
   const html = renderCartRow({ product: { ...product, id: 'full-mint', name: 'MI26', line: 'full-size' },
-    line: glove(1, 290), service: service(1, 75), mode: 'shopify',
+    line: glove(1, 285), service: service(1, 75), mode: 'shopify',
     serviceProduct: { price: 75, currencyCode: 'USD' }, busy: false, incomplete: false, money, escapeHtml });
-  assert.match(html, /cart-line-price">\$365<\/strong><small class="cart-entry-total-label">Glove \+ service total<\/small>/);
+  assert.match(html, /cart-line-price">\$360<\/strong><small class="cart-entry-total-label">Glove \+ service total<\/small>/);
   assert.match(html, /Break-in service · \$75 \(included\)/);
   assert.match(html, /role="group" aria-label="MI26 break-in instructions"><h4>Break-in instructions<\/h4>/);
   assert.doesNotMatch(html, /\$440/);

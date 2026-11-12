@@ -1,5 +1,7 @@
 # Review of the uncommitted full-size break-in integration
 
+November 11 pricing update: [fresh production verification](full-size-pricing-verification.md) confirms every applicable full-size variant at $285 and service at $75. The CM24 discrepancy below is historical and resolved. Test-store $290/$365 evidence is preserved unchanged.
+
 ## Current revision: full-size instructions on the service only
 
 New full-size additions now serialize all readable customization, model and hand attributes only on the linked $75 service. The glove retains private service/type markers and a versioned SHA-256 fingerprint. Actual merchandise option data supplies the glove’s hand; service model/hand and instructions are validated against that variant and fingerprint. The fingerprint also preserves distinct same-variant pairs without duplicating readable instructions. It is not a substitute for Shopify’s actual parent relationship or server-side purchase enforcement.

@@ -32,6 +32,13 @@ try {
       assert.equal(await evaluate(`document.querySelector('.full-size-pdp .add-button').disabled`),true);
       assert.equal(await evaluate(`!!document.querySelector('[data-add]')`),false);
       assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
+      assert.equal(await evaluate(`document.querySelector('.full-size-pdp .price').textContent`),'$285');
+      assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $285.'));
+      await click('[data-full-size-break-in]');
+      assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $360.'));
+      assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
+      await click('[data-full-size-break-in]');
+      assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $285.'));
     }
     await visit('http://127.0.0.1:5199/');
     await until(`document.querySelector('main')`);await evaluate(`localStorage.clear()`);
@@ -43,6 +50,7 @@ try {
     await radio('full-size-throw-hand','Left-Hand Throw (worn on right hand)');
     await evaluate(`document.querySelector('[data-full-size-break-in]').focus()`);await key(' ');
     await until(`!document.querySelector('[data-full-size-customization]').hidden`);
+    assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $360.'));
     assert.equal(await evaluate(`document.querySelector('[data-full-size-break-in]').getAttribute('aria-expanded')`),'true');
     await key('Tab');assert.equal(await evaluate(`document.activeElement.name`),'full-size-wearing-style');
     await key('ArrowDown');assert.equal(await evaluate(`!!document.querySelector('[name="full-size-wearing-style"]:checked')`),true);

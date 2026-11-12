@@ -17,7 +17,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16', ...(fullSize ? { 'full-mint': 'mi26', 'full-black': 'bl50', 'full-orange': 'or17', 'full-camel': 'cm24' } : {}) }, breakInHandle: serviceHandle, timeoutMs
   };
   const variants = {
-    mi26: ['gid://variant/mi26-right', '290.00'], bl50: ['gid://variant/bl50-right', '290.00'], or17: ['gid://variant/or17-right', '290.00'], cm24: ['gid://variant/cm24-right', '285.00'],
+    mi26: ['gid://variant/mi26-right', prices.mi26 || '285.00'], bl50: ['gid://variant/bl50-right', prices.bl50 || '285.00'], or17: ['gid://variant/or17-right', prices.or17 || '285.00'], cm24: ['gid://variant/cm24-right', prices.cm24 || '285.00'],
     'full-size-glove-break-in-service': [FULL_SIZE_SERVICE_VARIANT, '75.00'],
     br16: ['gid://variant/br16', prices.br16 || '155.00'], ob16: ['gid://variant/ob16', prices.ob16 || '155.00'],
     cl16: ['gid://variant/cl16', prices.cl16 || '155.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']

@@ -1,5 +1,9 @@
 # Full-size break-in integration
 
+## Current production pricing
+
+The [November 11 read-only verification](full-size-pricing-verification.md) supersedes historical production price findings below: all seven applicable full-size variants are $285 USD, the exact full-size service remains $75, and the CM24 discrepancy is resolved. Production remains Coming Soon; test-store prices and IDs remain separate.
+
 Implemented on `break-in-integration`, based on `fullstack-review` at `62ac38e`. The original worktree was clean. The remote is `anawinp1234/anawin-glove-site`; the other worktree is the main checkout. No applicable `AGENTS.md` files were found. No commit, push, PR, merge or deployment was performed.
 
 ## Verified cause and behavior

@@ -585,7 +585,7 @@ function bind() {
     const notes = document.querySelector('#full-size-break-in-notes')?.value.trim();
     summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · ${enabled
       ? `${style} · Thumb closure: ${closure || 'Choose one'} · ${shaping} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
-      : 'No break-in service'}.`;
+      : 'No break-in service'}. Total before shipping/tax: ${money(purchasePrice({ price: Number(summary.dataset.price) }, fullSizeService, enabled), summary.dataset.currency)}.`;
   };
   document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"]').forEach(input => {
     const update = () => { clearFullSizeFieldErrors(document, input.name); updateFullSizeSetup(); };
