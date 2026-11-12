@@ -1,4 +1,4 @@
-import { fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
+import { FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -83,7 +83,7 @@ function wordmark(sizes, loading = 'eager') {
   const srcset = widths.map(width => `/images/optimized/anawin-wordmark-${width}.webp ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="/images/anawin-wordmark.png" alt="ANAWIN" width="1193" height="141" loading="${loading}" /></picture>`;
 }
-export function createStorefrontRenderer({ products, breakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
+export function createStorefrontRenderer({ products, breakInService, fullSizeService = fullSizeBreakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
 const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
@@ -138,7 +138,7 @@ function fullSizeCard(product, index) {
 const fullSizeCardSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 92px) / 4)';
 const fullSizeGrid = () => `<div class="product-grid full-size-grid">${fullSizeProducts.map(fullSizeCard).join('')}</div>`;
 
-const productGrid = (eagerFirst = false) => `<div class="product-grid">${products.map((product, index) => productCard(product, index, eagerFirst)).join('')}</div>`;
+const productGrid = (eagerFirst = false) => `<div class="product-grid">${products.filter(product => product.line !== 'full-size').map((product, index) => productCard(product, index, eagerFirst)).join('')}</div>`;
 
 function ratingStars(rating) {
   const filled = Math.round(rating);
@@ -223,22 +223,28 @@ const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p
 
 // Coming-soon page: approved product details and an email signup until launch.
 function fullSizeBreakInDetails(product) {
-  const service = fullSizeBreakInService;
+  const service = fullSizeService;
   const firmnessHelp = { Firm: 'Arrives with a structured feel and more break-in left to do.', Medium: 'Arrives easier to close while keeping some structure.', 'Game Ready': 'Arrives with the softest feel and easiest closure.' };
-  const choices = (name, values) => values.map(value => `<label class="break-in-choice"><input type="radio" name="${name}" value="${escapeHtml(value)}"><span><strong>${escapeHtml(value)}</strong>${name === 'full-size-firmness' ? `<small>${escapeHtml(firmnessHelp[value])}</small>` : ''}</span></label>`).join('');
+  const choices = (name, values) => values.map(value => `<label class="break-in-choice"><input type="radio" name="${name}" value="${escapeHtml(value)}"${['full-size-closure-point', ...FULL_SIZE_SHAPING_FIELDS.map(field => field.name)].includes(name) ? ` aria-describedby="${name}-help"` : ''}><span><strong>${escapeHtml(value)}</strong>${name === 'full-size-firmness' ? `<small>${escapeHtml(firmnessHelp[value])}</small>` : ''}</span></label>`).join('');
+  const fieldError = name => `<p id="${name}-error" class="full-size-field-error" data-full-size-field-error="${name}" role="alert" hidden></p>`;
+  const group = (name, legend, values, help = '') => `<fieldset><legend>${escapeHtml(legend)}</legend>${help ? `<p id="${name}-help" class="full-size-shaping-help">${escapeHtml(help)}</p>` : ''}${choices(name, values)}${fieldError(name)}</fieldset>`;
   return `<section class="full-size-service" aria-label="Full-Service Break-In">
-    <label class="service-option"><input type="checkbox" data-full-size-break-in aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
+    <label class="service-option"><input type="checkbox" data-full-size-break-in ${product.comingSoon === false && (commerceLoading || Boolean(commerceError) || !product.available || service.available === false) ? 'disabled' : ''} aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
     <p class="full-size-service-availability">Available to add when this glove launches.</p>
     <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
-      <fieldset><legend>How do you wear your glove?</legend>${choices('full-size-wearing-style', service.wearingStyles)}</fieldset>
-      <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea></div>
-      <fieldset><legend>Where should the thumb meet when the glove closes?</legend>${choices('full-size-closure-point', service.closurePoints)}</fieldset>
-      <fieldset><legend>How firm do you want the glove?</legend>${choices('full-size-firmness', service.firmness)}</fieldset>
-      <div class="break-in-text-field"><label for="full-size-break-in-notes">Anything else we should know?</label><p id="full-size-break-in-notes-help">${escapeHtml(service.notes)} For example, “slight thumb flare” or “keep the fingers straight.”</p><textarea id="full-size-break-in-notes" name="full-size-break-in-notes" rows="4" maxlength="2000" aria-describedby="full-size-break-in-notes-help"></textarea></div>
+      ${group('full-size-wearing-style', 'How do you wear your glove?', service.wearingStyles)}
+      <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea>${fieldError('full-size-finger-placement')}</div>
+      ${group('full-size-closure-point', 'Where should the thumb meet when the glove closes?', service.closurePoints, 'Recommend for me lets the ANAWIN team choose the closure.')}
+      ${FULL_SIZE_SHAPING_FIELDS.map(field => group(field.name, field.label, field.choices, field.key === 'fingerShape'
+        ? 'Recommend for me lets the ANAWIN team choose the finger form.'
+        : 'None leaves this area’s existing shape unchanged. Recommend for me lets the ANAWIN team choose the shape.')).join('')}
+      ${group('full-size-firmness', 'How firm do you want the glove?', service.firmness)}
+      <div class="break-in-text-field"><label for="full-size-break-in-notes">Anything else we should know?</label><p id="full-size-break-in-notes-help">${escapeHtml(service.notes)}</p><textarea id="full-size-break-in-notes" name="full-size-break-in-notes" rows="4" maxlength="2000" aria-describedby="full-size-break-in-notes-help"></textarea></div>
     </section></section>`;
 }
 
 function fullSizePage(product) {
+  const purchasable = product.comingSoon === false && product.available && !commerceLoading && !commerceError;
   const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};`;
   const count = product.images.length;
   const modelSwitcher = `<nav class="model-switcher" aria-label="Full-size glove colorways"><span class="model-switcher-label">Colorways</span><div class="model-switcher-options">${fullSizeProducts.map(model => model.id === product.id
@@ -247,11 +253,12 @@ function fullSizePage(product) {
   const trainer = products.find(other => other.id === otherGlovePairings[product.id]);
   const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
   return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
-    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p><p class="coming-soon-price">Coming soon</p><p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
-      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}</fieldset>
+    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p>${purchasable ? '' : '<p class="coming-soon-price">Coming soon</p>'}<p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
+      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
       ${fullSizeBreakInDetails(product)}
       <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · No break-in service.</p>
-      <button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>
+      <p data-full-size-error role="alert" tabindex="-1" hidden></p>
+      ${purchasable ? `<button type="button" class="add-button" data-add="${escapeHtml(product.id)}" aria-describedby="full-size-setup-summary">Add to cart</button>` : '<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>'}
       <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
       <section class="product-details" aria-labelledby="product-details-heading"><h2 id="product-details-heading">Glove specs</h2><dl class="product-specs">${product.specs.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl></section>
 
@@ -270,8 +277,8 @@ function productPage(product) {
   const purchaseStatus = commerceLoading ? 'Checking glove and Break-In Service availability…' : commerceError ? 'Unable to confirm availability. Add to Cart is disabled.' : breakInService.available === false ? 'Break-In Service is unavailable.' : '';
   const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
   const fullSizeGlove = fullSizeProducts.find(other => other.id === otherGlovePairings[product.id]);
-  const otherGloves = [...products.filter(other => other.id !== product.id), ...(fullSizeGlove ? [fullSizeGlove] : [])];
-  const modelSwitcher = `<nav class="model-switcher" aria-label="Glove models"><span class="model-switcher-label">Models</span><div class="model-switcher-options">${products.map(model => model.id === product.id
+  const otherGloves = [...products.filter(other => other.line !== 'full-size' && other.id !== product.id), ...(fullSizeGlove ? [fullSizeGlove] : [])];
+  const modelSwitcher = `<nav class="model-switcher" aria-label="Glove models"><span class="model-switcher-label">Models</span><div class="model-switcher-options">${products.filter(model => model.line !== 'full-size').map(model => model.id === product.id
     ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}<small>Current</small></span>`
     : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;
   return `<main class="pdp" data-product="${escapeHtml(product.id)}" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}">${productImage(src, `${product.tone} glove view ${i + 1}`, galleryImageSizes, i < 2 ? 'eager' : 'lazy')}</button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>

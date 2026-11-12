@@ -26,9 +26,20 @@ test('cart row places Shopify entry totals in the right price rail', () => {
     [glove(2, 310), service(2, 40), '$350']
   ]) {
     const html = render(line, child);
-    assert.match(html, new RegExp(`<div class="cart-item-side"><strong class="cart-line-price">\\${expected}</strong>`));
+    assert.match(html, new RegExp(`<div class="cart-item-side">${child ? '<div class="cart-entry-price">' : ''}<strong class="cart-line-price">\\${expected}</strong>`));
     assert.match(html, /<div class="cart-item-info"><h3>OB16<\/h3><p>Baby Blue \/ Royal \/ Navy<\/p>/);
   }
+});
+
+test('serviced MI26 labels the combined total and identifies the service as included', () => {
+  const html = renderCartRow({ product: { ...product, id: 'full-mint', name: 'MI26', line: 'full-size' },
+    line: glove(1, 290), service: service(1, 75), mode: 'shopify',
+    serviceProduct: { price: 75, currencyCode: 'USD' }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /cart-line-price">\$365<\/strong><small class="cart-entry-total-label">Glove \+ service total<\/small>/);
+  assert.match(html, /Break-in service · \$75 \(included\)/);
+  assert.match(html, /role="group" aria-label="MI26 break-in instructions"><h4>Break-in instructions<\/h4>/);
+  assert.doesNotMatch(html, /\$440/);
+  assert.doesNotMatch(render(glove(1, 155)), /Glove \+ service total|\(included\)/);
 });
 
 test('cart row price refreshes from confirmed quantity and service line totals', () => {
@@ -46,13 +57,15 @@ test('quantity greater than one service controls name the one-glove action', () 
   assert.match(render(glove(1, 155), service(1, 20)), />Remove break-in<\/button>/);
 });
 
-test('quantity controls are clearly labeled and disabled while cart changes are pending', () => {
-  const line = glove(10, 1550);
-  const html = renderCartRow({ product, line, service: null, mode: 'shopify', serviceProduct,
-    busy: true, incomplete: false, money, escapeHtml });
-  assert.match(html, /aria-label="Decrease OB16 quantity"[^>]*disabled/);
-  assert.match(html, /aria-label="Increase OB16 quantity"[^>]*disabled/);
-  assert.match(html, /<span>10<\/span>/);
+test('quantity controls are labeled and disabled for pending or unresolved cart changes', () => {
+  for (const [busy, incomplete] of [[true, false], [false, true]]) {
+    const line = glove(10, 1550);
+    const html = renderCartRow({ product, line, service: null, mode: 'shopify', serviceProduct,
+      busy, incomplete, money, escapeHtml });
+    assert.match(html, /aria-label="Decrease OB16 quantity"[^>]*disabled/);
+    assert.match(html, /aria-label="Increase OB16 quantity"[^>]*disabled/);
+    assert.match(html, /<span>10<\/span>/);
+  }
 });
 
 test('cart row refuses a combined total with mismatched currencies', () => {

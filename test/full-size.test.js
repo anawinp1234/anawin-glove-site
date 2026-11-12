@@ -159,3 +159,28 @@ test('full-size pages offer the confirmed throw-hand options and stay in teaser 
   assert.doesNotMatch(orange.metaDescription, /Right-hand throw\.$/);
   assert.match(orange.metaDescription, /Choose right-hand or left-hand throw\./);
 });
+
+test('full-size shaping groups have distinct native radio names, helper text and field errors in the requested order', () => {
+  for (const product of fullSizeProducts) {
+    const html = renderer.route(productPath(product));
+    let previous = html.indexOf('name="full-size-closure-point"');
+    for (const [name, values] of [
+      ['full-size-thumb-shape', ['Straight', 'Flared', 'None', 'Recommend for me']],
+      ['full-size-pinky-shape', ['Straight', 'Flared', 'None', 'Recommend for me']],
+      ['full-size-finger-shape', ['Rolled', 'Straight', 'Recommend for me']]
+    ]) {
+      const index = html.indexOf(`name="${name}"`); assert.ok(index > previous); previous = index;
+      const inputs = [...html.matchAll(new RegExp(`<input type="radio" name="${name}" value="([^"]+)"([^>]*)>`, 'g'))];
+      assert.deepEqual(inputs.map(match => match[1]), values);
+      assert.ok(inputs.every(match => !match[2].includes('checked')));
+      assert.match(html, new RegExp(`data-full-size-field-error="${name}" role="alert" hidden`));
+    }
+    assert.ok(previous < html.indexOf('name="full-size-firmness"'));
+    assert.match(html, /None leaves this area’s existing shape unchanged/);
+    assert.match(html, /Recommend for me lets the ANAWIN team choose the shape/);
+    assert.match(html, /name="full-size-closure-point" value="Recommend for me"/);
+  }
+  const trainer = renderer.route('/product/br16');
+  assert.doesNotMatch(trainer, /full-size-thumb-shape|full-size-pinky-shape|full-size-finger-shape/);
+  assert.match(trainer, /name="break-in-level" value="Medium \(65%\)" checked/);
+});
