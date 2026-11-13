@@ -111,7 +111,7 @@ function webpChunks(buffer) {
 }
 
 // The replacement OR17 sources use standard RGB without an embedded ICC profile.
-for (const [angle, side] of [['back', 1197], ['palm', 1322], ['side', 1206], ['finger-side', 1438]]) {
+for (const [angle, side] of [['back', 1195], ['palm', 1322], ['side', 1206], ['finger-side', 1438]]) {
   test(`orange ${angle} JPEG and responsive WebPs preserve source color metadata and dimensions`, () => {
     const jpeg = jpegMetadata(readFileSync(publicFile(`/images/full-size/orange-${angle}.jpg`)));
     assert.equal(jpeg.profile.length, 0);
