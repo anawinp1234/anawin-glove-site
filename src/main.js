@@ -22,6 +22,7 @@ import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
+import { installPdpScroll } from './pdp-scroll.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -58,6 +59,7 @@ function showFullSizeFieldError(root, failure) {
 
 const app = document.querySelector('#app');
 let destroyFooterAccordion = () => {};
+let destroyPdpScroll = () => {};
 let commerceError = '';
 let commerce;
 try {
@@ -193,11 +195,13 @@ function render(scrollTop = window.scrollY) {
   const views = createStorefrontRenderer({ products, breakInService, fullSizeService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
+  destroyPdpScroll();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
   renderedPath = path;
   // Same task as the insertion, before other binding can throw or the browser starts fetching.
   destroyGalleryLoading = galleryLoading()?.installGalleryLoading({ gallery: app.querySelector('.pdp-gallery'), hold: !releasedGalleryPaths.has(path), onRelease: () => { releasedGalleryPaths.add(path); } }) || (() => {});
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
+  destroyPdpScroll = installPdpScroll({ main: app.querySelector('.pdp-main') });
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();

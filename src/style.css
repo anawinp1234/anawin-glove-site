@@ -764,12 +764,12 @@ body.newsletter-open{overflow:hidden}
 /* Show every CL16 angle in full, including the palm and its laces. */
 .pdp[data-product="brown"] .gallery-image img{object-fit:contain;transform:none}
 
-/* Keep desktop product photos beside the details as the page scrolls. */
+/* Desktop PDP columns scroll together; the shorter one holds once its end is in view (see pdp-scroll.js). */
 @media(min-width:761px){
   .pdp{--pdp-gallery-top:92px}
   .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
-  .pdp-main > .pdp-info{position:static}
-  .pdp-main > .pdp-gallery-wrap{position:sticky;top:var(--pdp-gallery-top);align-self:start}
+  .pdp-main > :is(.pdp-gallery-wrap,.pdp-info){position:sticky;top:var(--pdp-column-top,var(--pdp-gallery-top));align-self:start}
+  .pdp-main > .pdp-info{min-height:0}
   .pdp-gallery-wrap .pdp-gallery{aspect-ratio:1;max-height:calc(100svh - var(--pdp-gallery-top) - 16px);grid-template-rows:repeat(2,minmax(0,1fr))}
   .pdp-gallery-wrap .gallery-image{min-width:0;min-height:0;aspect-ratio:auto}
   .pdp-gallery-wrap .gallery-image img{object-fit:contain}
