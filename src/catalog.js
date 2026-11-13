@@ -168,8 +168,8 @@ const fullSizeAngles = Object.freeze([
 // Square photo size per colorway, from scripts/prepare-full-size-images.py.
 const fullSizePhotoSizes = Object.freeze({
   mint: { back: 1254, palm: 1202, side: 1254, 'finger-side': 1254 },
-  black: { back: 1271, palm: 1276, side: 1442, 'finger-side': 1208 },
-  camel: { back: 1198, palm: 1244, side: 612, 'finger-side': 1119 },
+  black: { back: 1272, palm: 1276, side: 1442, 'finger-side': 1207 },
+  camel: { back: 1200, palm: 1245, side: 1223, 'finger-side': 1119 },
   orange: { back: 1195, palm: 1322, side: 1206, 'finger-side': 1438 }
 });
 const fullSizePhotos = (color, tone) => fullSizeAngles.map(([angle, view]) => ({
@@ -228,7 +228,7 @@ export const fullSizeProducts = Object.freeze([
     title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
     price: 285, currencyCode: 'USD', throwHands: rightHandOnly,
     pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. Camel is the more compact of the two infield models. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
-    specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
+    specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Welting', 'Dual welting'], ['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
     metaDescription: 'ANAWIN Camel is an 11.5-inch Japanese Kip infield glove with a Diamond web, sheepskin-lined finger stalls, and a moisture-wicking wrist pad.',
     tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel')
   },
