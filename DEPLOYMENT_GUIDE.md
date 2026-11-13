@@ -19,9 +19,26 @@ Wrangler commands, the repository, and Cloudflare's documentation. Items marked
 | Non-production branches | Builds enabled; they upload a version but do not deploy it |
 | Production Shopify store | `ignvv0-zh.myshopify.com` (also the only checkout host allowed by `src/checkout-safety.js`) |
 
-`main` has no branch protection, and Workers Builds does not wait for GitHub
-Actions. **A merge to `main` is a production release**, even if CI fails. Merge
-only after CI passes and the change has been reviewed.
+The active [Protect main ruleset](https://github.com/anawinp1234/anawin-glove-site/rules/27179659)
+applies only to `refs/heads/main`:
+
+- Changes require a pull request.
+- The `validate` check from GitHub Actions (app ID `15368`) must pass, and the
+  PR branch must be up to date with `main` before merging.
+- Zero review approvals are required; you can merge your own PR after the
+  required check passes and the branch is up to date.
+- There are no bypass actors. Force pushes and branch deletion are blocked.
+  Repository administrators can still edit or disable the ruleset.
+
+GitHub gates normal merges before `main` changes. **A merge to `main` is a
+production release**: Cloudflare automatically builds and deploys after `main`
+changes; Workers Builds does not wait for the subsequent push-triggered GitHub
+Actions run. The required CI check runs in `local` mode and does not verify
+production Shopify behaviour, credentials or configuration. Complete the
+test-store and configuration checks separately before merging.
+
+Direct deployments or rollbacks through Cloudflare or Wrangler remain outside
+GitHub branch protection; the ruleset does not gate those operations.
 
 ## 2. Triggers and what each produces
 
@@ -187,7 +204,8 @@ VITE_COMMERCE_MODE=local npm run build && npm run preview   # serves dist/
 
 ## 10. Release checklist
 
-- [ ] PR to `main` reviewed; GitHub `validate` passed.
+- [ ] PR to `main` is up to date; required GitHub Actions `validate` passed.
+      Review the change before merging; the ruleset requires zero approvals.
 - [ ] Shopify-dependent changes verified on `anawin-test.myshopify.com` (no payment).
 - [ ] Merge, then confirm the `main` Workers Build succeeded and
       `deployments status` shows the new version at 100%.
