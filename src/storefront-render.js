@@ -47,19 +47,12 @@ const colorwaySwatches = product => product.id === 'brown'
   ? ['#6f6843', ...(product.swatches || [])]
   : (product.swatches || []);
 
-// On a first mobile visit only the visible gallery photo should compete with the page script.
-// Later photos keep their exact sources, but their WebP source is limited to the desktop grid
-// (where all four are visible) and their fallback is an inline placeholder until
-// gallery-loading.js releases them on mobile. Without scripting, index.html hides the held
-// picture and the <noscript> copy (inert text while scripting runs) shows the normal photo.
-export const GALLERY_DESKTOP_MEDIA = '(min-width: 761px)';
-export const GALLERY_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+// Gallery photo 1 is fetched first at high priority; later photos are ordinary lazy pictures.
+// Mobile deferral of photos 2+ happens only in gallery-loading.js once the app is running.
 function pictureMarkup({ srcset, sizes, src, alt, width, height, loading, gallery = null }) {
-  const img = (source, attrs) => `<img src="${source}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" ${attrs} />`;
-  const plain = load => `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}">${img(escapeHtml(src), `loading="${load}"`)}</picture>`;
-  if (gallery?.index === 0) return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}">${img(escapeHtml(src), 'loading="eager" fetchpriority="high"')}</picture>`;
-  if (gallery?.deferred) return `<picture data-gallery-held><source type="image/webp" media="${GALLERY_DESKTOP_MEDIA}" srcset="${srcset}" sizes="${sizes}" data-gallery-deferred>${img(GALLERY_PLACEHOLDER, `data-gallery-src="${escapeHtml(src)}" loading="lazy"`)}</picture><noscript>${plain('lazy')}</noscript>`;
-  return plain(gallery ? 'lazy' : loading);
+  const lead = gallery?.index === 0;
+  const attrs = lead ? 'loading="eager" fetchpriority="high"' : `loading="${gallery ? 'lazy' : loading}"`;
+  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" ${attrs} /></picture>`;
 }
 
 function productImage(src, alt, sizes, loading, card = false, gallery = null) {
@@ -98,8 +91,8 @@ function wordmark(sizes, loading = 'eager') {
   const srcset = widths.map(width => `/images/optimized/anawin-wordmark-${width}.webp ${width}w`).join(', ');
   return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="/images/anawin-wordmark.png" alt="ANAWIN" width="1193" height="141" loading="${loading}" /></picture>`;
 }
-export function createStorefrontRenderer({ products, breakInService, fullSizeService = fullSizeBreakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null, deferGallery = true }) {
-const galleryLoading = i => ({ index: i, deferred: i > 0 && deferGallery });
+export function createStorefrontRenderer({ products, breakInService, fullSizeService = fullSizeBreakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
+const galleryLoading = i => ({ index: i });
 const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { inflateSync } from 'node:zlib';
 import { localProducts, breakInService } from '../src/catalog.js';
-import { createStorefrontRenderer, GALLERY_DESKTOP_MEDIA, GALLERY_PLACEHOLDER } from '../src/storefront-render.js';
+import { createStorefrontRenderer } from '../src/storefront-render.js';
 import { zoomImageSource } from '../src/zoom-image.js';
 
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
@@ -40,17 +40,10 @@ test('all other gallery photographs keep their sources, order, labels and loadin
       const name = `${color}${index + 1}`, html = images[index];
       assert.ok(html.includes(`data-image="/images/${name}.PNG" aria-label="View image ${index + 1}"`));
       assert.ok(html.includes(`loading="${index === 0 ? 'eager' : 'lazy'}"`));
-      if (index > 0) {
-        // Held back on mobile until released; desktop's grid still selects the same WebP set.
-        assert.ok(html.includes(`<source type="image/webp" media="${GALLERY_DESKTOP_MEDIA}" srcset=`));
-        assert.ok(html.includes(`<img src="${GALLERY_PLACEHOLDER}" alt="${alt(model, index)}" width="1254" height="1254" data-gallery-src="/images/${name}.PNG" loading="lazy" />`));
-        // Without scripting the <noscript> copy is the normal picture with the original fallback.
-        assert.ok(html.includes(`<noscript><picture><source type="image/webp" srcset="/images/optimized/${name}-480.webp`));
-        assert.ok(html.includes(`<img src="/images/${name}.PNG" alt="${alt(model, index)}" width="1254" height="1254" loading="lazy" /></picture></noscript>`));
-        assert.ok(!html.includes('fetchpriority'));
-      } else {
-        assert.ok(!html.includes('media=') && !html.includes('data-gallery-src'));
-      }
+      // Normal markup: no placeholder, media gate or no-script copy in the HTML itself.
+      assert.ok(!html.includes('media=') && !html.includes('data-gallery') && !html.includes('<noscript>'));
+      assert.ok(html.includes(`<img src="/images/${name}.PNG" alt="${alt(model, index)}"`));
+      if (index > 0) assert.ok(!html.includes('fetchpriority'));
       if (name === 'black1') continue;
       assert.ok(html.includes(`srcset="/images/optimized/${name}-480.webp 480w, /images/optimized/${name}-960.webp 960w, /images/optimized/${name}-1254.webp 1254w"`));
     }
