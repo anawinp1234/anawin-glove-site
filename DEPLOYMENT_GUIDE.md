@@ -1,263 +1,195 @@
-# Production Deployment Guide
+# Deployment Guide
 
-Review date: 2026-09-13
-Reviewed commit: `19345c0` (`main`)
-Final verdict: **NOT READY**
+How the ANAWIN storefront reaches production on Cloudflare Workers.
 
-Do not deploy this repository. The reviewed branch contains only a placeholder
-`README.md`; the deployable e-commerce application is absent.
+Last verified: 2026-11-13 (UTC), against the production deployment of `main`
+commit `1797bbe`. Sources: the Cloudflare dashboard (viewed only), read-only
+Wrangler commands, the repository, and Cloudflare's documentation. Items marked
+**Unverified** could not be confirmed and must be checked before relying on them.
 
-## 1. Current production-readiness status
+## 1. At a glance
 
-Production readiness cannot be established because there is no application to
-install, build, test, or inspect.
-
-| Item | Finding |
+| Item | Value |
 | --- | --- |
-| Framework | Not determinable; no application source or manifest |
-| Node/runtime version | Not declared; the review machine has Node `v25.9.0`, which is not an application requirement |
-| Package manager | Not determinable; no lockfile or `packageManager` field |
-| Build system/scripts | Absent; no `package.json` |
-| Hosting requirements | Not determinable; Vercel suitability cannot be verified |
-| Database | No schema, migrations, client, or provider configuration |
-| Authentication | No provider or implementation present |
-| Payments | No provider, checkout code, or webhook handler present |
-| Images/storage | No assets, upload code, or durable-storage configuration |
-| Email | No provider or email implementation present |
-| Third-party APIs | None discoverable |
-| Environment variables | No code or example file from which to derive exact names |
-| Production dependencies | Not determinable; no dependency manifest |
+| Cloudflare Worker | `anawin-glove-site` (single Worker serving `dist/` assets and `worker/index.js`) |
+| Production domain | Route `anawinofficial.com/*` in zone `anawinofficial.com` |
+| Other URLs | `anawin-glove-site.<account-subdomain>.workers.dev` (production) and preview URLs `*-anawin-glove-site.<account-subdomain>.workers.dev`; both are public |
+| Git repository | `anawinp1234/anawin-glove-site`, connected through Workers Builds |
+| Production branch | `main`. Every push or merge to `main` builds **and deploys to production automatically** |
+| Non-production branches | Builds enabled; they upload a version but do not deploy it |
+| Production Shopify store | `ignvv0-zh.myshopify.com` (also the only checkout host allowed by `src/checkout-safety.js`) |
 
-Repository checks found no `package.json`, lockfile, `.env` file,
-`.env.example`, `vercel.json`, application code, API route, database migration,
-CI configuration, robots file, or sitemap. `npm ci` and a production build
-could not be run because `package.json` is absent. The repository also has no
-Git remote, so Vercel cannot import it from a source host as reviewed.
+`main` has no branch protection, and Workers Builds does not wait for GitHub
+Actions. **A merge to `main` is a production release**, even if CI fails. Merge
+only after CI passes and the change has been reviewed.
 
-The following therefore remain unverified: clean installation, runtime
-compatibility, serverless compatibility, API/CORS behavior, redirects,
-security headers, caching, rate limiting, logging, error pages, production
-URLs, HTTPS behavior, cron jobs, webhook idempotency, and persistent-storage
-assumptions.
+## 2. Triggers and what each produces
 
-## 2. Required accounts/services
+| Event | Workers Builds runs | Result |
+| --- | --- | --- |
+| Push/merge to `main` | `npm run build`, then `npx wrangler deploy` | New version, immediately deployed at 100% of production traffic |
+| Push to any other branch (for example `fullstack-review`) | `npm run build`, then `npx wrangler versions upload` | New **version only**, reachable on its preview URL; production is unchanged |
+| PR to `main`, push to `main` or `fullstack-review` | GitHub Actions `CI` (`.github/workflows/ci.yml`) | `npm ci`, `npm test`, `npm run build`, `git diff --check` in `local` mode. Validation only; it never deploys |
 
-No accounts can be selected from repository evidence. After the actual
-application is restored, identify and record the owners and environments for:
+Cloudflare's per-branch "Worker Previews" environments are **not** set up. Build
+watch paths include all files.
 
-- source hosting (for example, GitHub) and Vercel;
-- the database and its backup/restore service;
-- authentication, payment, transactional email, and durable object storage;
-- error monitoring, analytics, and uptime monitoring;
-- the domain registrar and authoritative DNS provider.
+## 3. Build configuration (Workers Builds)
 
-Do not create or pay for any service until the architecture and data-flow
-review is complete. Vercel is only a candidate, not yet a validated choice.
+| Setting | Configured value |
+| --- | --- |
+| Root directory | `/` |
+| Install | `npm clean-install` (run by Workers Builds; lockfile required) |
+| Build command | `npm run build` → `check-build-config.mjs`, `check-source-imports.mjs`, `vite build`, `prerender.mjs` |
+| Output directory | `dist/` (from `assets.directory` in `wrangler.jsonc`) |
+| Deploy command (`main`) | `npx wrangler deploy` |
+| Version command (other branches) | `npx wrangler versions upload` |
+| Node | Detected by Workers Builds (Node 24.18.0 on the 2026-11-13 build). The repository does not pin a version; CI uses Node 24 |
 
-## 3. Required environment variables
+`npm run build` fails unless `VITE_COMMERCE_MODE` is `local` or `shopify`. In
+`shopify` mode it also requires the store domain, Storefront token, product
+handles and `VITE_SHOPIFY_BREAK_IN_HANDLE`. `check-source-imports.mjs` fails if
+`src/` imports an untracked file.
 
-**Unknown until the application source is available.** No variable names should
-be invented. Derive the definitive list by searching all server code, client
-code, build configuration, ORM configuration, and CI workflows. Then commit a
-`.env.example` containing variable names and safe placeholders only.
+## 4. Where configuration lives
 
-Create separate Local, Preview, and Production values. Preview must use test
-payment credentials and isolated non-production data. Record for each variable
-its consumers, required environments, validation rule, and rotation owner.
+Values are never stored in Git. Names only:
 
-## 4. Secret environment variables
+**Build variables** (Worker → Settings → Builds → Variables and secrets). Vite
+compiles the `VITE_` values into the public JavaScript bundle; they are
+browser-visible by design and are not available to the Worker at runtime.
 
-The exact names are unknown. Treat database credentials, authentication
-secrets, payment secret keys and webhook signing secrets, email API keys,
-storage credentials, monitoring auth tokens, and private third-party API keys
-as secrets. Obtain each from the selected provider's dashboard or secret
-generator and store it in Vercel environment settings, never in Git.
+- `VITE_COMMERCE_MODE`, `VITE_SHOPIFY_STORE_DOMAIN`, `VITE_SHOPIFY_STOREFRONT_TOKEN`
+  (public Storefront token), `VITE_SHOPIFY_API_VERSION`
+- `VITE_SHOPIFY_BR16_HANDLE`, `VITE_SHOPIFY_OB16_HANDLE`, `VITE_SHOPIFY_CL16_HANDLE`,
+  `VITE_SHOPIFY_BREAK_IN_HANDLE`
+- `VITE_JUDGEME_PUBLIC_TOKEN`
+- Also present but not read by the build: `SHOPIFY_STORE_DOMAIN`,
+  `SHOPIFY_ADMIN_API_VERSION`, `NEWSLETTER_OPT_IN_MODE`, `SHOPIFY_CLIENT_ID`,
+  `SHOPIFY_CLIENT_SECRET`. Their presence in the build environment is
+  unnecessary; whether to remove them is an owner decision.
+- Full-size handles (`VITE_SHOPIFY_MI26_HANDLE` and others) are not set in
+  production, so full-size products are not mapped to Shopify there.
 
-Only intentionally browser-safe configuration may use the framework's public
-prefix (for example, `NEXT_PUBLIC_` in Next.js). A secret must never have a
-public prefix. Public identifiers must still be documented and scoped.
+**Runtime configuration** (Worker → Settings → Variables and secrets, used by
+`worker/index.js` for `/api/newsletter`):
 
-## 5. Exact Vercel setup steps
+- Variables, with `wrangler.jsonc` as the source of truth: `SHOPIFY_STORE_DOMAIN`,
+  `SHOPIFY_ADMIN_API_VERSION`, `NEWSLETTER_OPT_IN_MODE`. `keep_vars: true`
+  preserves other dashboard variables on deploy.
+- Secrets: `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET`. The Worker alternatively
+  accepts `SHOPIFY_ADMIN_ACCESS_TOKEN`; configure only one path.
+- Bindings: rate limiters `NEWSLETTER_IP_LIMITER` and `NEWSLETTER_EMAIL_LIMITER`.
+- `wrangler secret put` publishes a new version; coordinate it like a deploy.
 
-These steps may be followed only after the application and its deployment
-contract are present:
+**Unverified:** whether the "Previews Base" runtime settings differ from
+production.
 
-1. Push the reviewed repository to an owned source-control organization.
-2. In Vercel, select **Add New > Project**, import that repository, and set
-   `main` as the production branch.
-3. Let Vercel detect the framework only if detection matches the manifest.
-   Otherwise set the verified framework preset, root directory, install
-   command, build command, output directory, and Node version explicitly.
-4. Add every documented variable separately to Local/Development, Preview, or
-   Production. Use test credentials and isolated data for Preview.
-5. Keep automatic production deployment disabled or avoid merging to `main`
-   until all checks in this guide pass. Generate a Preview deployment first.
-6. Verify function runtime/region, duration, memory, body-size, and filesystem
-   constraints against every API route and background operation.
-7. Require pull-request review plus clean install, lint, typecheck, tests, and
-   production-build checks before merging to `main`.
+## 5. Keeping production and test-store targets separate
 
-Do not add a guessed `vercel.json`; incorrect routing or runtime settings can
-hide architecture problems. Add it only for requirements not represented in
-the framework or Vercel project settings.
+- Cloudflare holds only production values. **Preview versions are built with
+  the same build variables, so a preview URL talks to the production Shopify
+  store.** Do not create carts, checkouts or newsletter signups on preview URLs.
+- The development store is `anawin-test.myshopify.com`. It has no Cloudflare
+  configuration. Test-store work runs from an isolated local copy outside the
+  repository. That copy changes `APPROVED_CHECKOUT_HOST` to the test host, adds a
+  domain guard refusing any other store, and loads test values from that
+  copy's own `.env.local`. These adaptations must never be committed.
+- `src/checkout-safety.js` only redirects to `https://ignvv0-zh.myshopify.com`,
+  so a production build cannot send shoppers to another store's checkout.
+- Never point `VITE_SHOPIFY_STORE_DOMAIN` in Cloudflare at the test store, and
+  never put test credentials in Cloudflare.
 
-## 6. Database production setup
+## 6. Build passed, version uploaded, or deployed?
 
-The provider and exact commands are unknown. Once identified:
+These are different states. Check each one explicitly:
 
-1. Provision logically separate development, preview, and production data.
-2. Use a TLS connection and a serverless-compatible pooled endpoint where
-   required; keep any direct migration URL server-only.
-3. Review generated migration SQL. Take and verify a restorable backup before
-   the production migration, then run migrations as an explicit release step.
-4. Use backward-compatible expand/migrate/contract changes so a rollback can
-   run against the migrated schema.
-5. Enable provider-managed encrypted backups or point-in-time recovery, define
-   retention and owners, and complete a restore drill before launch.
+| State | How to confirm |
+| --- | --- |
+| CI passed | GitHub `validate` check on the commit. Local-mode only; says nothing about production config |
+| Build passed | GitHub check `Workers Builds: anawin-glove-site` succeeded, or the build page in Cloudflare (Worker → Deployments → build) shows all steps green |
+| Version uploaded (preview) | `npx wrangler versions list --name anawin-glove-site` shows a new `version_upload` that is **not** in the deployment list |
+| Active production deployment | `npx wrangler deployments status --name anawin-glove-site` shows the version at 100% |
 
-Never run preview migrations against production. A code rollback does not undo
-a database migration.
+Workers Builds versions carry no tag or message. To map a deployment to a commit:
 
-## 7. Payment provider setup
+1. Open the build from the commit's `Workers Builds` check link, or from Worker →
+   Deployments. The build page shows branch, commit SHA and message.
+2. Match that build's deploy time with the `Created` time of the active version
+   in `npx wrangler deployments status`.
 
-No payment provider is present. If the restored application uses Stripe, obtain
-test and live publishable/secret keys from the Stripe Dashboard, keep modes and
-accounts separated, and enable only the payment methods and currencies the
-application handles. Never place a secret key in client code. Validate amounts,
-currency, inventory, and authenticated customer/order identity on the server;
-do not trust browser-supplied totals.
+## 7. Live checks after a deploy
 
-No purchase—test or live—is authorized by this review.
+Read-only; never create production carts or orders.
 
-## 8. Webhook setup
+```bash
+npx wrangler deployments status --name anawin-glove-site
+curl -sSI https://anawinofficial.com/ | head -1
+curl -sS https://anawinofficial.com/shop | grep -oE '/assets/index-[A-Za-z0-9_-]+\.(js|css)'
+# Then fetch the listed bundle and grep for a string unique to the change.
+```
 
-The webhook route and event list are unknown. After code inspection:
+Then, in a browser, load home, `/shop` and a product page on desktop and a
+mobile width. Confirm prices and service availability come from Shopify, and
+check that the console shows no errors. Production sends `X-Frame-Options: DENY`,
+so mobile checks need device emulation or a real phone, not an iframe. Behaviour
+that needs a cart, such as the cart break-in form, must be verified on the test
+store before merging.
 
-1. Create separate provider endpoints for Preview/test and Production/live.
-2. Use the exact implemented HTTPS URL and subscribe only to handled events.
-3. Obtain each endpoint's signing secret from its provider dashboard and store
-   it as a server-only environment variable using the exact name expected by
-   the code.
-4. Verify the signature over the raw request body, reject invalid requests,
-   return quickly, and move slow work to a durable queue if necessary.
-5. Make handling idempotent using the provider event ID; protect against
-   retries, reordering, and duplicate order/inventory/email effects.
-6. Exercise signed test events and monitor failed/retried deliveries.
+## 8. Rollback
 
-## 9. Domain/DNS setup
+The procedure follows Cloudflare's documentation. **It has not been rehearsed on
+this Worker.**
 
-DNS changes are explicitly out of scope until human approval. After a domain is
-chosen, decide whether apex or `www` is canonical, add both to the Vercel
-project, and copy the exact records Vercel displays into the authoritative DNS
-provider. Do not use guessed record targets. Redirect the non-canonical name to
-the canonical HTTPS origin and update the application's base URL, canonical
-metadata, authentication callbacks, CORS allowlist, and webhook URLs.
+1. Find the last known-good version: Worker → Deployments, or
+   `npx wrangler versions list --name anawin-glove-site`. Map it to a commit
+   as described in section 6.
+2. Roll back with either:
+   - Dashboard: Worker → Deployments → the version's ⋯ menu → **Rollback**.
+   - CLI: `npx wrangler rollback <VERSION_ID> --name anawin-glove-site --message "<reason>"`.
+     Without a version ID it targets the version uploaded before the latest one.
+     **Because non-`main` branches upload versions, that can be an undeployed
+     preview build. Always pass an explicit ID.**
+3. Confirm with `npx wrangler deployments status` and the live checks above.
+4. **Make it stick on `main`.** The next push to `main` deploys again and replaces
+   the rollback. Revert the faulty change on `main` through a reviewed PR.
 
-Wait for Vercel's certificate validation, then verify TLS renewal, HTTP-to-HTTPS
-and hostname redirects, no mixed content, and any email-provider SPF/DKIM/DMARC
-records. DNS must be changed only by an authorized human.
+Limitations:
 
-## 10. Pre-deployment checklist
+- Only the 100 most recent versions are eligible.
+- Each version carries its own static assets and compiled `VITE_` configuration,
+  so a rollback restores that version's files and public Shopify settings.
+- During propagation, pages loaded before the rollback may request assets from
+  the newer version (version skew), and a missing asset may 404.
+- Connected resources are not rolled back. **Unverified:** whether runtime
+  variables and secrets revert with the version; check Settings after a rollback.
+- Shopify data (products, carts, orders, customers) is never rolled back.
 
-- [ ] Restore the complete application source and history to the intended branch.
-- [ ] Configure an owned Git remote and branch protection.
-- [ ] Identify framework, package manager, supported runtime, providers, and owners.
-- [ ] Commit one authoritative lockfile and a runtime/package-manager declaration.
-- [ ] Pass a frozen clean install, lint, typecheck, tests, and production build.
-- [ ] Document exact variables in `.env.example` without values or secrets.
-- [ ] Confirm no secret exists in Git history, client bundles, logs, or error payloads.
-- [ ] Validate Vercel/serverless runtime, timeout, filesystem, and connection limits.
-- [ ] Verify database migrations, pooling, backups, retention, and a restore drill.
-- [ ] Verify webhook signatures, idempotency, retry behavior, and alerting.
-- [ ] Add rate limits to authentication, checkout, contact, upload, and other abuse-sensitive routes.
-- [ ] Validate strict production CORS, secure cookies, CSRF protections, and authorization.
-- [ ] Configure security headers, caching rules, redirects, and custom 404/500 handling.
-- [ ] Verify `robots.txt`, sitemap, canonical URLs, metadata, and social previews.
-- [ ] Ensure uploads use durable object storage, not a serverless local filesystem.
-- [ ] Ensure cron/background work is durable, authenticated, observable, and safe to retry.
-- [ ] Configure privacy-appropriate analytics, error monitoring, logs, and uptime alerts.
-- [ ] Pass a Vercel Preview review using test services and non-production data.
-- [ ] Rehearse deployment rollback and the separate database recovery process.
-- [ ] Obtain explicit human approval for production deployment.
+## 9. Local preview and its limits
 
-## 11. Exact deployment procedure
+```bash
+VITE_COMMERCE_MODE=local npm run dev            # Vite dev server, local catalog
+VITE_COMMERCE_MODE=local npm test               # builds, then runs node --test
+VITE_COMMERCE_MODE=local npm run build && npm run preview   # serves dist/
+```
 
-The application-specific commands cannot be specified until its manifest and
-lockfile exist. Once all preceding blockers are closed:
+- Local mode uses the bundled catalog and a browser-only cart. Checkout is
+  disabled, and the cart break-in form, Shopify pricing and line pairing,
+  checkout and recovery paths are not exercised.
+- Shopify behaviour is covered by mocked tests (`test-support/shopify-fixture.js`)
+  and must be verified against `anawin-test.myshopify.com` from an isolated copy
+  (section 5) before merging.
+- Neither the Vite dev server nor `vite preview` runs the Worker or applies
+  `public/_headers`. To exercise `/api/newsletter`, use `npx wrangler dev` with
+  development-only credentials in an ignored `.dev.vars` file. Never use
+  production secrets locally.
+- Do not create a local `.env` that targets the production store for testing.
 
-1. Freeze the release commit and record its SHA.
-2. Run the documented frozen install, lint, typecheck, test, and build commands
-   from a clean checkout using the declared production Node/runtime version.
-3. Review dependency/security findings and database migration SQL.
-4. Back up production and verify backup status; run the approved migration step
-   if the release requires one.
-5. Deploy that exact SHA to Vercel Preview and complete the smoke tests below
-   with test-mode integrations.
-6. After explicit human approval, promote that immutable deployment or merge
-   the approved SHA to the configured production branch.
-7. Run production smoke tests that do not create a real purchase. Monitor
-   application, provider, and webhook logs during the release window.
+## 10. Release checklist
 
-This guide is preparation only and does not authorize step 6.
-
-## 12. Post-deployment smoke tests
-
-- Canonical HTTPS URL loads and alternate HTTP/hostnames redirect correctly.
-- Home, catalog, product, cart, account, and legal pages render on mobile and desktop.
-- Static assets and responsive images load without mixed content or 404s.
-- Custom 404 and safe 500 responses render without leaking stack traces.
-- Authentication sign-up/sign-in/sign-out/reset/callback flows work as applicable.
-- Test-mode checkout initiation uses the server-calculated price; cancel/return paths work.
-- A signed provider test webhook is processed once and duplicate delivery has no duplicate effect.
-- Database reads/writes use production safely; connections do not spike or exhaust.
-- Transactional email test reaches an owned mailbox without exposing secrets or customer data in logs.
-- Security headers, cookies, CORS, caching, robots, sitemap, and canonical metadata are correct.
-- Rate limits return the intended response and do not lock out normal traffic.
-- Error-monitoring and uptime test alerts reach the designated owner.
-
-Do not make a real purchase during these smoke tests.
-
-## 13. Monitoring/logging recommendations
-
-Use Vercel build/function logs plus one application error tracker and one
-external HTTPS uptime monitor. Alert on elevated 5xx/latency, authentication
-failures, database saturation, webhook delivery failures, payment/order state
-mismatches, email failures, and cron failures. Add structured request/correlation
-IDs and release SHAs. Never log credentials, authorization headers, cookies,
-payment details, webhook bodies containing customer data, or unnecessary PII.
-Define retention, access control, alert owners, and a tested escalation path.
-
-Analytics must honor the applicable consent/privacy requirements and exclude
-checkout, account, and sensitive form data by default.
-
-## 14. Rollback procedure
-
-1. Stop further production promotion and identify the last known-good Vercel deployment.
-2. If schemas remain compatible, use Vercel to promote/redeploy that immutable deployment.
-3. Repeat the production smoke tests and watch logs, webhooks, orders, and error rates.
-4. Communicate impact and preserve evidence for incident review.
-
-Do not blindly reverse migrations. Use a reviewed forward fix for compatible
-schema faults. If restoration is unavoidable, follow the database provider's
-tested restore runbook and reconcile data created since the restore point—most
-critically orders, inventory, customers, and fulfillment state.
-
-## 15. Known blockers
-
-1. The deployable application source is absent from `main`.
-2. No dependency manifest, lockfile, scripts, or runtime contract exists.
-3. No clean install, build, test, or serverless-compatibility check can run.
-4. No exact environment-variable or secret contract can be derived.
-5. Database, authentication, payment, webhook, email, storage, and API behavior are unknown.
-6. Security headers, caching, rate limiting, CORS, errors, SEO files, and production URLs are absent/unverifiable.
-7. There is no Git remote/source-delivery path.
-8. Vercel suitability and configuration cannot be validated.
-
-## 16. Final verdict
-
-**NOT READY**
-
-The repository must not be deployed. Restore or provide the actual application
-on the intended branch, then repeat the full production-readiness review. A
-human must explicitly approve the final production deployment after every
-blocker and checklist item is resolved.
+- [ ] PR to `main` reviewed; GitHub `validate` passed.
+- [ ] Shopify-dependent changes verified on `anawin-test.myshopify.com` (no payment).
+- [ ] Merge, then confirm the `main` Workers Build succeeded and
+      `deployments status` shows the new version at 100%.
+- [ ] Map the version to the merge commit (section 6) and run the live checks (section 7).
+- [ ] Note the previous version ID as the rollback target.
