@@ -22,6 +22,7 @@ import { productReviewLinks } from './review-links.js';
 import { createStickyPurchase } from './sticky-purchase.js';
 import { restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
+import { installPdpScroll } from './pdp-scroll.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -58,6 +59,7 @@ function showFullSizeFieldError(root, failure) {
 
 const app = document.querySelector('#app');
 let destroyFooterAccordion = () => {};
+let destroyPdpScroll = () => {};
 let commerceError = '';
 let commerce;
 try {
@@ -101,6 +103,13 @@ let newsletterPopup = null;
 let newsletterDialog = null;
 let newsletterPopupUi = null;
 let stickyPurchase = null;
+// Routes whose held-back gallery photos were released, so re-renders and return visits show them immediately.
+const releasedGalleryPaths = new Set();
+// Provided by /gallery-loading.js; without it photos simply load as ordinary pictures.
+const galleryLoading = () => globalThis.anawinGalleryLoading;
+let destroyGalleryLoading = () => {};
+// The prerendered page already shows the current route's gallery.
+let renderedPath = location.pathname;
 const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
 let judgeMeReviewLinks = productReviewLinks(products);
 const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
@@ -179,11 +188,20 @@ function syncProductDisplayOrder() {
 function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
+  destroyGalleryLoading();
+  const path = location.pathname;
+  // Re-rendering a route whose first photo already finished (or failed) has nothing left to protect.
+  if (renderedPath === path && galleryLoading()?.firstGalleryPhotoSettled(app)) releasedGalleryPaths.add(path);
   const views = createStorefrontRenderer({ products, breakInService, fullSizeService, commerceLoading, commerceError, commerceRetry: commerce.mode === 'shopify', cartCount, reviewData });
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
+  destroyPdpScroll();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  renderedPath = path;
+  // Same task as the insertion, before other binding can throw or the browser starts fetching.
+  destroyGalleryLoading = galleryLoading()?.installGalleryLoading({ gallery: app.querySelector('.pdp-gallery'), hold: !releasedGalleryPaths.has(path), onRelease: () => { releasedGalleryPaths.add(path); } }) || (() => {});
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
+  destroyPdpScroll = installPdpScroll({ main: app.querySelector('.pdp-main') });
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
   syncProductDisplayOrder();
