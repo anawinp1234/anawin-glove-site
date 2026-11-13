@@ -797,3 +797,36 @@ body.newsletter-open{overflow:hidden}
 .full-size-shaping-help{margin:0 0 10px;color:var(--muted);font-size:12px;line-height:1.5}
 .full-size-field-error{margin:8px 0 0;color:#9b1c1c;font-size:13px;line-height:1.5}
 .break-in-choice:has(input[aria-invalid="true"]){border-color:#9b1c1c}
+
+.cart-service-editor{grid-column:1/-1;margin:0;padding:12px 0 0;border-top:1px solid var(--line)}
+.cart-service-editor h4{margin:0 0 12px;font-size:13px;line-height:1.35;font-weight:700;color:var(--ink)}
+.cart-service-editor h4:focus{outline:none}
+.cart-service-editor h4:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.cart-service-editor fieldset{min-width:0;margin:0 0 14px;padding:0;border:0}
+.cart-service-editor legend{width:100%;margin:0 0 7px;padding:0;font-size:12px;line-height:1.4;font-weight:700}
+.cart-service-editor .break-in-choice{min-height:48px}
+.cart-service-editor fieldset:disabled .break-in-choice{cursor:not-allowed;opacity:.6}
+.cart-item .cart-service-editor p{margin:0 0 10px}
+.cart-item .cart-service-editor-price{color:var(--ink);font-size:12px;line-height:1.4}
+.cart-service-editor-price strong{font-weight:700}
+.cart-item .cart-service-editor-error{color:#9b1c1c;font-size:12px;font-weight:700;line-height:1.45}
+.cart-item .cart-service-editor-error:focus{outline:2px solid #9b1c1c;outline-offset:2px}
+.cart-item .cart-service-editor-status{color:var(--muted);font-size:12px}
+.cart-item .cart-service-editor-status:empty{display:none}
+.cart-service-editor-actions{display:flex;flex-wrap:wrap;gap:10px}
+.cart-service-editor-actions button{min-height:44px;padding:0 16px;border:1px solid var(--ink);font-size:12px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.cart-service-confirm{flex:1 1 auto;background:var(--ink);color:var(--paper)}
+.cart-service-confirm:not(:disabled):hover{background:#333}
+.cart-service-cancel{flex:0 0 auto;background:none;color:var(--ink)}
+.cart-service-editor-actions button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.cart-service-editor-actions button:disabled{cursor:not-allowed;opacity:.55}
+.cart-item .cart-service-added{grid-column:1/-1;margin:0;padding:9px 0 0;border-top:1px solid var(--line);color:var(--ink);font-size:12px;font-weight:700;line-height:1.4}
+.cart-service-added:focus{outline:none}
+.cart-service-added:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.cart-service-added + .cart-service-preferences{border-top:0;padding-top:2px}
+.cart-item .cart-service-editor-status:focus{outline:none}
+/* While break-in choices are open, the whole drawer scrolls so the footer cannot squeeze them. */
+.cart-drawer.is-editing-service{overflow-y:auto;overscroll-behavior:contain}
+.cart-drawer.is-editing-service .cart-head{position:sticky;top:0;z-index:1;background:var(--paper)}
+.cart-drawer.is-editing-service .cart-body{flex:0 0 auto;overflow:visible}
+.cart-drawer.is-editing-service .cart-foot{flex:0 0 auto;max-height:none;overflow:visible}

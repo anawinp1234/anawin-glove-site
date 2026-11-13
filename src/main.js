@@ -3,6 +3,7 @@ import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING
 import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
+import { createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
@@ -82,6 +83,9 @@ let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
 const scrollMemory = installScrollMemory(window, top => { render(top); loadReviews(); });
 const runCartAction = createCartActionGate();
+// One trainer cart line at a time can review break-in choices before service is added.
+const breakInEditor = createBreakInEditor();
+let serviceNotice = null;
 const cartState = createCartStateTracker(() => commerce.readCartSafety?.());
 const verifyCheckout = commerce.mode === 'shopify'
   ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
@@ -140,11 +144,12 @@ function cartDrawer() {
     recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn,
     gloveOnlyRecoveryAvailable: cart.gloveOnlyRecoveryAvailable,
     busy: cartBusy, mode: commerce.mode }, escapeHtml);
-  return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
+  return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer${breakInEditor.state ? ' is-editing-service' : ''}" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     ${cartFeedback}
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
       product, line, service, mode: commerce.mode, serviceProduct: product.line === 'full-size' ? fullSizeBreakInService : breakInService,
-      busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml
+      busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml,
+      editor: breakInEditor.state, notice: serviceNotice?.lineId === line.remoteLineId ? serviceNotice.text : ''
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
     ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
 }
@@ -285,6 +290,8 @@ function openCart(opener = null) {
   stickyPurchase?.refresh();
   clearTimeout(cartCloseTimer);
   document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
+  breakInEditor.prune(cart.lines.filter(line => !line.isBreakIn &&
+    !cart.lines.some(child => child.isBreakIn && child.parentLineId === line.remoteLineId)).map(line => line.remoteLineId));
   document.body.insertAdjacentHTML('beforeend', cartDrawer());
   app.inert = true;
   requestAnimationFrame(() => { if (cartIsOpen) document.body.classList.add('cart-open'); });
@@ -357,13 +364,17 @@ function bindMobileGallery() {
     update();
   }));
 }
-async function cartAction(action, opener = null, kind = 'cart') {
-  if (cartBusy || checkoutBusy) return;
-  return runCartAction(async () => {
+// Resolves to { status: 'ok', cart }, { status: 'error', message } or { status: 'ignored' }.
+// `inlineError` leaves a failure message to the caller instead of the cart-level alert.
+async function cartAction(action, opener = null, kind = 'cart', { inlineError = false } = {}) {
+  if (cartBusy || checkoutBusy) return { status: 'ignored' };
+  let outcome = { status: 'ignored' };
+  await runCartAction(async () => {
     cartState.localChange();
-    cartBusy = true; cartError = ''; openCart(opener);
+    cartBusy = true; cartError = ''; serviceNotice = null; openCart(opener);
     try {
       cart = await action();
+      outcome = { status: 'ok', cart };
       if (cart.incomplete) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
       else if (kind === 'recovery') {
         checkoutNeedsReview = true;
@@ -371,12 +382,71 @@ async function cartAction(action, opener = null, kind = 'cart') {
       }
     }
     catch (error) {
-      cartError = commerceErrorMessage(error, kind);
+      const message = commerceErrorMessage(error, kind);
+      outcome = { status: 'error', message };
+      if (!inlineError) cartError = message;
       try { cart = await commerce.getCart(); }
       catch { cart = { ...cart, checkoutUrl: null }; }
     }
     finally { cartBusy = false; syncCartCount(); if (cartIsOpen) openCart(); }
   });
+  return outcome;
+}
+
+function focusInCart(selector) {
+  const target = document.querySelector('.cart-drawer')?.querySelector(selector);
+  if (!target || target.disabled) return false;
+  if (!target.matches('a[href], button, input, select, textarea, [tabindex]')) target.tabIndex = -1;
+  target.focus({ preventScroll: true });
+  // Centering keeps the neighbouring choices, error and actions in view on short screens.
+  target.scrollIntoView?.({ block: 'center' });
+  return true;
+}
+
+const lineSelector = (attribute, lineId) => `[${attribute}="${CSS.escape(lineId)}"]`;
+
+function openBreakInEditor(lineId) {
+  const line = cart.lines.find(candidate => candidate.remoteLineId === lineId && !candidate.isBreakIn);
+  // Only a price Shopify returned for an available service variant may be offered.
+  if (!line || cartBusy || checkoutBusy || cart.incomplete || breakInService.available !== true ||
+    !breakInEditor.open(lineId, line.productId)) return;
+  serviceNotice = null;
+  openCart();
+  focusInCart('#cart-service-editor-heading');
+}
+
+function cancelBreakInEditor() {
+  const lineId = breakInEditor.cancel();
+  if (!lineId) return;
+  openCart();
+  if (!focusInCart(lineSelector('data-add-service', lineId))) focusInCart('.cart-head [data-close-cart]');
+}
+
+async function confirmBreakIn(lineId) {
+  if (cartBusy || checkoutBusy || breakInService.available !== true) return;
+  const reviewed = cart;
+  const pending = breakInEditor.submit(lineId, options => cartAction(
+    () => commerce.addBreakIn(lineId, options), null, 'break-in', { inlineError: true }), reviewed);
+  // cartAction re-renders the drawer synchronously; keep focus on the pending form, not the Close button.
+  if (breakInEditor.state?.submitting) focusInCart('[data-service-pending]');
+  const result = await pending;
+  if (result.status === 'ignored') return;
+  if (result.status === 'added') {
+    serviceNotice = { lineId: result.parentLineId,
+      text: `Break-in service added: ${result.options.level} · ${result.options.wearingStyle}` };
+  }
+  if (!cartIsOpen) return;
+  openCart();
+  if (result.status === 'added') { focusInCart('[data-service-notice]'); return; }
+  // The glove line may have left the cart; its error must still reach the shopper.
+  if (!breakInEditor.isOpen(lineId)) {
+    cartError ||= result.message;
+    openCart();
+    focusInCart('.cart-error');
+    return;
+  }
+  if (!focusInCart(lineSelector('data-confirm-service', lineId))) focusInCart('[data-service-error]:not([hidden])') ||
+    focusInCart(lineSelector('data-cancel-service', lineId));
 }
 
 function addProductFromButton(productId, trigger) {
@@ -488,7 +558,15 @@ function bindCart() {
   document.querySelectorAll('[data-close-cart]').forEach(element => element.addEventListener('click', closeCart));
   document.querySelectorAll('[data-remove]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeProduct(element.dataset.remove))));
   document.querySelectorAll('[data-remove-line]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeLine(element.dataset.removeLine))));
-  document.querySelectorAll('[data-add-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.addBreakIn(element.dataset.addService))));
+  document.querySelectorAll('[data-add-service]').forEach(element => element.addEventListener('click', () => openBreakInEditor(element.dataset.addService)));
+  document.querySelectorAll('[data-service-form]').forEach(form => {
+    form.addEventListener('change', event => {
+      if (event.target.name === 'cart-break-in-level') breakInEditor.select('level', event.target.value);
+      if (event.target.name === 'cart-glove-wearing-style') breakInEditor.select('wearingStyle', event.target.value);
+    });
+    form.addEventListener('submit', event => { event.preventDefault(); confirmBreakIn(form.dataset.serviceForm); });
+    form.querySelector('[data-cancel-service]')?.addEventListener('click', cancelBreakInEditor);
+  });
   document.querySelectorAll('[data-remove-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeBreakIn(element.dataset.removeService))));
   document.querySelectorAll('[data-qty]').forEach(element => element.addEventListener('click', () => {
     const line = cart.lines.find(line => line.productId === element.dataset.qty && !line.isBreakIn);
@@ -795,7 +873,11 @@ document.addEventListener('keydown', event => {
     }
     else containTab(event, lightboxOverlay, document.activeElement);
   } else if (cartIsOpen) {
-    if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
+    if (event.key === 'Escape' && breakInEditor.state && document.activeElement?.closest('[data-service-form]')) {
+      event.preventDefault();
+      if (!breakInEditor.state.submitting) cancelBreakInEditor();
+    }
+    else if (event.key === 'Escape') { event.preventDefault(); closeCart(); }
     else containTab(event, document.querySelector('.cart-drawer'), document.activeElement);
   } else if (event.key === 'Escape') {
     if (document.querySelector('.header-info[open]')) closeInfoMenus(true);
