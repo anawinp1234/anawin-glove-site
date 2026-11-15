@@ -13,7 +13,7 @@ test('homepage community invitation follows shopping and links to the community 
   const html = views.route('/');
   assert.match(html, /<section class="collection">[\s\S]*?<\/section>\s*<section class="community-spotlight"/);
   assert.match(html, /ANAWIN COMMUNITY<\/p><h2 id="discord-heading">BUILT<br>WITH YOU\.<\/h2>/);
-  assert.ok(html.includes('Talk directly with us, vote on what we make next, and win free gear.'));
+  assert.ok(html.includes('Talk directly with us, vote on what we make next, and connect with other players.'));
   assert.match(html, /href="\/community" data-link>See what members get/);
 });
 
@@ -27,11 +27,12 @@ test('community has its own route, heading hierarchy and three promised discussi
   for (const [heading, copy] of [
     ['TALK WITH THE ANAWIN TEAM', 'Ask us about leather, patterns, break-in, anything. Literally anything.'],
     ['VOTE ON WHAT’S NEXT', 'Colorways, patterns, and new models get tested in the server first.'],
-    ['WIN FREE GEAR', 'Learn how to win free gear, gloves, and more!']
+    ['MEET THE COMMUNITY', 'Connect with other players and glove fans who love the game as much as you do.']
   ]) {
     assert.ok(html.includes(`>${heading}</h2><p>${copy}</p>`));
   }
   assert.doesNotMatch(html, /01 \/|02 \/|03 \/|aria-hidden="true">0/);
+  assert.doesNotMatch(html, /win free|giveaway/i);
   assert.equal((html.match(/class="community-button"/g) || []).length, 2);
   assert.match(views.route('/community/missing'), /class="not-found"/);
 });

@@ -332,6 +332,8 @@ body{background:var(--paper)}
 .hero h1{font-style:normal;font-weight:900;letter-spacing:-.07em;line-height:.81;margin-top:5vh;text-shadow:0 2px 22px rgba(0,0,0,.3)}
 .hero h1 em{font-style:italic;font-weight:900}
 .hero .eyebrow{display:inline-block;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.85);color:#fff;font-weight:700}
+.hero-subhead{max-width:420px;margin:32px 0 0;font-size:17px;font-weight:500;line-height:1.45;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.45)}
+@media(min-width:761px){.hero h1{font-size:clamp(72px,min(11vw,13vh),178px)}}
 .hero-cta{width:260px;border:1px solid #fff;background:var(--ink);color:#fff;padding:18px 20px;font-weight:800;letter-spacing:.06em;transition:background-color .2s,transform .2s}
 .hero-cta:hover,.hero-cta:focus-visible{background:#333;transform:translateY(-3px)}
 .hero-cta:focus-visible{outline:2px solid #fff;outline-offset:4px}
@@ -394,6 +396,7 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
   .announcement-bar p{font-size:10px;line-height:1.45;letter-spacing:.04em}
   .hero::after{background:linear-gradient(180deg,rgba(0,0,0,.57),rgba(0,0,0,.08) 60%,rgba(0,0,0,.43))}
   .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
+  .hero-subhead{max-width:330px;margin-top:22px;font-size:15px}
   .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
   body:has(.hero) .commerce-notice[role="status"]{top:64px}
   .product-meta{padding:16px}

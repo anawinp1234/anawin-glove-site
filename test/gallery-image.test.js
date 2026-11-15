@@ -29,7 +29,7 @@ test('BR16 gallery selects only color-correct variants with unchanged responsive
   assert.match(first, /<img src="\/images\/black1.PNG" alt="Black \/ Red \/ Gray glove view 1" width="1045" height="1044" loading="eager" fetchpriority="high"/);
 });
 
-const tones = { br16: 'Black / Red / Gray', ob16: 'Baby Blue / Royal / Navy', cl16: 'Camel / Toffee / Black' };
+const tones = { br16: 'Black / Red / Gray', ob16: 'Baby Blue / Royal / Navy', cl16: 'Brown / Dark Brown / Red' };
 const alt = (model, index) => `${tones[model]} glove view ${index + 1}`;
 
 test('all other gallery photographs keep their sources, order, labels and loading behavior', () => {

@@ -126,14 +126,14 @@ test('every existing footer destination, routing attribute and external-link pro
   const links = [...markup.matchAll(/<a href="([^"]+)"([^>]*)>/g)].map(([, href, attributes]) => ({ href, attributes }));
   const internal = ['/', '/shop', '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'];
   const external = ['https://discord.com/invite/acstj7uMt', 'https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial', 'https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en', 'https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en'];
-  const mail = ['mailto:support@anawinofficial.com', 'mailto:ray@anawinofficial.com', 'mailto:anawin@anawinofficial.com'];
+  const mail = ['mailto:support@anawinofficial.com'];
   assert.deepEqual(links.map(link => link.href).sort(), [...internal, ...external, ...mail].sort());
   for (const link of links) {
     if (internal.includes(link.href)) assert.match(link.attributes, /data-link/);
     if (external.includes(link.href)) assert.match(link.attributes, /target="_blank" rel="noreferrer"/);
   }
   assert.ok(markup.includes(`© ${new Date().getFullYear()} ANAWIN`));
-  assert.ok(markup.includes('Baseball gloves'));
+  assert.ok(markup.includes(`<span>© ${new Date().getFullYear()} ANAWIN</span> <span>Baseball gloves</span>`));
 });
 test('footer styling keeps reduced motion, mobile touch targets and visible keyboard focus', () => {
   const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
