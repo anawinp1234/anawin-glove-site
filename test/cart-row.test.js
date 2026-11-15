@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { access } from 'node:fs/promises';
 import { bindCartImageFallbacks, renderCartRow } from '../src/cart-row.js';
 import { localProducts } from '../src/catalog.js';
@@ -134,4 +135,11 @@ test('a failed optimized thumbnail retries the original only once', () => {
   image.src = '/images/original-also-failed.PNG';
   image.dispatchEvent(new Event('error'));
   assert.equal(image.src, '/images/original-also-failed.PNG');
+});
+
+test('local cart lines without a Shopify line id do not read a missing service notice', () => {
+  // Local lines have no remoteLineId, so a bare equality check matched undefined to
+  // undefined and read .text from a null notice, crashing every local cart render.
+  const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  assert.match(mainSource, /notice: serviceNotice\?\.lineId && serviceNotice\.lineId === line\.remoteLineId \? serviceNotice\.text : ''/);
 });

@@ -149,7 +149,7 @@ function cartDrawer() {
     <div class="cart-body">${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
       product, line, service, mode: commerce.mode, serviceProduct: product.line === 'full-size' ? fullSizeBreakInService : breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml,
-      editor: breakInEditor.state, notice: serviceNotice?.lineId === line.remoteLineId ? serviceNotice.text : ''
+      editor: breakInEditor.state, notice: serviceNotice?.lineId && serviceNotice.lineId === line.remoteLineId ? serviceNotice.text : ''
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
     ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
 }
