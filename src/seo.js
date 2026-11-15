@@ -21,7 +21,7 @@ const imageAlts = Object.freeze({
   [homeImage]: 'Black and red ANAWIN glove on grass',
   '/images/black1.PNG': 'BR16 ANAWIN glove in black, red, and gray',
   '/images/blue1.PNG': 'OB16 ANAWIN glove in baby blue, royal, and navy',
-  '/images/brown1.PNG': 'CL16 ANAWIN glove in olive brown, tan, and brown',
+  '/images/brown1.PNG': 'CL16 ANAWIN glove in brown, dark brown, and red',
   ...Object.fromEntries(fullSizeProducts.map(product => [product.images[0].src, product.images[0].alt]))
 });
 export const socialImageAlt = imagePath => imageAlts[imagePath] || '';
@@ -53,7 +53,7 @@ export const seoRoutes = Object.freeze({
   },
   '/product/cl16': {
     title: 'CL16 Brown Training Baseball Glove | ANAWIN',
-    description: 'Meet the CL16: an olive brown, tan, and brown 10.25-inch ANAWIN training glove made with US steerhide leather.',
+    description: 'Meet the CL16: a brown, dark brown, and red 10.25-inch ANAWIN training glove made with US steerhide leather.',
     image: '/images/brown1.PNG',
     type: 'product'
   },

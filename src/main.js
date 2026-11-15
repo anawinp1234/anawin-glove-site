@@ -159,11 +159,13 @@ function fitHeroHeading() {
   if (!heading) return;
   heading.style.fontSize = '';
   if (!window.matchMedia('(max-width: 760px) and (orientation: portrait)').matches) return;
-  const firstLine = heading.firstChild;
+  // Fit the widest line; each line is a text node or <em> separated by <br>.
   const range = document.createRange();
-  range.selectNodeContents(firstLine);
   const available = heading.clientWidth - 20;
-  const lineWidth = range.getBoundingClientRect().width;
+  const lineWidth = Math.max(...[...heading.childNodes].filter(node => node.nodeName !== 'BR').map(node => {
+    range.selectNodeContents(node);
+    return range.getBoundingClientRect().width;
+  }));
   if (lineWidth > available) {
     const fontSize = parseFloat(getComputedStyle(heading).fontSize);
     heading.style.fontSize = `${Math.floor(fontSize * available / lineWidth)}px`;

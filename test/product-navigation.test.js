@@ -24,7 +24,7 @@ test('Each PDP marks its current model and directly links the other two', () => 
     assert.ok(switcher, product.name);
     assert.deepEqual([...switcher.matchAll(/data-product="[^"]+">(CL16|OB16|BR16)/g)].map(match => match[1]), ['CL16', 'OB16', 'BR16']);
     assert.deepEqual([...switcher.matchAll(/data-product="([^"]+)"/g)].map(match => match[1]), ['brown', 'blue', 'black']);
-    assert.match(switcher, new RegExp(`<span class="model-switcher-current" aria-current="page" data-product="${product.id}">${product.name}<small>Current</small></span>`));
+    assert.match(switcher, new RegExp(`<span class="model-switcher-current" aria-current="page" data-product="${product.id}">${product.name} <small>Current</small></span>`));
     assert.equal((switcher.match(/aria-current="page"/g) || []).length, 1);
     for (const other of localProducts.filter(other => other.id !== product.id)) {
       assert.match(switcher, new RegExp(`<a href="${productPath(other)}" data-link data-product="${other.id}">${other.name}</a>`));
