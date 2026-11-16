@@ -1,9 +1,9 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice, savedBreakInOptions } from './catalog.js';
 import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
-import { createBreakInEditor } from './cart-break-in-editor.js';
+import { breakInEditorField, createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup, cartUpdateAnnouncement, createCartAnnouncer } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
@@ -161,7 +161,7 @@ function cartDrawer() {
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer${breakInEditor.state ? ' is-editing-service' : ''}${commerce.mode === 'shopify' && discountEntryExpanded({ expanded: discountExpanded, error: discountError }) ? ' is-discount-open' : ''}" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
     ${cartFeedback}
     <div class="cart-body"${cartBusy ? ' aria-busy="true"' : ''}>${productItems.length ? productItems.map(({ product, line, service }) => renderCartRow({
-      product, line, service, mode: commerce.mode, serviceProduct: product.line === 'full-size' ? fullSizeBreakInService : breakInService,
+      product, line, service, mode: commerce.mode, serviceProduct: product.line === 'full-size' ? fullSizeService : breakInService,
       busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml,
       editor: breakInEditor.state, notice: serviceNotice?.lineId && serviceNotice.lineId === line.remoteLineId ? serviceNotice.text : ''
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
@@ -330,8 +330,10 @@ function openCart(opener = null, { manageFocus = true } = {}) {
   stickyPurchase?.refresh();
   clearTimeout(cartCloseTimer);
   document.querySelector('.cart-drawer')?.remove(); document.querySelector('.cart-backdrop')?.remove();
-  breakInEditor.prune(cart.lines.filter(line => !line.isBreakIn &&
-    !cart.lines.some(child => child.isBreakIn && child.parentLineId === line.remoteLineId)).map(line => line.remoteLineId));
+  // An add needs a glove without service and an edit a glove with it; otherwise the editor closes.
+  const editingService = breakInEditor.state?.mode === 'edit';
+  breakInEditor.prune(cart.lines.filter(line => !line.isBreakIn && editingService ===
+    cart.lines.some(child => child.isBreakIn && child.parentLineId === line.remoteLineId)).map(line => line.remoteLineId));
   document.body.insertAdjacentHTML('beforeend', cartDrawer());
   app.inert = true;
   requestAnimationFrame(() => { if (cartIsOpen) document.body.classList.add('cart-open'); });
@@ -468,39 +470,66 @@ function focusInCart(selector) {
 
 const lineSelector = (attribute, lineId) => `[${attribute}="${CSS.escape(lineId)}"]`;
 
-function openBreakInEditor(lineId) {
+const isFullSizeLine = line => products.find(product => product.id === line.productId)?.line === 'full-size';
+const serviceFor = line => isFullSizeLine(line) ? fullSizeService : breakInService;
+const breakInSummary = options => options.type === 'full-size'
+  ? `${options.firmness} · ${options.wearingStyle}` : `${options.level} · ${options.wearingStyle}`;
+
+// 'add' offers service to a glove without it; 'edit' starts from the glove's saved choices.
+function openBreakInEditor(lineId, mode = 'add') {
   const line = cart.lines.find(candidate => candidate.remoteLineId === lineId && !candidate.isBreakIn);
+  if (!line || cartBusy || checkoutBusy || cart.incomplete) return;
+  const initial = mode === 'edit' ? savedBreakInOptions(cart.lines, line) : null;
   // Only a price Shopify returned for an available service variant may be offered.
-  if (!line || cartBusy || checkoutBusy || cart.incomplete || breakInService.available !== true ||
-    !breakInEditor.open(lineId, line.productId)) return;
+  if (mode === 'edit' ? !initial : serviceFor(line).available !== true) return;
+  if (!breakInEditor.open(lineId, line.productId, { type: isFullSizeLine(line) ? 'full-size' : 'trainer', mode, initial })) return;
   serviceNotice = null;
   openCart();
   focusInCart('#cart-service-editor-heading');
+}
+
+function focusServiceTrigger(lineId) {
+  return focusInCart(lineSelector('data-edit-service', lineId)) || focusInCart(lineSelector('data-add-service', lineId)) ||
+    focusInCart('.cart-head [data-close-cart]');
 }
 
 function cancelBreakInEditor() {
   const lineId = breakInEditor.cancel();
   if (!lineId) return;
   openCart();
-  if (!focusInCart(lineSelector('data-add-service', lineId))) focusInCart('.cart-head [data-close-cart]');
+  focusServiceTrigger(lineId);
 }
 
 async function confirmBreakIn(lineId) {
-  if (cartBusy || checkoutBusy || breakInService.available !== true) return;
+  const line = cart.lines.find(candidate => candidate.remoteLineId === lineId && !candidate.isBreakIn);
+  const editing = breakInEditor.state?.mode === 'edit';
+  if (cartBusy || checkoutBusy || !line || !editing && serviceFor(line).available !== true) return;
   const reviewed = cart;
   const pending = breakInEditor.submit(lineId, options => cartAction(
-    () => commerce.addBreakIn(lineId, options), null, 'break-in', { inlineError: true }), reviewed);
+    () => editing ? commerce.editBreakIn(lineId, options) : commerce.addBreakIn(lineId, options), null, 'break-in', { inlineError: true }), reviewed);
   // cartAction re-renders the drawer synchronously; keep focus on the pending form, not the Close button.
   if (breakInEditor.state?.submitting) focusInCart('[data-service-pending]');
   const result = await pending;
   if (result.status === 'ignored') return;
-  if (result.status === 'added') {
+  if (result.status === 'invalid') {
+    openCart(null, { manageFocus: false });
+    const field = result.field && document.querySelector(`.cart-drawer [data-break-in-field="${CSS.escape(result.field)}"]`);
+    if (!(field && focusInCart(`[data-break-in-field="${CSS.escape(result.field)}"] :is(input, textarea)`))) focusInCart('[data-service-error]');
+    return;
+  }
+  if (result.status === 'unchanged') {
+    openCart(null, { manageFocus: false });
+    focusServiceTrigger(lineId);
+    cartAnnouncer.announce('No changes to break-in.');
+    return;
+  }
+  if (result.status === 'added' || result.status === 'updated') {
     serviceNotice = { lineId: result.parentLineId,
-      text: `Break-in service added: ${result.options.level} · ${result.options.wearingStyle}` };
+      text: `${result.status === 'updated' ? 'Break-in updated' : 'Break-in service added'}: ${breakInSummary(result.options)}` };
   }
   if (!cartIsOpen) return;
   openCart();
-  if (result.status === 'added') { focusInCart('[data-service-notice]'); return; }
+  if (result.status === 'added' || result.status === 'updated') { focusInCart('[data-service-notice]'); return; }
   // The glove line may have left the cart; its error must still reach the shopper.
   if (!breakInEditor.isOpen(lineId)) {
     cartError ||= result.message;
@@ -625,11 +654,19 @@ function bindCart() {
   document.querySelectorAll('[data-remove]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeProduct(element.dataset.remove))));
   document.querySelectorAll('[data-remove-line]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeLine(element.dataset.removeLine))));
   document.querySelectorAll('[data-add-service]').forEach(element => element.addEventListener('click', () => openBreakInEditor(element.dataset.addService)));
+  document.querySelectorAll('[data-edit-service]').forEach(element => element.addEventListener('click', () => openBreakInEditor(element.dataset.editService, 'edit')));
   document.querySelectorAll('[data-service-form]').forEach(form => {
-    form.addEventListener('change', event => {
-      if (event.target.name === 'cart-break-in-level') breakInEditor.select('level', event.target.value);
-      if (event.target.name === 'cart-glove-wearing-style') breakInEditor.select('wearingStyle', event.target.value);
-    });
+    const record = event => {
+      const field = breakInEditorField(event.target);
+      if (!field || !breakInEditor.select(field, event.target.value)) return;
+      // The written placement is only asked for with the Other wearing style.
+      if (field === 'wearingStyle') form.querySelector('[data-break-in-field="full-size-finger-placement"]')?.toggleAttribute('hidden', !event.target.value.startsWith('Other'));
+      form.querySelectorAll('[aria-invalid]').forEach(control => control.removeAttribute('aria-invalid'));
+      const error = form.querySelector('[data-service-error]');
+      if (error && !breakInEditor.state?.error) { error.hidden = true; error.textContent = ''; }
+    };
+    form.addEventListener('change', record);
+    form.addEventListener('input', event => { if (event.target.matches('textarea')) record(event); });
     form.addEventListener('submit', event => { event.preventDefault(); confirmBreakIn(form.dataset.serviceForm); });
     form.querySelector('[data-cancel-service]')?.addEventListener('click', cancelBreakInEditor);
   });

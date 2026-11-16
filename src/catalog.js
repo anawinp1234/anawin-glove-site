@@ -41,6 +41,16 @@ export function optionsFromAttributes(attributes = [], type = null) {
   } : { level: value('_anawin_break_in_level'), wearingStyle: value('_anawin_wearing_style') };
 }
 
+// The break-in choices a glove line was saved with, or null without readable service.
+export function savedBreakInOptions(lines, parent) {
+  const child = lines.find(line => line.isBreakIn && line.parentLineId === parent.remoteLineId);
+  if (!child) return null;
+  try {
+    return normalizeBreakInOptions(parent.productId?.startsWith('full-')
+      ? optionsFromAttributes(child.attributes, 'full-size') : optionsFromAttributes(parent.attributes));
+  } catch { return null; }
+}
+
 export function fullSizeConfiguration(options) {
   return `v1:${configurationDigest(JSON.stringify(normalizeFullSizeOptions(options)))}`;
 }

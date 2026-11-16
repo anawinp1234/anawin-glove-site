@@ -350,3 +350,132 @@ test('quantity changes keep nondefault trainer choices on glove and service line
   assert.deepEqual(pairing(removed).map(entry => [entry.service, entry.parentLevel, entry.quantity, entry.childQuantity]),
     [['break-in', 'Game Ready (90%)', 1, 1], ['none', null, 1, 0]]);
 });
+
+const FULL = { type: 'full-size', wearingStyle: 'Traditional — index finger out', placement: '', closure: 'Ring finger',
+  thumbShape: 'Straight', pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '' };
+const fullProduct = { id: 'full-mint', name: 'MI26', tone: 'Mint', line: 'full-size', images: ['/images/mi26.png'] };
+const runEdit = (fixture, lineId, method = 'editBreakIn') => async options => {
+  try { return { status: 'ok', cart: await fixture.commerce[method](lineId, options) }; }
+  catch (error) { return { status: 'error', message: error.message }; }
+};
+
+test('adding break-in to one of two gloves is confirmed although the selected line keeps its id', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.getBreakInService();
+  await fixture.commerce.addProduct('black', false);
+  const before = await fixture.commerce.addProduct('black', false);
+  const lineId = before.lines[0].remoteLineId;
+  const editor = createBreakInEditor();
+  editor.open(lineId, 'black');
+  editor.select('level', 'Firm (40%)');
+  const result = await editor.submit(lineId, runEdit(fixture, lineId, 'addBreakIn'), before);
+  assert.equal(result.status, 'added');
+  assert.notEqual(result.parentLineId, undefined);
+});
+
+test('editing starts from the saved choices, saves through Shopify, and confirms split or merged lines', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.getBreakInService();
+  await fixture.commerce.addProduct('black', true, GAME_READY_TIP);
+  const before = await fixture.commerce.addProduct('black', true, GAME_READY_TIP);
+  const line = before.lines.find(item => !item.isBreakIn);
+  const editor = createBreakInEditor();
+  editor.open(line.remoteLineId, 'black', { mode: 'edit', initial: GAME_READY_TIP });
+  const html = renderBreakInEditor({ product, line, editor: editor.state, serviceProduct, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /Edit break-in for 1 of 2 BR16 gloves/);
+  assert.match(html, /value="Game Ready \(90%\)" checked/);
+  assert.match(html, /value="Two in the Pinky \(TIP\)" checked/);
+  assert.match(html, />Save changes<\/button>/);
+  assert.match(html, /Only this glove changes\. The price stays the same\./);
+  assert.doesNotMatch(html, /\+\$20/);
+  editor.select('level', 'Firm (40%)');
+  editor.select('wearingStyle', 'Traditional');
+  const result = await editor.submit(line.remoteLineId, runEdit(fixture, line.remoteLineId), before);
+  assert.equal(result.status, 'updated');
+  assert.deepEqual(result.options, FIRM_TRADITIONAL);
+  assert.equal(editor.state, null);
+  assert.deepEqual(pairing(await fixture.commerce.getCart()).map(item => [item.quantity, item.parentLevel, item.childLevel, item.childQuantity]),
+    [[1, 'Firm (40%)', 'Firm (40%)', 1], [1, 'Game Ready (90%)', 'Game Ready (90%)', 1]]);
+});
+
+test('saving unchanged choices closes the editor without calling Shopify', async () => {
+  const editor = createBreakInEditor();
+  editor.open('glove-1', 'black', { mode: 'edit', initial: GAME_READY_TIP });
+  let called = false;
+  const result = await editor.submit('glove-1', async () => { called = true; return { status: 'ok' }; });
+  assert.equal(result.status, 'unchanged');
+  assert.equal(called, false);
+  assert.equal(editor.state, null);
+});
+
+test('a full-size add asks every instruction deliberately and names the missing one', async () => {
+  const editor = createBreakInEditor();
+  editor.open('glove-1', 'full-mint', { type: 'full-size' });
+  let html = renderBreakInEditor({ product: fullProduct, line: { remoteLineId: 'glove-1', quantity: 1 }, editor: editor.state,
+    serviceProduct: { price: 75, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
+  for (const legend of ['How do you wear your glove?', 'Where should the thumb meet when the glove closes?', 'Thumb shape', 'Pinky shape', 'Finger form', 'How firm do you want the glove?']) {
+    assert.match(html, new RegExp(`<legend>${legend.replace(/[?]/g, '\\?')}</legend>`));
+  }
+  assert.doesNotMatch(html, / checked/);
+  assert.match(html, /data-break-in-field="full-size-finger-placement" hidden/);
+  assert.match(html, /Full-size break-in <strong>\+\$75<\/strong>/);
+  assert.match(html, />Add break-in \+\$75<\/button>/);
+  let called = false;
+  const invalid = await editor.submit('glove-1', async () => { called = true; return { status: 'ok' }; });
+  assert.deepEqual(invalid, { status: 'invalid', field: 'full-size-wearing-style' });
+  assert.equal(called, false);
+  html = renderBreakInEditor({ product: fullProduct, line: { remoteLineId: 'glove-1', quantity: 1 }, editor: editor.state,
+    serviceProduct: { price: 75, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /role="alert" tabindex="-1" >Choose how you wear your glove\./);
+  assert.match(html, /name="cart-full-size-wearing-style" value="Traditional — index finger in"\s+aria-invalid="true"/);
+  assert.equal(editor.select('wearingStyle', 'Other — describe your finger placement'), true);
+  assert.equal(editor.state.error, '');
+  assert.equal(editor.select('closure', 'Thumb tip'), false);
+  for (const [field, value] of Object.entries(FULL)) if (!['type', 'placement', 'notes', 'wearingStyle'].includes(field)) editor.select(field, value);
+  assert.equal((await editor.submit('glove-1', async () => ({ status: 'ok' }))).field, 'full-size-finger-placement');
+  editor.select('placement', 'Index and middle together');
+  html = renderBreakInEditor({ product: fullProduct, line: { remoteLineId: 'glove-1', quantity: 1 }, editor: editor.state,
+    serviceProduct: { price: 75, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html, /data-break-in-field="full-size-finger-placement" >/);
+  assert.match(html, />Index and middle together<\/textarea>/);
+});
+
+test('full-size break-in added from the cart is confirmed on the glove Shopify serviced', async () => {
+  const fixture = shopifyFixture({ fullSize: true });
+  await fixture.commerce.listProducts();
+  await fixture.commerce.getFullSizeBreakInService();
+  const before = await fixture.commerce.addProduct('full-mint', false, undefined, 'gid://variant/mi26-right');
+  const lineId = before.lines[0].remoteLineId;
+  const editor = createBreakInEditor();
+  editor.open(lineId, 'full-mint', { type: 'full-size' });
+  for (const [field, value] of Object.entries(FULL)) if (field !== 'type') editor.select(field, value);
+  const result = await editor.submit(lineId, runEdit(fixture, lineId, 'addBreakIn'), before);
+  assert.equal(result.status, 'added');
+  assert.equal(result.options.firmness, 'Medium');
+});
+
+test('serviced rows offer Edit and Remove; full-size rows without service offer an in-cart add', () => {
+  const line = (id, quantity = 1) => ({ remoteLineId: id, quantity, lineTotal: { amount: 155, currencyCode: 'USD' }, instructions: { canUpdateQuantity: true } });
+  const service = { quantity: 1, attributes: serviceAttributes(GAME_READY_TIP), instructions: { canRemove: true }, lineTotal: { amount: 20, currencyCode: 'USD' } };
+  const row = (extra = {}) => renderCartRow({ product, line: line('glove-1'), service, mode: 'shopify', serviceProduct,
+    busy: false, incomplete: false, money, escapeHtml, ...extra });
+  assert.match(row(), /data-edit-service="glove-1" aria-label="Edit break-in for BR16" >Edit break-in<\/button>/);
+  assert.match(row(), /data-remove-service="glove-1"/);
+  assert.match(row({ incomplete: true }), /data-edit-service="glove-1"[^>]*disabled/);
+  assert.match(renderCartRow({ product, line: line('glove-1', 2), service: { ...service, quantity: 2 }, mode: 'shopify', serviceProduct,
+    busy: false, incomplete: false, money, escapeHtml }), />Edit break-in for 1<\/button>/);
+  const editor = createBreakInEditor();
+  editor.open('glove-1', 'black', { mode: 'edit', initial: GAME_READY_TIP });
+  const editing = row({ editor: editor.state });
+  assert.match(editing, /data-service-form="glove-1"/);
+  assert.doesNotMatch(editing, /data-edit-service|data-remove-service|cart-service-preferences/);
+  const full = renderCartRow({ product: { ...fullProduct, images: ['/images/mi26.png'] }, line: line('full-1'), service: null, mode: 'shopify',
+    serviceProduct: { price: 75, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(full, /data-add-service="full-1" aria-label="Add full-size break-in to MI26, \+\$75"[^>]*>Add full-size break-in \+\$75<\/button>/);
+  assert.doesNotMatch(full, /glove page/);
+  const unavailable = renderCartRow({ product: fullProduct, line: line('full-1'), service: null, mode: 'shopify',
+    serviceProduct: { price: 75, currencyCode: 'USD', available: false }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(unavailable, /Break-in service is unavailable right now\./);
+});
