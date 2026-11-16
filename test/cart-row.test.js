@@ -143,3 +143,13 @@ test('local cart lines without a Shopify line id do not read a missing service n
   const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
   assert.match(mainSource, /notice: serviceNotice\?\.lineId && serviceNotice\.lineId === line\.remoteLineId \? serviceNotice\.text : ''/);
 });
+
+test('Break-In add buttons name the glove and price, starting with their visible text', () => {
+  const product = { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] };
+  const money = amount => `$${amount}`;
+  const escapeHtml = value => String(value);
+  const markup = quantity => renderCartRow({ product, line: { remoteLineId: 'line-1', productId: 'black', quantity, attributes: [], instructions: { canUpdateQuantity: true } },
+    service: null, mode: 'shopify', serviceProduct: { price: 20, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(markup(1), /data-add-service="line-1" aria-label="Add Break-in service to BR16, \+\$20"/);
+  assert.match(markup(2), /data-add-service="line-1" aria-label="Add break-in to 1 BR16, \+\$20"/);
+});
