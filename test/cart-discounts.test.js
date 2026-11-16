@@ -281,7 +281,7 @@ test('a closing drawer leaves the tab order at once and is hidden after its slid
   assert.match(css, /\.cart-drawer\{position:fixed;right:0;top:0;width:min\(500px,100%\);[^}]*transform:translateX\(100%\);transition:\.3s;/);
   assert.match(mainSource, /document\.body\.classList\.remove\('cart-open'\);\n[^\n]*\n\s+document\.querySelector\('\.cart-drawer'\)\?\.setAttribute\('inert', ''\);/);
   // A reopened drawer is always freshly rendered, so it never inherits inert.
-  assert.match(mainSource, /document\.querySelector\('\.cart-drawer'\)\?\.remove\(\); document\.querySelector\('\.cart-backdrop'\)\?\.remove\(\);\n\s+breakInEditor\.prune/);
+  assert.match(mainSource, /document\.querySelector\('\.cart-drawer'\)\?\.remove\(\); document\.querySelector\('\.cart-backdrop'\)\?\.remove\(\);\n[^\n]*\n[^\n]*\n\s+breakInEditor\.prune/);
 });
 
 // Shapes recorded from the authorized test store (anawin-test) on 2026-11-15: Shopify keeps a rejected

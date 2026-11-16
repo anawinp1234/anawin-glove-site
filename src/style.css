@@ -833,6 +833,12 @@ body.newsletter-open{overflow:hidden}
 .cart-service-added:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .cart-service-added + .cart-service-preferences{border-top:0;padding-top:2px}
 .cart-item .cart-service-editor-status:focus{outline:none}
+.cart-service-editor .break-in-hint{display:block;margin:-2px 0 8px;color:var(--muted);font-size:12px;line-height:1.4}
+.cart-service-editor .break-in-text-field{margin:0 0 14px}
+.cart-service-editor .break-in-text-field label{font-size:12px;margin:0 0 7px}
+.cart-service-editor .break-in-text-field textarea{min-height:72px}
+.cart-service-editor [aria-invalid="true"]+span strong,.cart-service-editor textarea[aria-invalid="true"]{color:#9b1c1c}
+.cart-service-editor textarea[aria-invalid="true"]{border-color:#9b1c1c}
 /* While break-in choices or the discount entry are open, the whole drawer scrolls so the footer cannot squeeze the items. */
 .cart-drawer:is(.is-editing-service,.is-discount-open){overflow-y:auto;overscroll-behavior:contain}
 .cart-drawer:is(.is-editing-service,.is-discount-open) .cart-head{position:sticky;top:0;z-index:1;background:var(--paper)}
