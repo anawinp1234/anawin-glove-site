@@ -172,3 +172,32 @@ test('moving the status region into a new drawer never replays text it already d
   timers.flush();
   assert.equal(region.textContent, 'BR16 quantity 3.');
 });
+
+test('a cart frozen for checkout explains why it can’t change and offers a new cart', () => {
+  const html = cartFeedbackMarkup({ incomplete: true, recoveryAvailable: true, recoveryHasBreakIn: true,
+    checkoutStarted: true, mode: 'shopify' }, escapeHtml);
+  assert.match(html, /role="alert">Secure checkout was started for this cart, so it can’t be changed here\. If checkout didn’t open, continue with your items in a new cart\./);
+  assert.match(html, /data-recover-cart/);
+  assert.match(html, /data-recover-without-service/);
+  assert.match(html, /data-refresh-cart/);
+  // A recovery or connection error still takes precedence over the explanation.
+  assert.match(cartFeedbackMarkup({ error: 'Couldn’t check your cart.', incomplete: true, checkoutStarted: true, mode: 'shopify' }, escapeHtml),
+    /role="alert">Couldn’t check your cart\.</);
+});
+
+test('a page left active after a checkout handoff stays busy, then shows the frozen cart from Shopify', () => {
+  const mainSource = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const handler = mainSource.slice(mainSource.indexOf("document.querySelector('[data-checkout]')?.addEventListener"));
+  // Navigation is not success: the busy state is kept and the watcher armed before returning.
+  assert.match(handler, /if \(result\.status === 'navigating'\) \{\n[^}]*checkoutHandoff\.start\(\);[\s\S]*?return;\n\s+\}\n\s+checkoutBusy = false;/);
+  const frozen = mainSource.slice(mainSource.indexOf('async function showFrozenCheckout'), mainSource.indexOf('function bind()'));
+  assert.match(frozen, /cart = await commerce\.getCart\(\);/);
+  assert.match(frozen, /cart = \{ \.\.\.cart, checkoutUrl: null, incomplete: true \};/);
+  assert.match(frozen, /checkoutBusy = false;/);
+  assert.doesNotMatch(frozen, /recoverCart|clearUnsafe|removeItem|checkout\(/, 'showing the frozen cart never lifts the freeze');
+  assert.match(frozen, /\(document\.querySelector\('\[data-recover-cart\]'\) \|\| document\.querySelector\('\[data-refresh-cart\]'\)\)\?\.focus\(\);/);
+  // One watcher for the page; a reopened drawer during the handoff is still not actionable.
+  assert.equal(mainSource.match(/createCheckoutHandoffWatcher\(/g).length, 1);
+  assert.match(mainSource, /<button data-checkout \$\{cartBusy \|\| checkoutBusy \? 'disabled' : ''\}\$\{checkoutBusy \? ' aria-busy="true"' : ''\}>\$\{checkoutHandoff\.pending \? 'Opening checkout…'/);
+  assert.match(mainSource, /checkoutStarted: checkoutStarted\(\),/);
+});

@@ -7,7 +7,7 @@ import { createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup, cartUpdateAnnouncement, createCartAnnouncer } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
-import { checkoutCartIsComplete, isCartStorageKey } from './checkout-safety.js';
+import { checkoutCartIsComplete, createCheckoutHandoffWatcher, isCartStorageKey } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { dismissDiscountError, discountEntryExpanded, discountResultFeedback, renderCartDiscountSection } from './cart-discounts.js';
@@ -79,6 +79,8 @@ let commerceLoading = commerce.mode === 'shopify';
 let cartBusy = false;
 let checkoutBusy = false;
 let checkoutNeedsReview = false;
+// Set while a handed-off checkout should be unloading this page; see showFrozenCheckout.
+const checkoutHandoff = createCheckoutHandoffWatcher({ onStillHere: () => showFrozenCheckout() });
 let headerHidden = false;
 let lastHeaderScrollY = window.scrollY;
 const scrollMemory = installScrollMemory(window, top => { render(top); loadReviews(); });
@@ -132,6 +134,7 @@ const reviewData = Object.fromEntries(localProducts.map(product => {
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const canCheckout = () => commerce.mode === 'shopify' && checkoutCartIsComplete(cart);
+const checkoutStarted = () => Boolean(cart.uncertainMutation?.split(', ').includes('checkout handoff'));
 
 function cartDrawer() {
   const productItems = commerce.mode === 'shopify'
@@ -146,13 +149,13 @@ function cartDrawer() {
       service: cart.lines.find(line => line.productId === product.id && line.isBreakIn)
     })).filter(entry => entry.line);
   const checkout = canCheckout()
-    ? `<button data-checkout ${cartBusy || checkoutBusy ? 'disabled' : ''}>${checkoutBusy ? 'Checking cart…' : 'Checkout securely'}</button><p class="checkout-status" role="status" aria-live="polite">${checkoutBusy ? 'Checking your cart with Shopify…' : ''}</p>`
+    ? `<button data-checkout ${cartBusy || checkoutBusy ? 'disabled' : ''}${checkoutBusy ? ' aria-busy="true"' : ''}>${checkoutHandoff.pending ? 'Opening checkout…' : checkoutBusy ? 'Checking cart…' : 'Checkout securely'}</button><p class="checkout-status" role="status" aria-live="polite">${checkoutHandoff.pending ? 'Opening secure checkout…' : checkoutBusy ? 'Checking your cart with Shopify…' : ''}</p>`
     : `<button disabled>${commerce.mode === 'local' ? 'Checkout coming soon' : 'Checkout unavailable'}</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
   const feedbackText = cartError || (cart.incomplete ? 'incomplete' : '');
   const cartFeedback = cartFeedbackMarkup({ error: cartError, incomplete: cart.incomplete, guidance: cartGuidance,
     announce: feedbackText !== announcedCartFeedback,
     recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn,
-    gloveOnlyRecoveryAvailable: cart.gloveOnlyRecoveryAvailable,
+    gloveOnlyRecoveryAvailable: cart.gloveOnlyRecoveryAvailable, checkoutStarted: checkoutStarted(),
     busy: cartBusy, mode: commerce.mode }, escapeHtml);
   announcedCartFeedback = feedbackText;
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer${breakInEditor.state ? ' is-editing-service' : ''}${commerce.mode === 'shopify' && discountEntryExpanded({ expanded: discountExpanded, error: discountError }) ? ' is-discount-open' : ''}" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
@@ -427,7 +430,8 @@ async function cartAction(action, opener = null, kind = 'cart', { inlineError = 
     try {
       cart = await action();
       outcome = { status: 'ok', cart };
-      if (cart.incomplete) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
+      // A cart frozen for checkout explains itself through the cart alert.
+      if (cart.incomplete && !checkoutStarted()) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
       else if (kind === 'recovery') {
         checkoutNeedsReview = true;
         cartGuidance = 'Review the items in your new cart before checkout.';
@@ -650,8 +654,16 @@ function bindCart() {
     const status = document.querySelector('.checkout-status');
     if (status) status.textContent = 'Checking your cart with Shopify…';
     const result = await commerce.checkout(cart, { requireReview: checkoutNeedsReview }, url => window.location.assign(url));
+    if (result.status === 'navigating') {
+      // The page should now unload, so the cart stays busy. If it stays, the watcher shows the frozen cart.
+      checkoutHandoff.start();
+      const current = document.querySelector('[data-checkout]');
+      if (current) current.textContent = 'Opening checkout…';
+      const currentStatus = document.querySelector('.checkout-status');
+      if (currentStatus) currentStatus.textContent = 'Opening secure checkout…';
+      return;
+    }
     checkoutBusy = false;
-    if (result.status === 'navigating') return;
     if (result.cart) cart = result.cart;
     else cart = { ...cart, checkoutUrl: null };
     checkoutNeedsReview = result.status === 'review' ? false : checkoutNeedsReview;
@@ -661,6 +673,28 @@ function bindCart() {
     const next = document.querySelector(result.status === 'review' ? '[data-checkout]' : '[data-refresh-cart]');
     if (next && !next.disabled) next.focus();
   });
+}
+
+// The page is still here after a checkout handoff (a cancelled leave-page prompt, dropped
+// navigation, or a back/forward cache restore). The cart stays frozen for that checkout; show
+// Shopify's view of it, which offers recovery into a new cart, without lifting the freeze.
+async function showFrozenCheckout() {
+  cartState.localChange();
+  const drawer = cartIsOpen ? document.querySelector('.cart-drawer') : null;
+  const focused = document.activeElement;
+  // Focus left on the busy Checkout button (or dropped by the browser) moves to the next step once.
+  const keepPlace = Boolean(drawer?.contains(focused) && !focused.matches('[data-checkout]'));
+  try { cart = await commerce.getCart(); }
+  catch (error) {
+    cart = { ...cart, checkoutUrl: null, incomplete: true };
+    cartError = commerceErrorMessage(error, 'cart');
+  }
+  checkoutBusy = false;
+  syncCartCount();
+  if (!cartIsOpen) return;
+  if (keepPlace) { openCart(); return; }
+  openCart(null, { manageFocus: false });
+  (document.querySelector('[data-recover-cart]') || document.querySelector('[data-refresh-cart]'))?.focus();
 }
 
 function bind() {

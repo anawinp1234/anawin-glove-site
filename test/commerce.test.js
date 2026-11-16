@@ -2425,6 +2425,38 @@ test('a checkout freeze survives reload and editing requires a separate recovery
   assert.equal(fixture.requests.filter(r => r.query.includes('UpdateLines') && r.variables.cartId === cart.id).length, 0);
 });
 
+test('a cancelled navigation leaves the same tab frozen until it recovers into a new cart', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.getBreakInService();
+  const cart = await fixture.commerce.addProduct('black', true);
+  // A cancelled leave-page prompt returns from location.assign without throwing.
+  assert.equal((await fixture.commerce.checkout(cart, {}, () => {})).status, 'navigating');
+  const frozen = await fixture.commerce.getCart();
+  assert.equal(frozen.id, cart.id);
+  assert.equal(frozen.incomplete, true);
+  assert.equal(frozen.recoveryAvailable, true);
+  assert.equal(frozen.recoveryHasBreakIn, true);
+  assert.match(frozen.uncertainMutation, /checkout handoff/);
+  assert.equal(checkoutCartIsComplete(frozen), false);
+  // A second attempt from a stale displayed cart never navigates again.
+  let navigated = false;
+  assert.equal((await fixture.commerce.checkout(cart, {}, () => { navigated = true; })).status, 'blocked');
+  assert.equal(navigated, false);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), /incomplete/);
+  assert.equal(unsafeOps(fixture.storage).filter(record => record.kind === 'checkout handoff').length, 1);
+  const recovered = await fixture.commerce.recoverCart();
+  assert.notEqual(recovered.id, cart.id);
+  assert.equal(recovered.incomplete, false);
+  assertServiceChildrenMatch(recovered);
+  assert.deepEqual(unsafeOps(fixture.storage), []);
+  // The replacement goes through review, then its own handoff freezes only that cart.
+  assert.equal((await fixture.commerce.checkout(recovered, { requireReview: true }, () => { navigated = true; })).status, 'review');
+  assert.equal((await fixture.commerce.checkout(recovered, {}, () => { navigated = true; })).status, 'navigating');
+  assert.equal(navigated, true);
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => [record.cartId, record.kind]), [[recovered.id, 'checkout handoff']]);
+});
+
 test('checkout URL restrictions and review never persist a checkout freeze', async () => {
   for (const approved of [false, true]) {
     const fixture = approved ? checkoutFixture() : shopifyFixture();

@@ -1,7 +1,11 @@
 export function cartFeedbackMarkup({ error = '', incomplete = false, recoveryAvailable = false,
-  recoveryHasBreakIn = false, gloveOnlyRecoveryAvailable = false, busy = false, mode, guidance = '', announce = true }, escapeHtml) {
+  recoveryHasBreakIn = false, gloveOnlyRecoveryAvailable = false, busy = false, mode, guidance = '', announce = true,
+  checkoutStarted = false }, escapeHtml) {
   if (!error && !incomplete) return guidance ? `<div class="cart-feedback"><p class="cart-guidance" role="status">${escapeHtml(guidance)}</p></div>` : '';
-  const message = error || 'We could not verify your cart. Check your cart before continuing.';
+  // A cart handed to Shopify checkout stays frozen; it is never edited here again.
+  const message = error || (checkoutStarted
+    ? 'Secure checkout was started for this cart, so it can’t be changed here. If checkout didn’t open, continue with your items in a new cart.'
+    : 'We could not verify your cart. Check your cart before continuing.');
   const check = mode === 'shopify' ? `<button type="button" data-refresh-cart ${busy ? 'disabled' : ''}>Check cart</button>` : '';
   const recover = mode === 'shopify' && recoveryAvailable
     ? `<button type="button" data-recover-cart ${busy ? 'disabled' : ''}>Continue with verified items in a new cart</button><small>Review your items before checkout. A pending change may be missing.</small>`
