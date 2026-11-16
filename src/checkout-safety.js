@@ -47,8 +47,10 @@ function cartSignature(cart) {
 }
 
 export function isCartStorageKey(key) {
+  // Per-operation safety records (see UNSAFE_RECORD_PREFIX in commerce.js) count as cart changes too.
   return key === null || ['anawin-shopify-cart-id', 'anawin-shopify-unsafe-cart-id',
-    'anawin-shopify-pending-mutation', 'anawin-shopify-cart-revision'].includes(key);
+    'anawin-shopify-pending-mutation', 'anawin-shopify-cart-revision'].includes(key) ||
+    Boolean(key?.startsWith('anawin-shopify-unsafe-op:'));
 }
 
 export function checkoutCartIsComplete(cart) {
@@ -87,6 +89,9 @@ export function createCheckoutVerifier({ getCart, readSafety }) {
             message: 'Your cart changed. Review the items, then choose Checkout again.' };
         }
         // Recheck shared state immediately before handing the fresh Shopify URL to the caller.
+        // This is an observation, not an atomic lease: another tab can start a mutation
+        // after this read and before browser navigation. Production navigation must use
+        // commerce.checkout(), which locks verification and persists a cart freeze.
         const final = readSafety();
         if (final.id !== current.id || final.revision !== after.revision ||
           final.unsafeId === final.id || final.pendingCartId === final.id) continue;
@@ -99,6 +104,35 @@ export function createCheckoutVerifier({ getCart, readSafety }) {
         : 'Couldn’t check your cart with Shopify. Check your connection and try again.' };
     } finally {
       pending = false;
+    }
+  };
+}
+
+// After commerce.checkout() hands the cart to Shopify the page normally unloads. It can stay
+// instead (the shopper cancels a leave-page prompt, or navigation is dropped without an error)
+// or come back from the back/forward cache. The cart stays frozen for that checkout either way;
+// this tells the page, once per handoff, that it is still here and must show the frozen cart.
+// It never lifts the freeze: only explicit recovery into a new cart does that.
+export function createCheckoutHandoffWatcher({ onStillHere, windowRef = window, setTimer = setTimeout,
+  clearTimer = clearTimeout, delay = 2000 }) {
+  let pending = false;
+  let timer = null;
+  const settle = () => {
+    if (!pending) return;
+    pending = false;
+    clearTimer(timer);
+    timer = null;
+    onStillHere();
+  };
+  // A cached page's timers are suspended; pageshow reports the restore directly.
+  windowRef.addEventListener('pageshow', event => { if (event.persisted) settle(); });
+  return {
+    get pending() { return pending; },
+    // Called after each handoff; a newer handoff replaces an older one's timer.
+    start() {
+      clearTimer(timer);
+      pending = true;
+      timer = setTimer(settle, delay);
     }
   };
 }

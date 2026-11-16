@@ -25,6 +25,14 @@ const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberF
 export const money = (value, currency = 'USD') => formatMoney(value, currency, 0);
 export const cartMoney = (value, currency = 'USD') => formatMoney(value, currency, 2);
 export const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+// Starts with the visible word so voice-control users can say “Cart”.
+export const cartTriggerLabel = count => `Cart, ${count} ${count === 1 ? 'item' : 'items'}`;
+
+// Trainers are sold in one throw hand; name the other so left-handed throwers are not left guessing.
+const trainerHandOrientation = product => {
+  const otherHand = product.throwingHand === 'Right' ? 'Left' : 'Right';
+  return `<dl class="hand-orientation"><div><dt>Throw hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw<small>Worn on the ${escapeHtml(product.wornOnHand.toLowerCase())} hand</small></dd></div><div><dt>${otherHand}-Hand Throw</dt><dd class="hand-unavailable">Not available</dd></div></dl>`;
+};
 const policyParagraphs = paragraphs => paragraphs.map(paragraph => `<p>${escapeHtml(paragraph)}</p>`).join('');
 const policyList = items => `<ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
 const careItem = item => {
@@ -102,9 +110,9 @@ function header() {
   return `<a class="skip-link" href="#main-content" data-skip-link>Skip to content</a><div class="site-header-stack">${announcementBar}<header class="site-header">
     <a class="wordmark" href="/" data-link aria-label="ANAWIN home">${wordmark('(max-width: 760px) 112px, 132px')}</a>
     <nav class="desktop-nav" aria-label="Main navigation"><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}</nav>
-    <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">Menu</button>
+    <button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu">Menu</button>
     <nav class="mobile-nav" id="mobile-menu" aria-label="Mobile navigation" hidden><a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>${headerInfoMenus()}<button type="button" data-cart>Cart</button></nav>
-    <button class="cart-trigger" data-cart aria-label="Open cart with ${cartCount()} items">Cart <span class="cart-count">(${cartCount()})</span></button>
+    <button class="cart-trigger" data-cart aria-label="${cartTriggerLabel(cartCount())}">Cart <span class="cart-count">(${cartCount()})</span></button>
   </header></div>`;
 }
 
@@ -288,7 +296,7 @@ function productPage(product) {
     : `<a href="${productPath(model)}" data-link data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)}</a>`).join('')}</div></nav>`;
   return `<main class="pdp" data-product="${escapeHtml(product.id)}" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((src, i) => `<button class="gallery-image" data-image="${src}" aria-label="View image ${i + 1}">${productImage(src, `${product.tone} glove view ${i + 1}`, galleryImageSizes, 'lazy', false, galleryLoading(i))}</button>`).join('')}</section>${product.images.length > 1 ? `<div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${product.images.length}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${product.images.length}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div>` : ''}</div>
     <aside class="pdp-info"><p class="eyebrow">MINI GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${(product.swatches || []).map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
-      <dl class="hand-orientation"><div><dt>Throwing hand</dt><dd>${escapeHtml(product.throwingHand)}-Hand Throw</dd></div><div><dt>Glove hand</dt><dd>${escapeHtml(product.wornOnHand)} Hand</dd></div></dl>
+      ${trainerHandOrientation(product)}
       <label class="service-option"><input type="checkbox" data-break-in aria-describedby="break-in-description break-in-timing" ${serviceDisabled ? 'disabled' : ''}/><span class="service-content"><span class="service-heading"><strong>Break-in service</strong><b>+${money(breakInService.price, breakInService.currencyCode)}</b></span><small id="break-in-description">Have your glove loosened and shaped by hand so it arrives easier to close and ready for practice.</small><small class="service-timing" id="break-in-timing">Adds 2–5 business days.</small></span></label>
       <section class="break-in-customization" data-break-in-customization hidden aria-labelledby="break-in-customization-heading"><h2 id="break-in-customization-heading">Customize Your Break-In</h2>
         <fieldset><legend>How broken in do you want your glove?</legend>
