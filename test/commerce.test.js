@@ -1,6 +1,10 @@
 import test from 'node:test';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
+// Unresolved per-operation safety records currently in shared storage.
+const unsafeOps = storage => Array.from({ length: storage.length }, (_, index) => storage.key(index))
+  .filter(key => key.startsWith('anawin-shopify-unsafe-op:')).map(key => ({ key, ...JSON.parse(storage.getItem(key)) }));
 import assert from 'node:assert/strict';
+import { checkoutCartIsComplete, createCheckoutVerifier } from '../src/checkout-safety.js';
 import { breakInService, gloveServiceAttributes, localProducts, purchasePrice, serviceAttributes } from '../src/catalog.js';
 import {
   cartEntryTotal,
@@ -161,7 +165,7 @@ test('a failed second step of a distinct preference add blocks checkout without 
     { level: 'Firm (40%)', wearingStyle: 'Traditional' }));
   const cart = await fixture.restore().getCart();
   assert.equal(cart.incomplete, true);
-  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), cart.id);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id);
   const recovered = await fixture.restore().recoverCart();
   assert.equal(recovered.incomplete, false);
   assert.equal(recovered.subtotal, 175);
@@ -224,7 +228,7 @@ test('post-write preference mismatch keeps the prior recovery baseline and block
   fixture.observeQueries(({ lines, storage }) => {
     if (lines.filter(line => !line.parentRelationship).length !== 2 ||
       lines.filter(line => line.parentRelationship).length !== 2) return;
-    assert.equal(storage.getItem('anawin-shopify-unsafe-cart-id'), before.id);
+    assert.equal(fixture.commerce.readCartSafety().unsafeId, before.id);
     const addedParent = lines.find(line => !line.parentRelationship &&
       line.attributes.some(attribute => attribute.value === 'Game Ready (90%)'));
     if (!addedParent) return;
@@ -234,7 +238,7 @@ test('post-write preference mismatch keeps the prior recovery baseline and block
   });
   await assert.rejects(fixture.commerce.addProduct('black', true,
     { level: 'Game Ready (90%)', wearingStyle: 'Traditional' }), /did not preserve/);
-  const pending = JSON.parse(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  const pending = unsafeOps(fixture.storage).find(record => record.before);
   assert.equal(pending.before.lines.length, before.lines.length);
   const blocked = await fixture.restore().getCart();
   assert.equal(blocked.incomplete, true);
@@ -444,19 +448,19 @@ test('an applied uncertain add remains isolated until the customer recovers a ve
   fixture.failAfterNextMutation();
   await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
   assert.equal((await fixture.commerce.getCart()).incomplete, true);
-  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  assert.ok(unsafeOps(fixture.storage).length);
   const mutationsBeforeCheck = fixture.requests.filter(item => /mutation /.test(item.query)).length;
   const checked = await fixture.restore().refreshCart();
   assert.equal(checked.incomplete, true);
   assert.equal(checked.recoveryAvailable, true);
   assert.equal(checked.subtotal, 310);
-  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  assert.ok(unsafeOps(fixture.storage).length);
   assert.equal(fixture.requests.filter(item => /mutation /.test(item.query)).length, mutationsBeforeCheck);
   const recovered = await fixture.restore().recoverCart();
   assert.equal(recovered.incomplete, false);
   assert.equal(recovered.subtotal, 310);
   assert.notEqual(recovered.id, checked.id);
-  assert.equal(fixture.storage.getItem('anawin-shopify-pending-mutation'), null);
+  assert.equal(unsafeOps(fixture.storage).length, 0);
 });
 
 test('an unresolved cart mutation blocks another add until its outcome is known', async () => {
@@ -622,7 +626,7 @@ test('an incomplete cart cannot drop another tab’s confirmed glove from an old
   await changingService;
   await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-ambiguous');
   assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
-  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), original.id);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, original.id);
   assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
 });
 
@@ -721,12 +725,12 @@ test('failed recovery leaves the original cart and unresolved state available fo
   await assert.rejects(fixture.commerce.addProduct('blue', false), error => error.code === 'uncertain');
   await assert.rejects(fixture.commerce.recoverCart(), /503/);
   assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
-  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'));
+  assert.ok(unsafeOps(fixture.storage).length);
   fixture.setApiError(false);
   assert.equal((await fixture.restore().recoverCart()).incomplete, false);
 });
 
-test('Web Locks serialize simultaneous recovery into one active replacement cart', async () => {
+test('Web Locks allow only one simultaneous recovery into an active replacement cart', async () => {
   const fixture = shopifyFixture();
   await fixture.commerce.listProducts();
   const original = await fixture.commerce.addProduct('black', false);
@@ -735,10 +739,12 @@ test('Web Locks serialize simultaneous recovery into one active replacement cart
   fixture.setApiError(false);
   const firstTab = fixture.restore();
   const secondTab = fixture.restore();
-  const [first, second] = await Promise.all([firstTab.recoverCart(), secondTab.recoverCart()]);
-  assert.notEqual(first.id, original.id);
-  assert.equal(second.id, first.id);
-  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), first.id);
+  const [first, second] = await Promise.allSettled([firstTab.recoverCart(), secondTab.recoverCart()]);
+  assert.equal(first.status, 'fulfilled');
+  assert.equal(second.status, 'rejected');
+  assert.equal(second.reason.code, 'recovery-ambiguous');
+  assert.notEqual(first.value.id, original.id);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), first.value.id);
   assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 2);
 });
 
@@ -752,7 +758,7 @@ test('recovery without Web Locks creates no replacement and preserves the origin
   await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-lock-unavailable');
   assert.match(commerceErrorMessage(new ShopifyRequestError('lock', 'recovery-lock-unavailable')), /browser that supports Web Locks/);
   assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), original.id);
-  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), original.id);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, original.id);
   assert.equal(fixture.requests.filter(request => request.query.includes('CreateCart')).length, 1);
 });
 
@@ -778,7 +784,7 @@ test('two tabs cannot mistake one addition for a timed-out addition from the oth
   assert.equal(active.lines.filter(line => line.productId === 'blue' && !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0), 1);
 });
 
-test('a late successful response from an old tab cannot replace a recovered active cart', async () => {
+test('recovery cannot retire another tab’s active operation', async () => {
   const fixture = shopifyFixture({ timeoutMs: 1000 });
   await fixture.commerce.listProducts();
   await fixture.commerce.addProduct('black', false);
@@ -789,13 +795,16 @@ test('a late successful response from an old tab cannot replace a recovered acti
   await reachedMutation;
   fixture.failAfterNextMutation();
   await assert.rejects(fixture.commerce.addProduct('brown', false), error => error.code === 'uncertain');
-  const recovered = await fixture.restore().recoverCart();
+  const records = unsafeOps(fixture.storage).map(record => record.key);
+  await assert.rejects(fixture.restore().recoverCart(), error => error.code === 'recovery-ambiguous');
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), records);
   fixture.releaseDelayedMutation();
-  assert.equal((await delayed).code, 'cart-changed');
+  await delayed;
+  const recovered = await fixture.restore().recoverCart();
   const active = await fixture.restore().getCart();
   assert.equal(active.id, recovered.id);
-  assert.equal(active.subtotal, 310);
-  assert.equal(active.lines.some(line => line.productId === 'blue'), false);
+  assert.equal(active.subtotal, 465);
+  assert.equal(active.lines.some(line => line.productId === 'blue'), true);
 });
 
 for (const serviceState of ['missing', 'failed', 'sold-out', 'missing-handle', 'invalid-price']) {
@@ -1416,7 +1425,7 @@ function gloveCount(cart) {
 test('serviced quantity two splits into one serviced and one unserviced glove', async () => {
   const { fixture, cart: before, parentId } = await splitFixture(true, 2);
   const markerAtMutation = [];
-  fixture.observeMutations(({ storage }) => markerAtMutation.push(storage.getItem('anawin-shopify-unsafe-cart-id')));
+  fixture.observeMutations(({ storage }) => markerAtMutation.push(fixture.commerce.readCartSafety().unsafeId));
   const after = await fixture.commerce.removeBreakIn(parentId);
   assert.deepEqual(after.lines.filter(line => !line.isBreakIn).map(line => [line.serviceConfiguration, line.quantity]),
     [['break-in', 1], ['none', 1]]);
@@ -1433,7 +1442,7 @@ test('serviced quantity two splits into one serviced and one unserviced glove', 
 test('unserviced quantity two splits into one unserviced and one serviced glove', async () => {
   const { fixture, cart: before, parentId } = await splitFixture(false, 2);
   const markerAtMutation = [];
-  fixture.observeMutations(({ storage }) => markerAtMutation.push(storage.getItem('anawin-shopify-unsafe-cart-id')));
+  fixture.observeMutations(({ storage }) => markerAtMutation.push(fixture.commerce.readCartSafety().unsafeId));
   const after = await fixture.commerce.addBreakIn(parentId);
   assert.deepEqual(after.lines.filter(line => !line.isBreakIn).map(line => [line.serviceConfiguration, line.quantity]),
     [['none', 1], ['break-in', 1]]);
@@ -1527,7 +1536,7 @@ for (const withService of [false, true]) {
       const restored = await fixture.restore().getCart();
       assert.equal(restored.incomplete, boundary !== 1);
       if (boundary === 1) assertServiceChildrenMatch(restored);
-      assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), boundary === 1 ? null : restored.id);
+      assert.equal(fixture.commerce.readCartSafety().unsafeId, boundary === 1 ? null : restored.id);
     });
   }
 }
@@ -1538,7 +1547,7 @@ for (const withService of [false, true]) {
     fixture.failAfterNextMutation();
     await assert.rejects(withService ? fixture.commerce.removeBreakIn(parentId) : fixture.commerce.addBreakIn(parentId), /503/);
     assert.equal((await fixture.restore().getCart()).incomplete, true);
-    assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-cart-id'), 'gid://cart/1');
+    assert.equal(fixture.commerce.readCartSafety().unsafeId, 'gid://cart/1');
   });
 }
 
@@ -1827,4 +1836,674 @@ test('a product-loading failure leaves no reusable prefetch, and a retry loads p
     assert.equal(cart.lines.length, 2);
     assert.equal(cart.lines.find(line => line.isBreakIn).parentLineId, cart.lines.find(line => !line.isBreakIn).remoteLineId);
   });
+});
+
+const stockSafety = fixture => fixture.commerce.readCartSafety();
+const gloveLine = (cart, productId) => cart.lines.find(line => !line.isBreakIn && line.productId === productId);
+
+test('stock limit: a definitive Shopify rejection keeps the verified cart usable and says so', async () => {
+  const fixture = shopifyFixture({ stock: { cl16: 3 } });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('brown', false);
+  cart = await fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 4),
+      error => error.code === 'stock-limit' && error.message === 'No more CL16 available right now. Your cart still has 3.');
+    const safety = stockSafety(fixture);
+    assert.notEqual(safety.unsafeId, safety.id, 'no unresolved mutation is recorded');
+    assert.notEqual(safety.pendingCartId, safety.id);
+    cart = await fixture.commerce.getCart();
+    assert.equal(cart.incomplete, false);
+    assert.equal(gloveLine(cart, 'brown').quantity, 3);
+    assert.equal(checkoutCartIsComplete(cart), true);
+  }
+  assert.equal(commerceErrorMessage({ code: 'stock-limit', message: 'No more CL16 available right now. Your cart still has 3.' }, 'cart'),
+    'No more CL16 available right now. Your cart still has 3.');
+  // The same cart keeps working afterwards.
+  cart = await fixture.commerce.addProduct('black', false);
+  assert.equal(gloveLine(cart, 'black').quantity, 1);
+  assert.equal(checkoutCartIsComplete(cart), true);
+  // Adding the capped glove again from its page is the same definitive rejection.
+  await assert.rejects(fixture.commerce.addProduct('brown', false), error => error.code === 'stock-limit');
+  assert.equal((await fixture.commerce.getCart()).incomplete, false);
+});
+
+test('stock limit on a glove with Break-In service clears the pre-flight lock and keeps the pair intact', async () => {
+  const fixture = shopifyFixture({ stock: { br16: 2 } });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('black', true, { level: 'Medium (65%)', wearingStyle: 'Traditional' });
+  cart = await fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2);
+  const service = () => cart.lines.find(line => line.isBreakIn && line.parentLineId === gloveLine(cart, 'black').remoteLineId);
+  assert.equal(service().quantity, 2);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 3), error => error.code === 'stock-limit');
+  cart = await fixture.commerce.getCart();
+  assert.equal(cart.incomplete, false);
+  assert.equal(gloveLine(cart, 'black').quantity, 2);
+  assert.equal(service().quantity, 2);
+  assert.equal(checkoutCartIsComplete(cart), true);
+  // A serviced add of the same glove at its limit is rejected the same way.
+  await assert.rejects(fixture.commerce.addProduct('black', true, { level: 'Medium (65%)', wearingStyle: 'Traditional' }), error => error.code === 'stock-limit');
+  cart = await fixture.commerce.getCart();
+  assert.equal(cart.incomplete, false);
+  assert.equal(service().quantity, 2);
+});
+
+test('stock limit keeps applied discounts and totals', async () => {
+  const fixture = shopifyFixture({ stock: { br16: 1 }, discountScenario: codes => ({
+    discountCodes: codes.map(code => ({ code, applicable: true })), discountedPrices: codes.length ? { br16: '140.00' } : {},
+    discountAllocations: codes.length ? { br16: [{ discountedAmount: { amount: '15', currencyCode: 'USD' }, targetType: 'LINE_ITEM', sourceDiscountApplication: { code: codes[0] } }] } : {}
+  }) });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('black', false);
+  cart = await fixture.commerce.applyDiscountCode('LAUNCH10');
+  const before = { codes: cart.discountCodes, total: gloveLine(cart, 'black').lineTotal.amount };
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), error => error.code === 'stock-limit');
+  cart = await fixture.commerce.getCart();
+  assert.deepEqual(cart.discountCodes, before.codes);
+  assert.equal(gloveLine(cart, 'black').lineTotal.amount, before.total);
+});
+
+test('a stock warning with any other cart change is never treated as success or as a clean rejection', async () => {
+  const fixture = shopifyFixture({ stock: { cl16: 5 } });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('brown', false);
+  cart = await fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3);
+  // Availability drops below the cart quantity: Shopify caps the line to 2 when 4 is requested.
+  fixture.setStock('cl16', 2);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 4), error => error.code !== 'stock-limit');
+  cart = await fixture.commerce.getCart();
+  assert.equal(cart.incomplete, true, 'the changed cart stays unresolved');
+  assert.equal(checkoutCartIsComplete(cart), false, 'checkout stays blocked');
+  assert.equal(stockSafety(fixture).unsafeId, cart.id);
+  assert.equal(cart.recoveryAvailable, true, 'a verified-items recovery is offered');
+});
+
+test('a network failure on a quantity change at the limit stays uncertain rather than a stock rejection', async () => {
+  const fixture = shopifyFixture({ stock: { cl16: 1 } });
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('brown', false);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 2), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  assert.equal((await fixture.commerce.getCart()).incomplete, true);
+});
+
+// Cross-tab safety: two commerce instances share one storage and one Shopify cart, like two tabs.
+const UNSAFE_KEY = 'anawin-shopify-unsafe-cart-id';
+const PENDING_KEY = 'anawin-shopify-pending-mutation';
+const verifierFor = commerce => createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() });
+async function stockLimitedCart() {
+  const fixture = shopifyFixture({ stock: { cl16: 2, br16: 2 } });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('brown', false);
+  cart = await fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 2);
+  cart = await fixture.commerce.addProduct('black', true, { level: 'Medium (65%)', wearingStyle: 'Traditional' });
+  return { fixture, cart };
+}
+
+test('cross-tab: a stock rejection never lifts another tab’s unresolved change, and checkout stays blocked', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  // Tab A asks for one more CL16; Shopify holds it at 2 and the response is delayed in flight.
+  const reached = fixture.delayNextMutationResponse();
+  const rejecting = fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3).catch(error => error);
+  await reached;
+  // Meanwhile tab B's own change to the same cart fails with an uncertain outcome.
+  fixture.setApiError(true);
+  await assert.rejects(otherTab.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id);
+  fixture.releaseDelayedMutation();
+  assert.equal((await rejecting).code, 'stock-limit', 'tab A still gets the truthful stock message');
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id, 'tab B’s unresolved change still blocks the cart');
+  for (const tab of [fixture.commerce, otherTab]) {
+    const current = await tab.getCart();
+    assert.equal(current.incomplete, true);
+    assert.equal(checkoutCartIsComplete(current), false);
+    assert.equal((await verifierFor(tab)(current)).status, 'blocked');
+  }
+});
+
+test('cross-tab: a serviced rejection removes only its own record while another tab’s record stays', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  let cartNow = await fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2);
+  fixture.observeMutations(({ field, storage }) => {
+    if (field !== 'cartLinesUpdate') return;
+    fixture.observeMutations(null);
+    // Tab A's pre-flight record exists now; tab B writes its own record for the same cart.
+    assert.equal(unsafeOps(storage).length, 2);
+    storage.setItem('anawin-shopify-unsafe-op:tab-b', JSON.stringify({ cartId: storage.getItem('anawin-shopify-cart-id'), kind: 'removal', kinds: ['removal'], status: 'unresolved', createdAt: Date.now() }));
+  });
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cartNow, 'black').remoteLineId, 3), error => error.code === 'stock-limit');
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), ['anawin-shopify-unsafe-op:tab-b']);
+  cartNow = await fixture.commerce.getCart();
+  assert.equal(cartNow.incomplete, true);
+  assert.equal(cartNow.uncertainMutation, 'removal');
+  assert.equal((await verifierFor(fixture.commerce)(cartNow)).status, 'blocked');
+});
+
+test('a legacy shared record, written by an earlier version, is never lifted by an operation', async () => {
+  for (const replacement of [{ kind: 'legacy addition', status: 'unresolved' }, { kind: 'other', status: 'unresolved', owners: ['tab-b'] }]) {
+    const { fixture, cart } = await stockLimitedCart();
+    const serviced = await fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2);
+    fixture.observeMutations(({ field, storage }) => {
+      if (field !== 'cartLinesUpdate') return;
+      fixture.observeMutations(null);
+      storage.setItem(PENDING_KEY, JSON.stringify({ cartId: storage.getItem('anawin-shopify-cart-id'), ...replacement }));
+    });
+    await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(serviced, 'black').remoteLineId, 3), error => error.code === 'stock-limit');
+    assert.equal(fixture.commerce.readCartSafety().unsafeId, serviced.id);
+    assert.equal((await fixture.commerce.getCart()).incomplete, true);
+  }
+});
+
+test('a plain add rejected for stock leaves another tab’s unresolved change in place', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  fixture.observeMutations(({ field, storage }) => {
+    if (field !== 'cartLinesAdd') return;
+    fixture.observeMutations(null);
+    storage.setItem(UNSAFE_KEY, cart.id);
+    storage.setItem(PENDING_KEY, JSON.stringify({ cartId: cart.id, kind: 'removal', status: 'unresolved', owners: ['tab-b'] }));
+  });
+  await assert.rejects(fixture.commerce.addProduct('brown', false), error => error.code === 'stock-limit');
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id);
+  assert.equal(checkoutCartIsComplete(await fixture.commerce.getCart()), false);
+});
+
+test('a stock warning for a different line is not a rejection of this change', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  const otherLine = gloveLine(cart, 'black').remoteLineId;
+  fixture.transformNextMutationResponse(payload => { payload.warnings = payload.warnings.map(warning => ({ ...warning, target: otherLine })); });
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3), error => error.code !== 'stock-limit');
+  const current = await fixture.commerce.getCart();
+  assert.equal(current.incomplete, true, 'unattributed outcome stays blocked');
+  assert.equal(checkoutCartIsComplete(current), false);
+});
+
+test('Shopify’s response and a fresh read must both match the cart before a rejection is accepted', async () => {
+  // The response claims a different quantity than Shopify actually stored.
+  const first = await stockLimitedCart();
+  first.fixture.transformNextMutationResponse(payload => {
+    const node = payload.cart.lines.nodes.find(line => line.merchandise.product.handle === 'cl16');
+    node.quantity = 1;
+  });
+  await assert.rejects(first.fixture.commerce.setLineQuantity(gloveLine(first.cart, 'brown').remoteLineId, 3), error => error.code !== 'stock-limit');
+  assert.equal((await first.fixture.commerce.getCart()).incomplete, true);
+
+  // The response matches, but the fresh read shows a change that landed in between.
+  const second = await stockLimitedCart();
+  let mutated = false;
+  second.fixture.observeMutations(({ field }) => { if (field === 'cartLinesUpdate') mutated = true; });
+  second.fixture.observeQueries(({ lines }) => {
+    if (!mutated) return;
+    mutated = false;
+    const black = lines.find(line => line.merchandise.product.handle === 'br16' && !line.parentRelationship);
+    black.quantity = 2;
+  });
+  await assert.rejects(second.fixture.commerce.setLineQuantity(gloveLine(second.cart, 'brown').remoteLineId, 3), error => error.code !== 'stock-limit');
+  const current = await second.fixture.commerce.getCart();
+  assert.equal(current.incomplete, true);
+  assert.equal(checkoutCartIsComplete(current), false);
+});
+
+test('owner tokens: a successful serviced change still unlocks its own cart, and a timeout keeps it locked', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  let current = await fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2);
+  assert.equal(current.incomplete, false);
+  assert.equal(fixture.storage.getItem(UNSAFE_KEY), null);
+  fixture.setApiError(true);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(current, 'black').remoteLineId, 1), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  current = await fixture.commerce.getCart();
+  assert.equal(current.incomplete, true);
+  assert.equal((await verifierFor(fixture.commerce)(current)).status, 'blocked');
+});
+
+// Per-operation safety records: deterministic interleavings of two tabs sharing one storage.
+const opRecord = (cartId, kind, extra = {}) => JSON.stringify({ cartId, kind, kinds: [kind], status: 'unresolved', createdAt: Date.now(), ...extra });
+
+test('journal: two tabs’ simultaneous unresolved writes both persist and neither overwrites the other', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  const otherTab = fixture.restore();
+  await otherTab.listProducts();
+  // Tab A's plain update is applied by Shopify but its response is held in flight.
+  const reached = fixture.delayNextMutationResponse();
+  const pendingA = fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 1).catch(error => error);
+  await reached;
+  // Tab B's change fails with an uncertain outcome and writes its record.
+  fixture.setApiError(true);
+  await assert.rejects(otherTab.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), error => error.code === 'uncertain');
+  fixture.setApiError(false);
+  // Tab A's response then arrives without a cart, which is also unresolved.
+  fixture.transformNextMutationResponse(payload => { payload.cart = null; });
+  fixture.releaseDelayedMutation();
+  assert.equal((await pendingA).code, 'uncertain');
+  // Each tab retains its whole-operation record as well as the legacy validation records.
+  const records = unsafeOps(fixture.storage);
+  assert.equal(records.length, 5);
+  assert.ok(records.every(record => record.cartId === cart.id));
+  assert.equal(records.filter(record => record.kind === 'setLineQuantity').length, 2);
+  // A reloaded tab sees both, from storage alone.
+  const reloaded = fixture.restore();
+  const current = await reloaded.getCart();
+  assert.equal(current.incomplete, true);
+  assert.equal((await verifierFor(reloaded)(current)).status, 'blocked');
+});
+
+test('journal: a record another tab writes during the checkout check blocks that checkout', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  const verify = verifierFor(fixture.commerce);
+  let injected = false;
+  fixture.observeQueries(({ storage }) => {
+    if (injected) return;
+    injected = true;
+    storage.setItem('anawin-shopify-unsafe-op:tab-b', opRecord(cart.id, 'addition'));
+  });
+  assert.equal((await verify(cart)).status, 'blocked');
+});
+
+test('journal: several unresolved operations combine, and one recovery retires all of them', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  fixture.storage.setItem('anawin-shopify-unsafe-op:tab-a', opRecord(cart.id, 'quantity update'));
+  fixture.storage.setItem('anawin-shopify-unsafe-op:tab-b', opRecord(cart.id, 'removal'));
+  fixture.storage.setItem('anawin-shopify-unsafe-op:old-cart', opRecord('gid://cart/other', 'addition'));
+  const blocked = await fixture.restore().getCart();
+  assert.equal(blocked.incomplete, true);
+  assert.equal(blocked.uncertainMutation, 'quantity update, removal');
+  assert.equal(blocked.recoveryAvailable, true);
+  const recovered = await fixture.restore().recoverCart();
+  assert.notEqual(recovered.id, cart.id);
+  assert.equal(recovered.incomplete, false);
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), ['anawin-shopify-unsafe-op:old-cart'], 'only the recovered cart’s records are retired');
+  assert.equal(checkoutCartIsComplete(await fixture.restore().getCart()), true);
+});
+
+test('journal: a legacy shared record blocks the cart until recovery retires it', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  fixture.storage.setItem('anawin-shopify-unsafe-cart-id', cart.id);
+  fixture.storage.setItem('anawin-shopify-pending-mutation', JSON.stringify({ cartId: cart.id, status: 'unresolved', kind: 'removal', kinds: ['removal'] }));
+  const tab = fixture.restore();
+  await tab.listProducts();
+  const blocked = await tab.getCart();
+  assert.equal(blocked.incomplete, true);
+  assert.equal(tab.readCartSafety().unsafeId, cart.id);
+  await assert.rejects(tab.addProduct('blue', false), /incomplete/);
+  assert.ok(fixture.storage.getItem('anawin-shopify-pending-mutation'), 'an operation never lifts the legacy record');
+  await tab.recoverCart();
+  assert.equal(fixture.storage.getItem('anawin-shopify-pending-mutation'), null);
+  assert.equal((await tab.getCart()).incomplete, false);
+});
+
+test('journal: unreadable records, a leftover summary flag, or unreadable storage all fail closed', async () => {
+  const malformed = await stockLimitedCart();
+  malformed.fixture.storage.setItem('anawin-shopify-unsafe-op:broken', '{not json');
+  assert.equal((await malformed.fixture.restore().getCart()).incomplete, true);
+  assert.equal((await malformed.fixture.restore().recoverCart()).incomplete, false, 'recovery clears the unreadable record');
+  assert.equal(malformed.fixture.storage.getItem('anawin-shopify-unsafe-op:broken'), null);
+
+  const leftover = await stockLimitedCart();
+  leftover.fixture.storage.setItem('anawin-shopify-unsafe-cart-id', leftover.cart.id);
+  const flagged = await leftover.fixture.restore().getCart();
+  assert.equal(flagged.incomplete, true);
+  assert.equal(flagged.recoveryAvailable, true);
+
+  const unreadable = await stockLimitedCart();
+  const tab = unreadable.fixture.restore();
+  unreadable.fixture.storage.key = () => { throw new Error('SecurityError'); };
+  assert.equal(tab.readCartSafety().unsafeId, unreadable.cart.id);
+  assert.equal((await tab.getCart()).incomplete, true);
+});
+
+test('journal: if storage refuses an unresolved write, this tab still blocks checkout', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  const setItem = fixture.storage.setItem.bind(fixture.storage);
+  fixture.storage.setItem = (key, value) => {
+    if (key.startsWith('anawin-shopify-unsafe-op:')) throw new Error('QuotaExceededError');
+    return setItem(key, value);
+  };
+  fixture.setApiError(true);
+  const requestCount = fixture.requests.length;
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 1), error => error.code === 'uncertain');
+  assert.equal(fixture.requests.length, requestCount, 'storage failure prevents dispatch');
+  fixture.setApiError(false);
+  assert.equal(unsafeOps(fixture.storage).length, 0);
+  const current = await fixture.commerce.getCart();
+  assert.equal(current.incomplete, true);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id);
+  assert.equal((await verifierFor(fixture.commerce)(current)).status, 'blocked');
+});
+
+test('journal: successful completion preserves another operation without inventing a shared summary', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  fixture.observeMutations(({ field, storage }) => {
+    if (field !== 'cartLinesUpdate') return;
+    fixture.observeMutations(null);
+    storage.setItem('anawin-shopify-unsafe-op:tab-b', opRecord(cart.id, 'addition'));
+  });
+  // A successful serviced change removes its own record only.
+  await fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2).catch(() => {});
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), ['anawin-shopify-unsafe-op:tab-b']);
+  assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id);
+  fixture.storage.removeItem('anawin-shopify-unsafe-op:tab-b');
+  assert.equal(fixture.storage.getItem(UNSAFE_KEY), null);
+  assert.equal((await fixture.restore().getCart()).incomplete, false, 'both owners definitively completed their operations');
+});
+
+test('journal: empty-cart reads never retire another tab’s operation records', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  // This tab sees no cart; another tab has just stored its new cart and an unresolved record for it.
+  let interleaved = false;
+  fixture.observeQueries(() => {});
+  const storage = fixture.storage;
+  const getItem = storage.getItem.bind(storage);
+  storage.getItem = key => {
+    if (!interleaved && key.startsWith('anawin-shopify-unsafe-op:')) {
+      interleaved = true;
+      storage.setItem('anawin-shopify-cart-id', 'gid://cart/new');
+    }
+    return getItem(key);
+  };
+  storage.setItem('anawin-shopify-unsafe-op:tab-b', JSON.stringify({ cartId: 'gid://cart/new', kind: 'addition', kinds: ['addition'], status: 'unresolved' }));
+  storage.setItem('anawin-shopify-unsafe-op:stale', JSON.stringify({ cartId: 'gid://cart/old', kind: 'removal', kinds: ['removal'], status: 'unresolved' }));
+  await fixture.commerce.getCart();
+  assert.ok(getItem('anawin-shopify-unsafe-op:tab-b'), 'the new cart’s record survives');
+  assert.ok(getItem('anawin-shopify-unsafe-op:stale'), 'inactive records require explicit recovery, not a racy empty-cart cleanup');
+});
+
+for (const serviced of [false, true]) {
+  test(`pending journal blocks another tab during ${serviced ? 'serviced' : 'plain'} quantity mutation`, async () => {
+    const fixture = shopifyFixture({ autoSyncChild: false });
+    await fixture.commerce.listProducts();
+    let cart = await fixture.commerce.addProduct('black', serviced);
+    const other = fixture.restore();
+    const reached = fixture.delayNextMutation();
+    const operation = fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2);
+    await reached;
+    const own = unsafeOps(fixture.storage).filter(record => record.status === 'pending');
+    assert.equal(own.length, 1);
+    assert.equal(own[0].before.id, cart.id, 'the pre-request snapshot survives a reload or crash');
+    assert.equal(own[0].before.lines.length, cart.lines.length);
+    assert.equal((await verifierFor(other)(cart)).status, 'blocked');
+    await assert.rejects(other.recoverCart(), error => error.code === 'recovery-ambiguous');
+    assert.ok(fixture.storage.getItem(own[0].key));
+    fixture.releaseDelayedMutation();
+    await operation;
+    assert.equal(fixture.storage.getItem(own[0].key), null);
+    cart = await other.getCart();
+    assert.equal(cart.incomplete, false);
+    assert.equal(gloveLine(cart, 'black').quantity, 2);
+    assert.equal((await verifierFor(other)(cart)).status, 'ready');
+  });
+}
+
+test('plain addition is recorded before Shopify receives it and clears only its own record', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', false);
+  const reached = fixture.delayNextMutation();
+  const addition = fixture.commerce.addProduct('blue', false);
+  await reached;
+  assert.equal((await verifierFor(fixture.restore())(cart)).status, 'blocked');
+  const own = unsafeOps(fixture.storage).find(record => record.status === 'pending');
+  fixture.storage.setItem('anawin-shopify-unsafe-op:other', opRecord(cart.id, 'other operation'));
+  fixture.releaseDelayedMutation();
+  await addition;
+  assert.equal(fixture.storage.getItem(own.key), null);
+  assert.ok(fixture.storage.getItem('anawin-shopify-unsafe-op:other'));
+  assert.equal((await verifierFor(fixture.restore())(cart)).status, 'blocked');
+});
+
+test('reload recovers an abandoned pending record under the exclusive recovery lock', async () => {
+  const { fixture, cart } = await stockLimitedCart();
+  fixture.storage.setItem('anawin-shopify-unsafe-op:abandoned', opRecord(cart.id, 'addition', { status: 'pending' }));
+  const reloaded = fixture.restore();
+  assert.equal((await verifierFor(reloaded)(cart)).status, 'blocked');
+  const recovered = await reloaded.recoverCart();
+  assert.notEqual(recovered.id, cart.id);
+  assert.equal(recovered.incomplete, false);
+  assert.equal(fixture.storage.getItem('anawin-shopify-unsafe-op:abandoned'), null);
+});
+
+test('unavailable or non-enumerable storage refuses mutations before any Shopify request', async () => {
+  for (const storage of [undefined, { getItem: () => 'gid://cart/1' }]) {
+    let requests = 0;
+    const commerce = createShopifyCommerce({ handles: {} }, storage, () => { requests++; throw new Error('Unexpected request'); });
+    await assert.rejects(commerce.addProduct('black', false), /storage/i);
+    assert.equal(requests, 0);
+  }
+});
+
+test('a mutation can start after a ready verdict: readiness is not an atomic navigation lease', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', false);
+  assert.equal((await verifierFor(fixture.restore())(cart)).status, 'ready');
+  const reached = fixture.delayNextMutation();
+  const operation = fixture.commerce.addProduct('blue', false);
+  await reached;
+  assert.equal(fixture.restore().readCartSafety().unsafeId, cart.id);
+  fixture.releaseDelayedMutation();
+  await operation;
+});
+
+test('two pending mutations retain separate records while one completes', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', false);
+  const other = fixture.restore();
+  await other.listProducts();
+  const reached = fixture.delayNextMutation();
+  const first = fixture.commerce.addProduct('blue', false);
+  await reached;
+  const firstRecord = unsafeOps(fixture.storage).find(record => record.status === 'pending');
+  fixture.observeMutations(() => {
+    assert.equal(unsafeOps(fixture.storage).filter(record => record.status === 'pending').length, 2);
+  });
+  await other.addProduct('brown', false);
+  fixture.observeMutations(null);
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), [firstRecord.key]);
+  assert.equal((await verifierFor(other)(cart)).status, 'blocked');
+  fixture.releaseDelayedMutation();
+  // A concurrent add changes the validation baseline, so the first result remains unresolved.
+  await assert.rejects(first, /configuration/);
+  assert.ok(fixture.storage.getItem(firstRecord.key));
+  assert.equal((await verifierFor(other)(cart)).status, 'blocked');
+});
+
+test('expired-cart recreation marks the replacement globally before the create request', async () => {
+  const fixture = shopifyFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.addProduct('black', false);
+  fixture.expireCart();
+  const reached = fixture.delayNextMutationResponse();
+  const addition = fixture.commerce.addProduct('blue', false);
+  await reached;
+  const pending = unsafeOps(fixture.storage).find(record => record.status === 'pending');
+  assert.equal(pending.cartId, '*');
+  // Simulate observing the replacement ID before the operation's final validation completes.
+  fixture.storage.setItem('anawin-shopify-cart-id', 'gid://cart/replacement');
+  assert.equal(fixture.restore().readCartSafety().unsafeId, 'gid://cart/replacement');
+  fixture.storage.removeItem('anawin-shopify-cart-id');
+  fixture.releaseDelayedMutation();
+  const cart = await addition;
+  assert.equal(cart.incomplete, false);
+  assert.equal(fixture.storage.getItem(pending.key), null);
+});
+
+test('concurrent serviced stock rejection and plain success leave no shared checkout block', async () => {
+  const fixture = shopifyFixture({ stock: { br16: 1 } });
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('black', true);
+  cart = await fixture.commerce.addProduct('blue', false);
+  const other = fixture.restore();
+  await other.listProducts();
+  const reached = fixture.delayNextMutation();
+  const updating = other.setLineQuantity(gloveLine(cart, 'blue').remoteLineId, 2);
+  await reached;
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2),
+    error => error.code === 'stock-limit');
+  assert.equal((await verifierFor(fixture.commerce)(cart)).status, 'blocked', 'the other operation is still active');
+  fixture.releaseDelayedMutation();
+  await updating;
+  const current = await fixture.commerce.getCart();
+  assert.equal(gloveLine(current, 'blue').quantity, 2);
+  assertServiceChildrenMatch(current);
+  assert.equal(current.incomplete, false);
+  assert.equal(fixture.storage.getItem(UNSAFE_KEY), null);
+  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.equal((await verifierFor(fixture.commerce)(current)).status, 'ready');
+});
+
+const checkoutFixture = () => shopifyFixture({ checkoutHost: 'ignvv0-zh.myshopify.com' });
+
+test('checkout holds an exclusive lock through verification and freezes before navigation', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', true);
+  const other = fixture.restore();
+  await other.listProducts();
+  const countBefore = fixture.requests.filter(r => r.query.startsWith('mutation')).length;
+  let queued;
+  fixture.observeQueries(() => {
+    fixture.observeQueries(null);
+    // Deterministically start another tab's add after verification begins, before its final read.
+    queued = other.addProduct('blue', false).catch(error => error);
+  });
+  let navigationCount = 0;
+  const result = await fixture.commerce.checkout(cart, {}, url => {
+    navigationCount++;
+    assert.match(url, /^https:\/\/ignvv0-zh\.myshopify\.com\//);
+    assert.equal(fixture.commerce.readCartSafety().unsafeId, cart.id, 'freeze exists before navigation');
+  });
+  assert.equal(result.status, 'navigating');
+  assert.equal(navigationCount, 1);
+  assert.match((await queued).message, /incomplete/);
+  assert.equal(fixture.requests.filter(r => r.query.startsWith('mutation')).length, countBefore, 'queued mutation is never sent');
+  const records = unsafeOps(fixture.storage);
+  assert.equal(records.length, 1);
+  assert.equal(records[0].kind, 'checkout handoff');
+  assert.equal((await verifierFor(other)(cart)).status, 'blocked');
+});
+
+test('checkout cannot approve a cart while another tab has an active mutation', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', false);
+  const reached = fixture.delayNextMutation();
+  const adding = fixture.commerce.addProduct('blue', false);
+  await reached;
+  let navigated = false;
+  const result = await fixture.restore().checkout(cart, {}, () => { navigated = true; });
+  assert.equal(result.status, 'blocked');
+  assert.equal(navigated, false);
+  assert.equal(unsafeOps(fixture.storage).some(record => record.kind === 'checkout handoff'), false);
+  fixture.releaseDelayedMutation();
+  await adding;
+});
+
+test('a checkout freeze survives reload and editing requires a separate recovery cart', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  let cart = await fixture.commerce.addProduct('black', true);
+  cart = await fixture.commerce.applyDiscountCode('LAUNCH10');
+  assert.equal((await fixture.commerce.checkout(cart, {}, () => {})).status, 'navigating');
+  const reloaded = fixture.restore();
+  await reloaded.listProducts();
+  await assert.rejects(reloaded.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), /incomplete/);
+  assert.equal((await reloaded.getCart()).incomplete, true);
+  const recovered = await reloaded.recoverCart();
+  assert.notEqual(recovered.id, cart.id);
+  assert.equal(recovered.incomplete, false);
+  assertServiceChildrenMatch(recovered);
+  assert.deepEqual(recovered.discountCodes, cart.discountCodes);
+  assert.deepEqual(fixture.requests.filter(r => r.query.includes('CreateCart')).at(-1).variables.input.discountCodes, ['LAUNCH10']);
+  const updated = await reloaded.setLineQuantity(gloveLine(recovered, 'black').remoteLineId, 2);
+  assert.equal(gloveLine(updated, 'black').quantity, 2);
+  assertServiceChildrenMatch(updated);
+  assert.equal(fixture.requests.filter(r => r.query.includes('UpdateLines') && r.variables.cartId === cart.id).length, 0);
+});
+
+test('a cancelled navigation leaves the same tab frozen until it recovers into a new cart', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  await fixture.commerce.getBreakInService();
+  const cart = await fixture.commerce.addProduct('black', true);
+  // A cancelled leave-page prompt returns from location.assign without throwing.
+  assert.equal((await fixture.commerce.checkout(cart, {}, () => {})).status, 'navigating');
+  const frozen = await fixture.commerce.getCart();
+  assert.equal(frozen.id, cart.id);
+  assert.equal(frozen.incomplete, true);
+  assert.equal(frozen.recoveryAvailable, true);
+  assert.equal(frozen.recoveryHasBreakIn, true);
+  assert.match(frozen.uncertainMutation, /checkout handoff/);
+  assert.equal(checkoutCartIsComplete(frozen), false);
+  // A second attempt from a stale displayed cart never navigates again.
+  let navigated = false;
+  assert.equal((await fixture.commerce.checkout(cart, {}, () => { navigated = true; })).status, 'blocked');
+  assert.equal(navigated, false);
+  await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'black').remoteLineId, 2), /incomplete/);
+  assert.equal(unsafeOps(fixture.storage).filter(record => record.kind === 'checkout handoff').length, 1);
+  const recovered = await fixture.commerce.recoverCart();
+  assert.notEqual(recovered.id, cart.id);
+  assert.equal(recovered.incomplete, false);
+  assertServiceChildrenMatch(recovered);
+  assert.deepEqual(unsafeOps(fixture.storage), []);
+  // The replacement goes through review, then its own handoff freezes only that cart.
+  assert.equal((await fixture.commerce.checkout(recovered, { requireReview: true }, () => { navigated = true; })).status, 'review');
+  assert.equal((await fixture.commerce.checkout(recovered, {}, () => { navigated = true; })).status, 'navigating');
+  assert.equal(navigated, true);
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => [record.cartId, record.kind]), [[recovered.id, 'checkout handoff']]);
+});
+
+test('checkout URL restrictions and review never persist a checkout freeze', async () => {
+  for (const approved of [false, true]) {
+    const fixture = approved ? checkoutFixture() : shopifyFixture();
+    await fixture.commerce.listProducts();
+    const cart = await fixture.commerce.addProduct('black', false);
+    let navigated = false;
+    const result = await fixture.commerce.checkout(cart, { requireReview: approved }, () => { navigated = true; });
+    assert.equal(result.status, approved ? 'review' : 'blocked');
+    assert.equal(navigated, false);
+    assert.deepEqual(unsafeOps(fixture.storage), []);
+    assert.equal((await fixture.commerce.getCart()).incomplete, false);
+  }
+});
+
+test('checkout fails closed without Web Locks or reliable safety storage', async () => {
+  for (const failure of ['locks', 'storage', 'listing', 'silent-write', 'revision']) {
+    const fixture = failure === 'locks'
+      ? shopifyFixture({ recoveryLocks: null, checkoutHost: 'ignvv0-zh.myshopify.com' }) : checkoutFixture();
+    await fixture.commerce.listProducts();
+    const cart = await fixture.commerce.addProduct('black', false);
+    if (failure === 'listing') fixture.storage.key = () => { throw new Error('SecurityError'); };
+    if (['storage', 'silent-write', 'revision'].includes(failure)) {
+      const write = fixture.storage.setItem.bind(fixture.storage);
+      fixture.storage.setItem = (key, value) => {
+        if (key.startsWith('anawin-shopify-unsafe-op:')) {
+          if (failure === 'storage') throw new Error('QuotaExceededError');
+          if (failure === 'silent-write') return;
+        }
+        if (failure === 'revision' && key === 'anawin-shopify-cart-revision') throw new Error('SecurityError');
+        write(key, value);
+      };
+    }
+    let navigated = false;
+    assert.equal((await fixture.commerce.checkout(cart, {}, () => { navigated = true; })).status, 'blocked');
+    assert.equal(navigated, false);
+  }
+});
+
+test('a failed local navigation removes only its own freeze record', async () => {
+  const fixture = checkoutFixture();
+  await fixture.commerce.listProducts();
+  const cart = await fixture.commerce.addProduct('black', false);
+  const result = await fixture.commerce.checkout(cart, {}, () => {
+    fixture.storage.setItem('anawin-shopify-unsafe-op:other', opRecord(cart.id, 'other change'));
+    throw new Error('Navigation rejected');
+  });
+  assert.equal(result.status, 'blocked');
+  assert.deepEqual(unsafeOps(fixture.storage).map(record => record.key), ['anawin-shopify-unsafe-op:other']);
+  assert.equal((await fixture.restore().getCart()).incomplete, true);
 });

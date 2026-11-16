@@ -6,12 +6,14 @@ class MemoryStorage {
   getItem(key) { return this.values.get(key) ?? null; }
   setItem(key, value) { this.values.set(key, String(value)); }
   removeItem(key) { this.values.delete(key); }
+  get length() { return this.values.size; }
+  key(index) { return [...this.values.keys()][index] ?? null; }
 }
 export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = false, rekeyOnAdd = false,
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
   subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
   discountScenario = null, discountWarnings = [], serviceState = 'available', serviceHandle = 'break-in', timeoutMs,
-  recoveryLocks = undefined, fullSize = false } = {}) {
+  recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, checkoutHost = 'store.myshopify.com' } = {}) {
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16', ...(fullSize ? { 'full-mint': 'mi26', 'full-black': 'bl50', 'full-orange': 'or17', 'full-camel': 'cm24' } : {}) }, breakInHandle: serviceHandle, timeoutMs
@@ -25,11 +27,38 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   const linePrice = handle => cartPrices[handle] || variants[handle][1];
   const finalUnitPrice = (handle, currentPrices = discountedPrices) => currentPrices[handle] || linePrice(handle);
   const storage = new MemoryStorage();
-  let recoveryTail = Promise.resolve();
-  const locks = recoveryLocks === undefined ? { request(_name, action) {
-    const result = recoveryTail.then(action);
-    recoveryTail = result.catch(() => {});
-    return result;
+  let sharedHolders = 0;
+  let exclusiveHeld = false;
+  const lockQueue = [];
+  const drainLocks = () => {
+    if (exclusiveHeld) return;
+    while (lockQueue.length) {
+      const next = lockQueue[0];
+      if (next.mode !== 'shared' && sharedHolders) return;
+      lockQueue.shift();
+      if (next.mode === 'shared') sharedHolders++;
+      else exclusiveHeld = true;
+      const release = () => {
+        if (next.mode === 'shared') sharedHolders--;
+        else exclusiveHeld = false;
+        drainLocks();
+      };
+      Promise.resolve().then(() => next.action({})).then(
+        value => { release(); next.resolve(value); },
+        error => { release(); next.reject(error); }
+      );
+      if (exclusiveHeld) return;
+    }
+  };
+  const locks = recoveryLocks === undefined ? { request(_name, options, callback) {
+    const action = callback || options;
+    if (options?.ifAvailable && (exclusiveHeld || sharedHolders || lockQueue.length)) {
+      return Promise.resolve().then(() => action(null));
+    }
+    return new Promise((resolve, reject) => {
+      lockQueue.push({ mode: options?.mode || 'exclusive', action, resolve, reject });
+      drainLocks();
+    });
   } } : recoveryLocks;
   const requests = [];
   let lines = [];
@@ -59,7 +88,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     const currentPrices = state.discountedPrices || discountedPrices;
     const currentAllocations = state.discountAllocations || discountAllocations;
     return ({
-    id, checkoutUrl: `https://store.myshopify.com/checkouts/${id.split('/').at(-1)}`,
+    id, checkoutUrl: `https://${checkoutHost}/checkouts/${id.split('/').at(-1)}`,
     discountCodes: structuredClone(state.discountCodes || discountCodes), discountApplications: structuredClone(state.discountApplications || discountApplications),
     cost: { subtotalAmount: { amount: String(state.subtotalOverride ?? subtotalOverride ?? cartLines.reduce((sum, line) =>
       sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle, currentPrices)), 0)), currencyCode: 'USD' } },
@@ -86,6 +115,21 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   });
   const attributeSignature = attributes => JSON.stringify([...attributes].sort((a, b) =>
     a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
+  // Like Shopify, a glove line is held at the available quantity and the line gets a stock warning.
+  const stock = { ...initialStock };
+  let mutationWarnings = [];
+  // Lets a test rewrite the next successful mutation payload (for example, a warning's target line).
+  let responseTransform = null;
+  const capQuantity = (line, requested, targetLines) => {
+    const limit = line.parentRelationship ? undefined : stock[line.merchandise.product.handle];
+    if (limit === undefined) return requested;
+    const others = targetLines.filter(other => other !== line && !other.parentRelationship &&
+      other.merchandise.product.handle === line.merchandise.product.handle).reduce((sum, other) => sum + other.quantity, 0);
+    const allowed = Math.max(0, limit - others);
+    if (requested <= allowed) return requested;
+    mutationWarnings.push({ code: 'MERCHANDISE_NOT_ENOUGH_STOCK', message: `Only ${allowed} items were added to your cart due to availability.`, target: line.id });
+    return allowed;
+  };
   const add = (inputs, targetLines = lines) => {
     for (const input of inputs) {
       if (input.parent) {
@@ -105,34 +149,34 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
         attributeSignature(line.attributes) === attributeSignature(input.attributes || []));
       const parent = existing || makeLine(handle, 0, null, input.attributes, input.merchandiseId);
       if (!existing) targetLines.push(parent);
-      parent.quantity += input.quantity;
+      parent.quantity = capQuantity(parent, parent.quantity + input.quantity, targetLines);
     }
   };
-  const mergeEquivalentParents = () => {
-    for (const parent of [...lines.filter(line => !line.parentRelationship)]) {
-      if (!lines.includes(parent)) continue;
-      const equivalent = lines.find(line => line !== parent && !line.parentRelationship &&
+  const mergeEquivalentParents = (targetLines = lines) => {
+    for (const parent of [...targetLines.filter(line => !line.parentRelationship)]) {
+      if (!targetLines.includes(parent)) continue;
+      const equivalent = targetLines.find(line => line !== parent && !line.parentRelationship &&
         line.merchandise.id === parent.merchandise.id &&
         attributeSignature(line.attributes) === attributeSignature(parent.attributes));
       if (!equivalent) continue;
-      const child = lines.find(line => line.parentRelationship?.parent.id === parent.id);
-      const equivalentChild = lines.find(line => line.parentRelationship?.parent.id === equivalent.id);
+      const child = targetLines.find(line => line.parentRelationship?.parent.id === parent.id);
+      const equivalentChild = targetLines.find(line => line.parentRelationship?.parent.id === equivalent.id);
       equivalent.quantity += parent.quantity;
       if (child) {
         if (equivalentChild) equivalentChild.quantity += child.quantity;
         else child.parentRelationship.parent.id = equivalent.id;
       }
-      lines = lines.filter(line => line !== parent && (line !== child || !equivalentChild));
+      targetLines.splice(0, targetLines.length, ...targetLines.filter(line => line !== parent && (line !== child || !equivalentChild)));
     }
   };
-  const rekeyLines = () => {
+  const rekeyLines = (targetLines = lines) => {
     const parentIds = new Map();
-    for (const line of lines.filter(line => !line.parentRelationship)) {
+    for (const line of targetLines.filter(line => !line.parentRelationship)) {
       const previousId = line.id;
       line.id = `line-${nextId++}`;
       parentIds.set(previousId, line.id);
     }
-    for (const line of lines.filter(line => line.parentRelationship)) {
+    for (const line of targetLines.filter(line => line.parentRelationship)) {
       line.id = `line-${nextId++}`;
       line.parentRelationship.parent.id = parentIds.get(line.parentRelationship.parent.id);
     }
@@ -158,13 +202,14 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     assert.match(query, /attributes \{ key value \}/);
     assert.match(query, /canUpdateQuantity/);
     if (query.includes('query Cart(')) {
-      queryObserver?.({ variables, lines, storage });
+      queryObserver?.({ variables, lines: variables.id === recoveryCartId ? recoveryLines : lines, storage });
       return response({ cart: cartExists ? snapshot(variables.id) : null });
     }
     if (apiError) return { ok: false, status: 503 };
     const field = query.includes('CreateCart') ? 'cartCreate' : query.includes('AddLines') ? 'cartLinesAdd' :
       query.includes('UpdateLines') ? 'cartLinesUpdate' : query.includes('UpdateDiscountCodes') ? 'cartDiscountCodesUpdate' : 'cartLinesRemove';
     mutationCount++;
+    mutationWarnings = [];
     mutationObserver?.({ field, variables, storage });
     if (rejectStatusAt === mutationCount) return { ok: false, status: 422 };
     if (delayMutationAt === mutationCount) {
@@ -192,27 +237,29 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
       cartExists = true;
       if (rekeyOnAdd && variables.cartId !== recoveryCartId) rekeyLines();
     } else if (field === 'cartLinesUpdate') {
+      const targetLines = variables.cartId === recoveryCartId ? recoveryLines : lines;
       for (const update of variables.lines) {
-        const line = lines.find(item => item.id === update.id);
+        const line = targetLines.find(item => item.id === update.id);
         if (!line) throw new Error('Unknown cart line');
-        if (update.quantity !== undefined) line.quantity = update.quantity;
+        if (update.quantity !== undefined) line.quantity = capQuantity(line, update.quantity, targetLines);
         if (update.attributes) {
           line.attributes = structuredClone(update.attributes);
           if (rekeyOnAttributeUpdate) {
             const oldId = line.id;
             line.id = `line-${nextId++}`;
-            for (const child of lines) if (child.parentRelationship?.parent.id === oldId) child.parentRelationship.parent.id = line.id;
+            for (const child of targetLines) if (child.parentRelationship?.parent.id === oldId) child.parentRelationship.parent.id = line.id;
           }
-          mergeEquivalentParents();
+          mergeEquivalentParents(targetLines);
         }
         if (autoSyncChild && update.quantity !== undefined && !line.parentRelationship) {
-          const child = lines.find(item => item.parentRelationship?.parent.id === line.id);
+          const child = targetLines.find(item => item.parentRelationship?.parent.id === line.id);
           if (child) child.quantity = line.quantity;
         }
       }
-      if (rekeyOnQuantityUpdate && variables.lines.some(line => line.quantity !== undefined)) rekeyLines();
+      if (rekeyOnQuantityUpdate && variables.lines.some(line => line.quantity !== undefined)) rekeyLines(targetLines);
     } else {
-      lines = lines.filter(line => !variables.lineIds.includes(line.id) && !variables.lineIds.includes(line.parentRelationship?.parent.id));
+      const targetLines = variables.cartId === recoveryCartId ? recoveryLines : lines;
+      targetLines.splice(0, targetLines.length, ...targetLines.filter(line => !variables.lineIds.includes(line.id) && !variables.lineIds.includes(line.parentRelationship?.parent.id)));
     }
     if (failAfterMutationAt === mutationCount) return { ok: false, status: 503 };
     if (delayResponseAfterAt === mutationCount) {
@@ -221,8 +268,10 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     }
     if (userErrorAfterMutationAt === mutationCount) return response({ [field]: { userErrors: [{ message: 'Partial Shopify error' }],
       cart: snapshot(field === 'cartCreate' ? recoveryCartId || 'gid://cart/1' : variables.cartId || 'gid://cart/1') } });
-    return response({ [field]: { userErrors: [], warnings: field === 'cartDiscountCodesUpdate' ? discountWarnings : [],
-      cart: snapshot(field === 'cartCreate' ? recoveryCartId || 'gid://cart/1' : variables.cartId || 'gid://cart/1') } });
+    const payload = { userErrors: [], warnings: field === 'cartDiscountCodesUpdate' ? discountWarnings : mutationWarnings,
+      cart: snapshot(field === 'cartCreate' ? recoveryCartId || 'gid://cart/1' : variables.cartId || 'gid://cart/1') };
+    if (responseTransform) { const transform = responseTransform; responseTransform = null; transform(payload, field); }
+    return response({ [field]: payload });
   };
   const shopify = createShopifyCommerce(config, storage, fetchImpl, locks);
   const commerce = {
@@ -237,6 +286,8 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   return { commerce, config, fetchImpl, storage, requests, restore: () => createShopifyCommerce(config, storage, fetchImpl, locks),
     get lines() { return storage.getItem('anawin-shopify-cart-id') === recoveryCartId ? recoveryLines : lines; },
     setUserError(value) { userError = value; }, setApiError(value) { apiError = value; },
+    setStock(handle, quantity) { stock[handle] = quantity; },
+    transformNextMutationResponse(transform) { responseTransform = transform; },
     failNextMutation(offset = 1) { failMutationAt = mutationCount + offset; },
     failAfterNextMutation(offset = 1) { failAfterMutationAt = mutationCount + offset; },
     partialUserErrorNextMutation() { userErrorAfterMutationAt = mutationCount + 1; },

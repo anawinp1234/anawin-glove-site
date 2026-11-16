@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { breakInService, localProducts } from '../src/catalog.js';
-import { createStorefrontRenderer } from '../src/storefront-render.js';
+import { cartTriggerLabel, createStorefrontRenderer } from '../src/storefront-render.js';
 import { productPath } from '../src/seo.js';
 import { stickyPurchaseAccent } from '../src/sticky-purchase.js';
 
@@ -133,4 +134,32 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     assert.match(accordion, /Eligible returns are accepted within 30 days of delivery\./);
     assert.match(accordion, /Prepaid return labels are provided for eligible U\.S\. returns\./);
   }
+});
+
+test('trainer PDPs state the offered throw hand, the glove hand, and that the other hand is not available', () => {
+  for (const product of localProducts) {
+    const html = renderProduct(product);
+    const block = html.match(/<dl class="hand-orientation">.*?<\/dl>/)?.[0];
+    assert.ok(block, product.name);
+    assert.equal(block, '<dl class="hand-orientation"><div><dt>Throw hand</dt><dd>Right-Hand Throw<small>Worn on the left hand</small></dd></div><div><dt>Left-Hand Throw</dt><dd class="hand-unavailable">Not available</dd></div></dl>', product.name);
+    assert.doesNotMatch(html, /name="[^"]*throw-hand"/, 'trainers offer no throw-hand choice');
+    assert.match(html, />Add to cart <span data-add-price>/);
+  }
+});
+
+test('header controls use their visible text as the accessible name', () => {
+  const html = createStorefrontRenderer({ products: localProducts, breakInService, cartCount: () => 1 }).header();
+  assert.match(html, /<button class="mobile-menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu">Menu<\/button>/);
+  assert.match(html, /<button class="cart-trigger" data-cart aria-label="Cart, 1 item">Cart <span class="cart-count">\(1\)<\/span><\/button>/);
+  assert.equal(cartTriggerLabel(0), 'Cart, 0 items');
+  assert.equal(cartTriggerLabel(2), 'Cart, 2 items');
+});
+
+test('mobile photo dots aim for 44px but can shrink to 28px instead of overflowing narrow screens', () => {
+  const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.gallery-dots\{display:flex;align-items:center;gap:0;min-width:0\}/);
+  const dot = css.match(/\.gallery-dot\{[^}]*\}/)[0];
+  assert.match(dot, /flex:0 1 44px;min-width:28px;height:44px/);
+  // A fixed width would make the dot row's minimum 4 × 44px and defeat the shrink.
+  assert.doesNotMatch(dot, /[;{]width:/);
 });

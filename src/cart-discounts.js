@@ -95,17 +95,51 @@ export function cartDiscountSummary(cart) {
   return { codes, original, final, savings, discounts };
 }
 
-export function renderDiscountEntry(cart, { busy = false, input = '', message = '', error = false } = {}, escapeHtml) {
+// Feedback for the Shopify cart returned by one apply or remove. A successful apply is announced
+// only, because the applied-code row already shows it.
+export function discountResultFeedback(cart, { code = '', removingCode = '' } = {}) {
+  const codes = cart.discountCodes || [];
+  let message = '';
+  let error = false;
+  const applied = Boolean(code) && codes.find(item => codeKey(item.code) === codeKey(code))?.applicable === true;
+  if (code) {
+    message = applied ? `${code} applied.` : 'Discount code isn’t valid for this cart.';
+    error = !applied;
+  }
+  if (removingCode) {
+    error = codes.some(item => codeKey(item.code) === codeKey(removingCode));
+    message = error ? 'The discount code could not be removed. Please try again.' : 'Discount code removed.';
+  }
+  // Shopify repeats a rejected code's warning on every later update while that code stays on the
+  // cart; its "not applicable" row already says so, so only otherwise-unexplained warnings are shown.
+  const warnings = codes.some(item => item.applicable !== true) ? [] : cart.discountWarnings || [];
+  if (!error && warnings.length) return { message: [message, ...warnings].filter(Boolean).join(' '), error, announceOnly: false, applied };
+  return { message, error, announceOnly: applied, applied };
+}
+
+// The entry stays collapsed until asked for, but an error keeps it open.
+export const discountEntryExpanded = ({ expanded = false, error = false } = {}) => Boolean(expanded || error);
+
+export function dismissDiscountError(input, message) {
+  input?.removeAttribute('aria-invalid');
+  if (!message) return;
+  message.textContent = '';
+  message.classList.remove('cart-error');
+  message.setAttribute('role', 'status');
+}
+
+export function renderDiscountEntry(cart, { busy = false, input = '', message = '', error = false, expanded = false, announceOnly = false } = {}, escapeHtml) {
   if (!cart.id || !cart.lines?.length) return '';
   const codes = discountCodeList(cart);
-  return `<section class="cart-discount-entry" aria-labelledby="discount-heading">
-    <label id="discount-heading" for="cart-discount-input">Discount code</label>
-    <form data-discount-form><input id="cart-discount-input" name="discountCode" type="text" autocomplete="off" placeholder="Enter code" value="${escapeHtml(input)}" ${busy ? 'disabled' : ''} aria-describedby="cart-discount-message"><button type="submit" ${busy ? 'disabled' : ''}>${busy ? 'Applying…' : 'Apply'}</button></form>
+  const open = discountEntryExpanded({ expanded, error });
+  return `<section class="cart-discount-entry" aria-labelledby="discount-toggle"${busy ? ' aria-busy="true"' : ''}>
+    <button type="button" id="discount-toggle" class="cart-discount-toggle" data-discount-toggle aria-expanded="${open}" aria-controls="cart-discount-panel">Have a discount code?</button>
+    <form id="cart-discount-panel" data-discount-form ${open ? '' : 'hidden'}><label class="visually-hidden" for="cart-discount-input">Discount code</label><input id="cart-discount-input" name="discountCode" type="text" autocomplete="off" placeholder="Enter code" value="${escapeHtml(input)}" ${busy ? 'disabled' : ''}${error ? ' aria-invalid="true"' : ''} aria-describedby="cart-discount-message"><button type="submit" data-discount-apply ${busy ? 'disabled' : ''}>${busy ? 'Applying…' : 'Apply'}</button></form>
     ${codes.length ? `<div class="cart-discount-code-list">${codes.map(code => {
       const applicable = cart.discountCodes.find(item => codeKey(item.code) === codeKey(code))?.applicable === true;
-      return `<div class="cart-discount-code"><span>${applicable ? '<span aria-hidden="true">✓</span> ' : ''}${escapeHtml(code)} ${applicable ? 'applied' : 'not applicable'}</span><button type="button" data-remove-discount="${escapeHtml(code)}" ${busy ? 'disabled' : ''}>${busy ? 'Updating…' : 'Remove'}</button></div>`;
+      return `<div class="cart-discount-code"><span>${applicable ? '<span aria-hidden="true">✓</span> ' : ''}${escapeHtml(code)} ${applicable ? 'applied' : 'not applicable'}</span><button type="button" data-remove-discount="${escapeHtml(code)}" aria-label="Remove discount code ${escapeHtml(code)}" ${busy ? 'disabled' : ''}>${busy ? 'Updating…' : 'Remove'}</button></div>`;
     }).join('')}</div>` : ''}
-    <p id="cart-discount-message" class="cart-discount-message${error ? ' cart-error' : ''}" role="${error ? 'alert' : 'status'}">${escapeHtml(message)}</p>
+    <p id="cart-discount-message" class="cart-discount-message${error ? ' cart-error' : ''}${announceOnly && !error ? ' visually-hidden' : ''}" role="${error ? 'alert' : 'status'}">${escapeHtml(message)}</p>
   </section>`;
 }
 

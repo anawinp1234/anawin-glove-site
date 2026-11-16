@@ -64,6 +64,21 @@ In Shopify mode, Shopify owns prices, availability, cart totals, and the hosted 
 
 Checkout redirects are limited to the verified Shopify origin `https://ignvv0-zh.myshopify.com`. If Shopify's checkout domain changes, verify the new `Cart.checkoutUrl` origin against Shopify Admin and a Storefront API test cart, then review `src/checkout-safety.js` before deploying. A rejected link requires the customer to check the cart again, which fetches fresh Shopify state.
 
+### Cart coordination and checkout freeze
+
+Tabs on the same origin coordinate cart changes through `localStorage` records and the Web Locks API (`commerce.checkout()` and `recoverCart()` in `src/commerce.js`).
+
+- **Checkout handoff.** Checkout verification runs under an exclusive Web Lock. If the cart is verified, a persistent `checkout handoff` record freezes that cart before the browser navigates to Shopify. Every updated tab then treats the cart as unresolved: it can't be edited, discounted, or sent to checkout again from the storefront.
+- **Recovery.** The only way to edit again is to choose **Continue with verified items in a new cart** (or the glove-only option). Recovery runs under the same lock and copies the verified items, Break-In service, and discount codes into a new Shopify cart. It then retires the old cart's records. The frozen cart is never edited.
+- **Cancelled or failed navigation.** If the page stays open after the handoff (for example, the shopper cancels a leave-page prompt), it shows *Opening checkout…* for about two seconds. It then reads the cart again and shows it as frozen, with the recovery options. A back/forward-cache restore does the same immediately (`createCheckoutHandoffWatcher` in `src/checkout-safety.js`). A reload or browser restart shows the same frozen state. If navigation throws synchronously, the page removes only its own freeze record. Cancelling navigation or returning to the page never lifts the freeze.
+- **Fails closed.** Checkout and recovery are unavailable without Web Locks, or when `localStorage` can't be written or enumerated.
+
+Limits:
+
+- This is browser-side coordination between updated clients that share one origin and one storage and lock context. It is not a Shopify cart lock and does not make operations atomic across all clients.
+- Cached older storefront builds that don't know this protocol, other browsers or devices, and anything else that writes to the Shopify cart (Shopify checkout itself, Admin, other apps) are outside this guarantee. Shopify's cart and checkout remain the source of truth.
+- Not yet verified: Safari and Firefox, screen-reader announcements on real assistive technology, an actual back/forward-cache return from Shopify checkout, mobile virtual keyboards, and a completed production checkout.
+
 ## Catalog and content
 
 Product names, specifications, and local imagery remain in the storefront so its confirmed presentation is preserved. Shopify replaces price, availability, merchandise identity, and cart totals after connection. Founder content, shipping terms, and return terms remain in storefront content.
