@@ -47,8 +47,10 @@ function cartSignature(cart) {
 }
 
 export function isCartStorageKey(key) {
+  // Per-operation safety records (see UNSAFE_RECORD_PREFIX in commerce.js) count as cart changes too.
   return key === null || ['anawin-shopify-cart-id', 'anawin-shopify-unsafe-cart-id',
-    'anawin-shopify-pending-mutation', 'anawin-shopify-cart-revision'].includes(key);
+    'anawin-shopify-pending-mutation', 'anawin-shopify-cart-revision'].includes(key) ||
+    Boolean(key?.startsWith('anawin-shopify-unsafe-op:'));
 }
 
 export function checkoutCartIsComplete(cart) {
@@ -87,6 +89,9 @@ export function createCheckoutVerifier({ getCart, readSafety }) {
             message: 'Your cart changed. Review the items, then choose Checkout again.' };
         }
         // Recheck shared state immediately before handing the fresh Shopify URL to the caller.
+        // This is an observation, not an atomic lease: another tab can start a mutation
+        // after this read and before browser navigation. Production navigation must use
+        // commerce.checkout(), which locks verification and persists a cart freeze.
         const final = readSafety();
         if (final.id !== current.id || final.revision !== after.revision ||
           final.unsafeId === final.id || final.pendingCartId === final.id) continue;

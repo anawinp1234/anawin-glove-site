@@ -1,5 +1,6 @@
 import { fullSizeProducts, fullSizeBreakInService, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes } from './catalog.js';
 import { codeKey, discountCodeList } from './cart-discounts.js';
+import { createCheckoutVerifier, verifiedCheckoutUrl } from './checkout-safety.js';
 
 const LOCAL_CART_KEY = 'anawin-cart';
 const SHOPIFY_CART_KEY = 'anawin-shopify-cart-id';
@@ -8,6 +9,9 @@ const SERVICE_ATTRIBUTE = '_anawin_service';
 const UNSAFE_CART_KEY = 'anawin-shopify-unsafe-cart-id';
 const PENDING_MUTATION_KEY = 'anawin-shopify-pending-mutation';
 const LEGACY_PENDING_ADD_KEY = 'anawin-shopify-pending-addition';
+// One key per unresolved operation. Each is written whole by its owner and removed only by its owner
+// (or by recovery), so no tab can overwrite or lift another tab's record.
+export const UNSAFE_RECORD_PREFIX = 'anawin-shopify-unsafe-op:';
 const REQUEST_TIMEOUT_MS = 10000;
 
 function requestedQuantity(value) {
@@ -21,6 +25,9 @@ function migratedQuantity(value) {
   return Number.isFinite(quantity) ? Math.max(0, Math.trunc(quantity)) : 0;
 }
 
+// Shopify's CartWarning codes for a line held below the requested quantity.
+const STOCK_WARNING_CODES = ['MERCHANDISE_NOT_ENOUGH_STOCK', 'MERCHANDISE_OUT_OF_STOCK'];
+
 export class ShopifyRequestError extends Error {
   constructor(message, code, cause) {
     super(message, { cause });
@@ -30,6 +37,7 @@ export class ShopifyRequestError extends Error {
 }
 
 export function commerceErrorMessage(error, action = 'connect') {
+  if (error?.code === 'stock-limit') return error.message;
   if (error?.code === 'uncertain') return 'We could not confirm your cart update. Check your cart before trying again.';
   if (error?.code === 'uncertain-create') return 'We could not confirm the new cart. Check your cart, then try adding again.';
   if (error?.code === 'timeout') return 'Shopify is taking too long to respond. Please try again.';
@@ -372,60 +380,120 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   let fullSizeService = { ...fullSizeBreakInService, available: false };
   let remoteBreakInService = { ...breakInService, available: false };
   let lastVerifiedCart = null;
-  let pendingMutation = null;
-  try {
-    const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || storage?.getItem(LEGACY_PENDING_ADD_KEY) || 'null');
-    if (saved && typeof saved.cartId === 'string') pendingMutation = {
-      cartId: saved.cartId, kind: typeof saved.kind === 'string' ? saved.kind : 'addition', status: 'unresolved',
-      kinds: Array.isArray(saved.kinds) ? saved.kinds.filter(kind => typeof kind === 'string') : [],
-      before: saved.before?.id === saved.cartId && Array.isArray(saved.before.lines) ? saved.before : null
-    };
-  } catch { /* Ignore malformed recovery metadata. */ }
-  const clearPendingMutation = () => {
-    pendingMutation = null;
-    storage?.removeItem(PENDING_MUTATION_KEY);
-    storage?.removeItem(LEGACY_PENDING_ADD_KEY);
-  };
+  // Unsafe marks this tab could not persist; they keep the cart blocked here even without storage.
+  const unpersistedUnsafe = new Set();
+  const ownPending = new Set();
+  const activeOperations = new Set();
+  const legacyRecordKeys = [PENDING_MUTATION_KEY, LEGACY_PENDING_ADD_KEY];
   const handleToProductId = Object.fromEntries(Object.entries(config.handles).map(([id, handle]) => [handle, id]));
-  const request = (query, variables) => shopifyRequest(config, query, variables, fetchImpl);
-  const announceCartChange = () => storage?.setItem(CART_REVISION_KEY, `${Date.now()}:${Math.random()}`);
-  const markUnsafe = (cartId, kind = 'cart change', beforeOverride = null) => {
-    if (!cartId || storage?.getItem(SHOPIFY_CART_KEY) !== cartId) return;
-    let prior = null;
-    try {
-      if (storage?.getItem(UNSAFE_CART_KEY) === cartId) {
-        const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
-        if (saved?.cartId === cartId) prior = saved;
+  const request = (query, variables) => {
+    if (/^mutation/.test(query)) for (const operation of activeOperations) {
+      // An expired cart can be replaced within an add operation. Keep its pending
+      // record relevant to the replacement before Shopify can create it.
+      if (!operation.sent && lastVerifiedCart?.id === variables.cartId) {
+        operation.record.before = lastVerifiedCart;
+        storage.setItem(operation.key, JSON.stringify(operation.record));
       }
-    } catch { /* Keep the cart blocked even if recovery metadata is malformed. */ }
-    pendingMutation = { cartId, kind: prior?.kind || kind, status: 'unresolved',
-      kinds: [...new Set([...(prior?.kinds || (prior?.kind ? [prior.kind] : [])), kind])],
-      before: prior?.before || (beforeOverride?.id === cartId ? beforeOverride : null) ||
-        (lastVerifiedCart?.id === cartId ? lastVerifiedCart : null) };
-    storage?.setItem(UNSAFE_CART_KEY, cartId);
-    storage?.setItem(PENDING_MUTATION_KEY, JSON.stringify(pendingMutation));
-  };
-  const clearUnsafe = cartId => {
-    if (storage?.getItem(UNSAFE_CART_KEY) === cartId) {
-      storage.removeItem(UNSAFE_CART_KEY);
-      clearPendingMutation();
+      if (query.includes('CreateCart')) {
+        operation.record.cartId = '*';
+        storage.setItem(operation.key, JSON.stringify(operation.record));
+      }
+      operation.sent++;
     }
+    return shopifyRequest(config, query, variables, fetchImpl);
   };
-  const applySafety = cart => {
+  const announceCartChange = () => storage?.setItem(CART_REVISION_KEY, `${Date.now()}:${Math.random()}`);
+  const storageKeys = () => {
+    if (!storage || !Number.isInteger(storage.length) || typeof storage.key !== 'function') throw new Error('Cart storage is unavailable.');
+    const keys = [];
+    for (let index = 0; index < storage.length; index++) keys.push(storage.key(index));
+    return keys;
+  };
+  // Every unresolved record that applies to a cart, read fresh from shared storage. Unreadable records
+  // apply to whichever cart asks, and null (storage cannot be enumerated or read) means "assume unsafe".
+  const unsafeRecords = (cartId, includeOwn = false) => {
+    if (!storage) return null;
     try {
-      const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
-      if (saved?.cartId === cart.id) pendingMutation = saved;
-    } catch { /* A malformed note cannot make an unsafe cart safe. */ }
-    if (cart.id && cart.incomplete && storage?.getItem(UNSAFE_CART_KEY) !== cart.id &&
+      const records = [];
+      for (const key of storageKeys()) {
+        if (!key?.startsWith(UNSAFE_RECORD_PREFIX) || !includeOwn && ownPending.has(key)) continue;
+        let record = null;
+        try { record = JSON.parse(storage.getItem(key)); } catch { /* treated as malformed below */ }
+        if (!record || typeof record.cartId !== 'string') records.push({ key, malformed: true, kinds: ['cart change'] });
+        else if (record.cartId === cartId || record.cartId === '*') records.push({ ...record, key });
+      }
+      for (const key of legacyRecordKeys) {
+        const raw = storage.getItem(key);
+        if (!raw) continue;
+        let record = null;
+        try { record = JSON.parse(raw); } catch { /* treated as malformed below */ }
+        if (!record || typeof record.cartId !== 'string') records.push({ key, legacy: true, malformed: true, kinds: ['cart change'] });
+        else if (record.cartId === cartId) records.push({ ...record, key, legacy: true });
+      }
+      return records;
+    } catch { return null; }
+  };
+  const summaryMarks = cartId => { try { return storage?.getItem(UNSAFE_CART_KEY) === cartId; } catch { return true; } };
+  // The combined unresolved state of a cart, or null when nothing is unresolved.
+  const pendingFor = (cartId, includeOwn = false, ignorePending = false) => {
+    if (!cartId) return null;
+    let records = unsafeRecords(cartId, includeOwn);
+    // Mutation validation may inspect an intermediate cart while operations are active.
+    // Public reads and checkout safety always include those pending records.
+    if (records && ignorePending) records = records.filter(record => record.status !== 'pending');
+    if (records === null) return { cartId, kind: 'cart change', kinds: ['cart change'], before: null, status: 'unresolved' };
+    if (!records.length && !summaryMarks(cartId) && !unpersistedUnsafe.has(cartId)) return null;
+    const ordered = [...records].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    const kinds = [...new Set(ordered.flatMap(record => Array.isArray(record.kinds) ? record.kinds : record.kind ? [record.kind] : []))];
+    const before = ordered.find(record => record.before?.id === cartId && Array.isArray(record.before.lines))?.before || null;
+    return { cartId, kind: ordered[0]?.kind || 'cart change', kinds, before, status: 'unresolved' };
+  };
+  const isUnsafe = cartId => Boolean(pendingFor(cartId));
+  // Records the operation as unresolved and returns its token; only that token can lift this record.
+  const markUnsafe = (cartId, kind = 'cart change', beforeOverride = null) => {
+    if (!cartId || storage?.getItem(SHOPIFY_CART_KEY) !== cartId) return null;
+    const token = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    const record = { cartId, kind, kinds: [kind], status: 'unresolved', createdAt: Date.now(),
+      before: beforeOverride?.id === cartId ? beforeOverride : lastVerifiedCart?.id === cartId ? lastVerifiedCart : null };
+    try {
+      storage.setItem(UNSAFE_RECORD_PREFIX + token, JSON.stringify(record));
+    } catch {
+      // Storage refused the write: keep the cart blocked in this tab rather than fail open.
+      unpersistedUnsafe.add(cartId);
+      return null;
+    }
+    return token;
+  };
+  const clearUnsafe = (cartId, token) => {
+    if (!token || !storage) return;
+    try {
+      const key = UNSAFE_RECORD_PREFIX + token;
+      const record = JSON.parse(storage.getItem(key) || 'null');
+      if (record?.cartId !== cartId) return;
+      storage.removeItem(key);
+      // New operations use their own records exclusively. An existing shared summary
+      // belongs to an older client or an unknown outcome; only recovery can retire it.
+    } catch { /* Leave every mark in place. */ }
+  };
+  // Recovery moves the shopper to a new verified cart, which retires every record for the old cart.
+  const retireUnsafeCart = cartId => {
+    unpersistedUnsafe.delete(cartId);
+    if (!storage) return;
+    for (const record of unsafeRecords(cartId) || []) storage.removeItem(record.key);
+    if (storage.getItem(UNSAFE_CART_KEY) === cartId) storage.removeItem(UNSAFE_CART_KEY);
+  };
+  const applySafety = (cart, mutation = true) => {
+    if (cart.id && cart.incomplete && !pendingFor(cart.id, true) &&
       canRecoverWithoutService(cart)) markUnsafe(cart.id, 'service data unavailable');
-    if (cart.id && !cart.incomplete && storage?.getItem(UNSAFE_CART_KEY) !== cart.id) {
+    const pendingMutation = cart.id ? pendingFor(cart.id, !mutation, mutation) : null;
+    if (cart.id && !cart.incomplete && !pendingMutation) {
       lastVerifiedCart = { id: cart.id, lines: cart.lines.map(line => ({
         remoteLineId: line.remoteLineId, parentLineId: line.parentLineId, merchandiseId: line.merchandiseId,
         productId: line.productId, isBreakIn: line.isBreakIn, serviceType: line.serviceType, quantity: line.quantity,
         attributes: line.attributes, throwingHand: line.throwingHand
       })), discountCodes: cart.discountCodes };
     }
-    if (cart.id && storage?.getItem(UNSAFE_CART_KEY) === cart.id) {
+    if (cart.id && pendingMutation) {
       const serviceDataUnavailable = pendingMutation?.kinds?.includes('service data unavailable');
       cart.recoveryAvailable = !serviceDataUnavailable && !pendingMutation?.kinds?.some(kind => kind.endsWith('validation failed')) &&
         (!cart.incomplete || pendingMutation?.before?.id === cart.id &&
@@ -435,9 +503,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       cart.recoveryHasBreakIn = cart.lines.some(line => line.isBreakIn) ||
         Boolean(pendingMutation?.before?.lines?.some(line => line.isBreakIn));
       cart.incomplete = true;
-      cart.uncertainMutation = pendingMutation?.cartId === cart.id ? pendingMutation.kinds?.join(', ') || pendingMutation.kind : 'cart change';
+      cart.uncertainMutation = pendingMutation.kinds?.join(', ') || pendingMutation.kind;
     }
-    if (!cart.id) { storage?.removeItem(UNSAFE_CART_KEY); clearPendingMutation(); }
     return cart;
   };
 
@@ -474,7 +541,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     return normalizeShopifyCart(data.cart, handleToProductId, config.breakInHandle);
   }
 
-  async function getCart() { return applySafety(await getRawCart()); }
+  async function getCart() { return applySafety(await getRawCart(), false); }
+  async function getMutationCart() { return applySafety(await getRawCart(), true); }
 
   async function mutateCart(query, variables, field, kind = 'cart change') {
     const expectedCartId = variables.cartId || null;
@@ -516,7 +584,9 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         markUnsafe(expectedCartId, kind);
         throw new ShopifyRequestError(`Shopify reported errors and did not confirm an unchanged cart: ${message}`, 'uncertain');
       }
-      throw new Error(message);
+      const rejection = new Error(message);
+      rejection.definitiveRejection = true;
+      throw rejection;
     }
     const cart = assertCartPayload(payload);
     if ((storage?.getItem(SHOPIFY_CART_KEY) || null) !== expectedCartId) {
@@ -534,16 +604,33 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     }
     storage?.setItem(SHOPIFY_CART_KEY, cart.id);
     const result = applySafety(normalized);
+    result.stockWarningTargets = (payload.warnings || []).filter(warning => STOCK_WARNING_CODES.includes(warning?.code))
+      .map(warning => warning.target).filter(target => typeof target === 'string');
     announceCartChange();
     return result;
   }
 
+  // A stock warning proves a rejection only when it names a line this request tried to grow, and both
+  // Shopify's response and a fresh read show the cart exactly as it was before. Anything else stays
+  // on the normal path, which blocks checkout. Only this operation's own pre-flight mark is lifted.
+  const sameLine = (a, b) => String(a).split('?')[0] === String(b).split('?')[0];
+  async function confirmStockRejection(before, result, attemptedLineIds, ownMark = null) {
+    if (!before.id || !result?.stockWarningTargets?.some(target => attemptedLineIds.some(lineId => sameLine(target, lineId)))) return null;
+    if (result.id !== before.id || cartStateStamp(result) !== cartStateStamp(before)) return null;
+    const current = await getRawCart();
+    if (current.id !== before.id || current.incomplete || cartStateStamp(current) !== cartStateStamp(before)) return null;
+    clearUnsafe(before.id, ownMark);
+    return applySafety(current);
+  }
+  const stockLimitError = (productId, quantity) => new ShopifyRequestError(
+    `No more ${products.find(product => product.id === productId)?.name || 'of this glove'} available right now. Your cart still has ${quantity}.`, 'stock-limit');
+
   const updateLines = (cartId, lines, kind = 'quantity update') => mutateCart(`mutation UpdateLines($cartId: ID!, $lines: [CartLineUpdateInput!]!) {
-    cartLinesUpdate(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
+    cartLinesUpdate(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } warnings { code message target } }
   }`, { cartId, lines }, 'cartLinesUpdate', kind);
 
   const addLines = (cartId, lines, kind = 'addition') => mutateCart(`mutation AddLines($cartId: ID!, $lines: [CartLineInput!]!) {
-    cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } }
+    cartLinesAdd(cartId: $cartId, lines: $lines) { cart { ${CART_FIELDS} } userErrors { message } warnings { code message target } }
   }`, { cartId, lines }, 'cartLinesAdd', kind);
 
   const removeLines = (cartId, lineIds, kind = 'removal') => mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
@@ -566,6 +653,13 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       throw new ShopifyRequestError('The active cart changed while the discount update was pending.', 'cart-changed');
     }
     if (!payload) throw new Error('Shopify did not return a discount update.');
+    if (payload.userErrors?.length) {
+      const returned = payload.cart && normalizeShopifyCart(payload.cart, handleToProductId, config.breakInHandle);
+      const error = new Error(payload.userErrors.map(item => item.message).join(' '));
+      error.definitiveRejection = returned && !returned.incomplete && returned.id === cartId &&
+        lastVerifiedCart?.id === cartId && cartStateStamp(returned) === cartStateStamp(lastVerifiedCart);
+      throw error;
+    }
     const updated = assertCartPayload(payload);
     if (updated.id !== cartId) throw new Error('Shopify returned a different cart.');
     const normalized = applySafety(normalizeShopifyCart(updated, handleToProductId, config.breakInHandle));
@@ -606,11 +700,12 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
     const update = lines => updateLines(cart.id, lines);
     const originalChild = cart.lines.find(line => line.isBreakIn && line.parentLineId === parent.remoteLineId);
-    if (originalChild) markUnsafe(cart.id, 'quantity update');
+    const ownMark = originalChild ? markUnsafe(cart.id, 'quantity update') : null;
     let firstMutationCompleted = false;
     try {
       let updated = await update([{ id: parent.remoteLineId, quantity: next }]);
       firstMutationCompleted = true;
+      if (await confirmStockRejection(cart, updated, [parent.remoteLineId], ownMark)) throw stockLimitError(parent.productId, parent.quantity);
       const updatedParent = resolveCurrentLine(updated, parent, next);
       if (updatedParent?.quantity !== next) {
         if (originalChild) markUnsafe(cart.id, 'quantity validation failed');
@@ -638,7 +733,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           markUnsafe(cart.id, 'quantity validation failed');
           throw new Error('Shopify did not preserve the glove and Break-in service quantities.');
         }
-        clearUnsafe(cart.id);
+        clearUnsafe(cart.id, ownMark);
         return applySafety(updated);
       }
       updated = await getRawCart();
@@ -648,8 +743,9 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       }
       return applySafety(updated);
     } catch (error) {
+      if (error.code === 'stock-limit') throw error;
       if (firstMutationCompleted) markUnsafe(cart.id, 'quantity update', cart);
-      if (originalChild && !firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id);
+      if (originalChild && !firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id, ownMark);
       throw error;
     }
   }
@@ -847,14 +943,14 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   }
 
   async function recoverCartUnchecked({ withoutBreakIn = false } = {}) {
-    const unsafeId = storage?.getItem(UNSAFE_CART_KEY);
-    if (!unsafeId || storage?.getItem(SHOPIFY_CART_KEY) !== unsafeId) return getCart();
+    const unsafeId = storage?.getItem(SHOPIFY_CART_KEY);
+    if (!unsafeId || !isUnsafe(unsafeId)) return getCart();
+    // The exclusive Web Lock proves no participating tab still owns an active mutation.
+    // Pending records left by reloads are safe to recover only while holding this lock.
+    if (unsafeRecords(unsafeId, true) === null) throw new Error('Cart storage is unavailable.');
     const source = await getRawCart();
     if (source.id !== unsafeId) throw new Error('Shopify has not returned the original cart for recovery.');
-    try {
-      const saved = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null');
-      if (saved?.cartId === unsafeId) pendingMutation = saved;
-    } catch { /* Recovery can still use a structurally complete Shopify cart. */ }
+    const pendingMutation = pendingFor(unsafeId);
     const legacyRecovery = withoutBreakIn && pendingMutation?.kinds?.includes('service data unavailable') &&
       canRecoverWithoutService(source);
     if (pendingMutation?.kinds?.includes('service data unavailable') && !legacyRecovery) {
@@ -910,7 +1006,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       throw new Error('The original cart changed during recovery. Check it again before continuing.');
     }
     storage.setItem(SHOPIFY_CART_KEY, newCart.id);
-    clearUnsafe(unsafeId);
+    retireUnsafeCart(unsafeId);
     return applySafety(newCart);
   }
 
@@ -918,7 +1014,10 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     if (!recoveryLocks?.request) {
       throw new ShopifyRequestError('Exclusive cart recovery is unavailable in this browser.', 'recovery-lock-unavailable');
     }
-    return recoveryLocks.request('anawin-shopify-cart-recovery', () => recoverCartUnchecked(options));
+    return recoveryLocks.request('anawin-shopify-cart-recovery', { ifAvailable: true }, lock => {
+      if (!lock) throw new ShopifyRequestError('A cart mutation is still active. Try recovery after it finishes.', 'recovery-ambiguous');
+      return recoverCartUnchecked(options);
+    });
   }
 
   function verifySplit(before, after, source, destinationValue, serviceDelta, options = null) {
@@ -947,7 +1046,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
 
   async function splitBreakIn(cart, parent, addService, options = null) {
     if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
-    markUnsafe(cart.id, addService ? 'Break-In addition' : 'Break-In removal');
+    const ownMark = markUnsafe(cart.id, addService ? 'Break-In addition' : 'Break-In removal');
     let firstMutationCompleted = false;
     try {
       let current;
@@ -985,15 +1084,15 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       }
       current = await getRawCart();
       verifySplit(cart, current, parent, addService ? 'break-in' : 'none', addService ? 1 : -1, options);
-      clearUnsafe(cart.id);
+      clearUnsafe(cart.id, ownMark);
       return applySafety(current);
     } catch (error) {
-      if (!firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id);
+      if (!firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id, ownMark);
       throw error;
     }
   }
 
-  return {
+  const api = {
     mode: 'shopify',
     async listProducts() {
       servicePrefetch.clear();
@@ -1049,29 +1148,62 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       return fullSizeService;
     },
     getCart,
+    // Read fresh from shared storage every time, so another tab's unresolved operation always counts.
     readCartSafety() {
-      let pendingCartId = null;
-      try { pendingCartId = JSON.parse(storage?.getItem(PENDING_MUTATION_KEY) || 'null')?.cartId || null; }
-      catch { pendingCartId = storage?.getItem(UNSAFE_CART_KEY) || null; }
-      return { id: storage?.getItem(SHOPIFY_CART_KEY) || null,
-        unsafeId: storage?.getItem(UNSAFE_CART_KEY) || null, pendingCartId,
-        revision: storage?.getItem(CART_REVISION_KEY) || null };
+      const revision = storage?.getItem(CART_REVISION_KEY) || null;
+      const id = storage?.getItem(SHOPIFY_CART_KEY) || null;
+      const unresolved = id && pendingFor(id, true);
+      const changed = revision !== (storage?.getItem(CART_REVISION_KEY) || null);
+      const unsafeId = id && (unresolved || changed) ? id : null;
+      return { id, unsafeId, pendingCartId: unsafeId, revision };
     },
     async refreshCart() {
-      return applySafety(await getRawCart());
+      return applySafety(await getRawCart(), false);
     },
     recoverCart,
+    async checkout(displayedCart, options, navigate) {
+      const blocked = message => ({ status: 'blocked', message });
+      if (!recoveryLocks?.request) return blocked('Secure checkout is unavailable in this browser. Please try another browser.');
+      try {
+        return await recoveryLocks.request('anawin-shopify-cart-recovery', { ifAvailable: true }, async lock => {
+          if (!lock) return blocked('A cart change is still being checked. Check your cart before checkout.');
+          const verify = createCheckoutVerifier({ getCart, readSafety: () => api.readCartSafety() });
+          const result = await verify(displayedCart, options);
+          if (result.status !== 'ready') return result;
+          const url = verifiedCheckoutUrl(result.checkoutUrl);
+          if (!url) return blocked('We couldn’t open secure checkout. Check your cart and try again.');
+          // Keep the original cart frozen after navigation releases this lock. Other
+          // tabs can recover into a separate editable cart, never mutate this checkout.
+          const token = markUnsafe(result.cart.id, 'checkout handoff');
+          if (!token) return blocked('Couldn’t save checkout safety information. Please try again.');
+          const key = UNSAFE_RECORD_PREFIX + token;
+          if (JSON.parse(storage.getItem(key) || 'null')?.cartId !== result.cart.id) {
+            return blocked('Couldn’t save checkout safety information. Please try again.');
+          }
+          announceCartChange();
+          try {
+            navigate(url);
+          } catch (error) {
+            clearUnsafe(result.cart.id, token);
+            throw error;
+          }
+          return { ...result, status: 'navigating' };
+        });
+      } catch {
+        return blocked('Couldn’t open secure checkout. Check your cart and try again.');
+      }
+    },
     async applyDiscountCode(input) {
       const code = input.trim();
       if (!code) throw new Error('Enter a discount code.');
-      const current = await getCart();
+      const current = await getMutationCart();
       if (!current.id || current.incomplete) throw new Error('The Shopify cart is unavailable. Please reload it before applying a code.');
       const codes = discountCodeList(current);
       if (codes.some(existing => codeKey(existing) === codeKey(code))) return current;
       return updateDiscountCodes(current.id, [...codes, code]);
     },
     async removeDiscountCode(code) {
-      const current = await getCart();
+      const current = await getMutationCart();
       if (!current.id || current.incomplete) throw new Error('The Shopify cart is unavailable. Please reload it before removing a code.');
       const codes = discountCodeList(current);
       if (!codes.some(existing => codeKey(existing) === codeKey(code))) return current;
@@ -1102,14 +1234,17 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         if (includeBreakIn) lines[1].attributes.push(...fulfillment);
       }
       const cartId = storage?.getItem(SHOPIFY_CART_KEY);
-      const before = cartId ? await getCart() : emptyCart();
+      const before = cartId ? await getMutationCart() : emptyCart();
       const verifiedCartId = before.id;
       if (before.incomplete) throw new Error('The Shopify cart is incomplete. Checkout is unavailable until the cart is corrected.');
       const conflictingParent = includeBreakIn && before.lines.some(line => !line.isBreakIn &&
         line.merchandiseId === selectedVariant);
       let updated;
+      // The existing lines of this variant are the only lines a stock warning may name for this add.
+      const attemptedLineIds = before.lines.filter(line => !line.isBreakIn && line.merchandiseId === selectedVariant).map(line => line.remoteLineId);
+      let ownMark = null;
       if (conflictingParent) {
-        markUnsafe(verifiedCartId, 'addition');
+        ownMark = markUnsafe(verifiedCartId, 'addition');
         let parentAdded = false;
         try {
           const sameAttributes = line => JSON.stringify([...line.attributes].sort((a, b) => a.key.localeCompare(b.key))) ===
@@ -1118,6 +1253,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           const previousQuantity = previous.reduce((sum, line) => sum + line.quantity, 0);
           const first = await addLines(verifiedCartId, [lines[0]]);
           parentAdded = true;
+          if (await confirmStockRejection(before, first, attemptedLineIds, ownMark)) throw stockLimitError(productId, cartLineQuantity(before, productId, false));
           const matching = first.lines.filter(line => !line.isBreakIn && line.merchandiseId === selectedVariant &&
             sameAttributes(line));
           const attached = first.lines.filter(line => line.parentLineId === matching[0]?.remoteLineId);
@@ -1136,11 +1272,15 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           } else updated = await addLines(verifiedCartId, [{ ...lines[1], parent: { lineId: matching[0].remoteLineId } }]);
           updated = await getRawCart();
         } catch (error) {
+          if (error.code === 'stock-limit') throw error;
           if (parentAdded) markUnsafe(verifiedCartId, 'addition');
-          else if (error.code !== 'uncertain') clearUnsafe(verifiedCartId);
+          else if (error.code !== 'uncertain') clearUnsafe(verifiedCartId, ownMark);
           throw error;
         }
-      } else updated = verifiedCartId ? await addLines(verifiedCartId, lines) : await createCart(lines);
+      } else {
+        updated = verifiedCartId ? await addLines(verifiedCartId, lines) : await createCart(lines);
+        if (verifiedCartId && await confirmStockRejection(before, updated, attemptedLineIds)) throw stockLimitError(productId, cartLineQuantity(before, productId, false));
+      }
       try { updated = await getRawCart(); }
       catch (error) { markUnsafe(updated.id, 'addition', before); throw error; }
       const expectedConfigurations = configurationSnapshot(before);
@@ -1174,19 +1314,19 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         throw new Error('Shopify did not preserve the selected glove service configuration. Checkout is unavailable.');
       }
       if (conflictingParent) {
-        clearUnsafe(verifiedCartId);
+        clearUnsafe(verifiedCartId, ownMark);
         updated = applySafety(updated);
       }
       return updated;
     },
     async setLineQuantity(lineId, quantity) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
       return setParentLineQuantity(cart, parent, quantity);
     },
     async removeLine(lineId) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
       return removeParentLine(cart, parent);
@@ -1194,7 +1334,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     // Options are the trainer customization the shopper confirmed in the cart; the
     // default exists only for callers that predate the cart customization form.
     async addBreakIn(lineId, options = null) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       if (cart.incomplete) throw new Error('The Shopify cart is incomplete. Please reload it before changing Break-in service.');
       const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
@@ -1219,7 +1359,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         await updateLines(cart.id, [{ id: parent.remoteLineId,
           attributes: withServiceAttribute(parent.attributes, 'break-in', selectedOptions) }], 'Break-In addition');
         started = true;
-        let current = await getCart();
+        let current = await getMutationCart();
         const selected = changedParent(cart, current, parent, 'break-in', false, selectedOptions);
         const children = current.lines.filter(line => line.isBreakIn && line.parentLineId === selected.remoteLineId);
         if (children.length > 1 || children[0]?.quantity > selected.quantity) throw new Error('Shopify returned inconsistent Break-in service lines.');
@@ -1230,7 +1370,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           if (!children[0].instructions?.canUpdateQuantity) throw new Error('Shopify cannot synchronize Break-in service quantity.');
           await updateLines(cart.id, [{ id: children[0].remoteLineId, quantity: selected.quantity }], 'Break-In addition');
         }
-        current = await getCart();
+        current = await getMutationCart();
         if (current.incomplete || !hasConsistentBreakInLines(current) ||
           cartLineQuantity(current, parent.productId, false) !== cartLineQuantity(cart, parent.productId, false) ||
           cartLineQuantity(current, parent.productId, true) !== cartLineQuantity(cart, parent.productId, true) + parent.quantity) {
@@ -1243,7 +1383,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       }
     },
     async removeBreakIn(lineId) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       if (cart.incomplete) throw new Error('The Shopify cart is incomplete. Please reload it before changing Break-in service.');
       const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
       if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
@@ -1255,14 +1395,14 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       try {
         await removeLines(cart.id, [child.remoteLineId], 'Break-In removal');
         started = true;
-        const afterRemoval = await getCart();
+        const afterRemoval = await getMutationCart();
         const selected = changedParent(cart, afterRemoval, parent, 'break-in', true);
         if (afterRemoval.lines.some(line => line.isBreakIn && line.parentLineId === selected.remoteLineId)) {
           throw new Error('Shopify did not remove the selected Break-in service.');
         }
         await updateLines(cart.id, [{ id: selected.remoteLineId,
           attributes: withServiceAttribute(selected.attributes, 'none') }], 'Break-In removal');
-        const updated = await getCart();
+        const updated = await getMutationCart();
         if (updated.incomplete || !hasConsistentBreakInLines(updated) ||
           cartLineQuantity(updated, parent.productId, false) !== cartLineQuantity(cart, parent.productId, false) ||
           cartLineQuantity(updated, parent.productId, true) !== cartLineQuantity(cart, parent.productId, true) - child.quantity) {
@@ -1277,20 +1417,64 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       }
     },
     async setQuantity(productId, quantity) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       const parents = cart.lines.filter(line => line.productId === productId && !line.isBreakIn);
       if (!parents.length) return cart;
       if (parents.length !== 1) throw new Error('Choose a specific glove cart entry to change its quantity.');
       return setParentLineQuantity(cart, parents[0], quantity);
     },
     async removeProduct(productId) {
-      const cart = await getCart();
+      const cart = await getMutationCart();
       const parents = cart.lines.filter(line => line.productId === productId && !line.isBreakIn);
       if (!parents.length) return cart;
       if (parents.length !== 1) throw new Error('Choose a specific glove cart entry to remove.');
       return removeParentLine(cart, parents[0]);
     }
   };
+  // Span the entire public operation, including all validation reads and paired service updates.
+  // Never send a mutation unless its shared pending record can be persisted and enumerated.
+  for (const name of ['addProduct', 'setLineQuantity', 'removeLine', 'addBreakIn', 'removeBreakIn',
+    'setQuantity', 'removeProduct', 'applyDiscountCode', 'removeDiscountCode']) {
+    const operation = api[name];
+    api[name] = (...args) => {
+      const run = async () => {
+        storageKeys();
+        const cartId = storage.getItem(SHOPIFY_CART_KEY) || '*';
+        const key = UNSAFE_RECORD_PREFIX + (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+        const kind = ({ addProduct: 'addition', setLineQuantity: 'quantity update', setQuantity: 'quantity update',
+          removeLine: 'removal', removeProduct: 'removal', addBreakIn: 'Break-In addition',
+          removeBreakIn: 'Break-In removal' })[name] || 'discount update';
+        const record = { cartId, kind: name, kinds: [kind], status: 'pending', createdAt: Date.now() };
+        try { storage.setItem(key, JSON.stringify(record)); }
+        catch (error) { unpersistedUnsafe.add(cartId); throw new ShopifyRequestError('Cart safety storage is unavailable.', 'uncertain', error); }
+        if (storage.getItem(key) !== JSON.stringify(record)) throw new Error('Cart safety record could not be saved.');
+        // Invalidate checks already in progress as well as checks that see this pending record.
+        announceCartChange();
+        ownPending.add(key);
+        const activity = { sent: 0, key, record };
+        activeOperations.add(activity);
+        try {
+          const result = await operation(...args);
+          storage.removeItem(key);
+          announceCartChange();
+          return result;
+        } catch (error) {
+          // No request, a verified stock rejection, or a definitive first-request rejection
+          // can retire this record. Ambiguous or partially completed operations stay blocked.
+          if (!activity.sent || error.code === 'stock-limit' || activity.sent === 1 && (error.definitiveRejection || error.code === 'http-rejected')) storage.removeItem(key);
+          else storage.setItem(key, JSON.stringify({ ...record, status: 'unresolved' }));
+          throw error;
+        } finally {
+          ownPending.delete(key);
+          activeOperations.delete(activity);
+        }
+      };
+      return recoveryLocks?.request
+        ? recoveryLocks.request('anawin-shopify-cart-recovery', { mode: 'shared' }, run)
+        : run();
+    };
+  }
+  return api;
 }
 
 export function createCommerce({ env = import.meta.env || {}, storage = globalThis.localStorage, fetchImpl = globalThis.fetch } = {}) {

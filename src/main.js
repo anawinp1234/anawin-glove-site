@@ -7,7 +7,7 @@ import { createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
-import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey, redirectToVerifiedCheckout } from './checkout-safety.js';
+import { checkoutCartIsComplete, isCartStorageKey } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { codeKey, renderCartDiscountSection } from './cart-discounts.js';
@@ -87,8 +87,6 @@ const runCartAction = createCartActionGate();
 const breakInEditor = createBreakInEditor();
 let serviceNotice = null;
 const cartState = createCartStateTracker(() => commerce.readCartSafety?.());
-const verifyCheckout = commerce.mode === 'shopify'
-  ? createCheckoutVerifier({ getCart: () => commerce.getCart(), readSafety: () => commerce.readCartSafety() }) : null;
 let cartError = '';
 let discountInput = '';
 let discountBusy = false;
@@ -589,24 +587,13 @@ function bindCart() {
     button.setAttribute('aria-busy', 'true');
     const status = document.querySelector('.checkout-status');
     if (status) status.textContent = 'Checking your cart with Shopify…';
-    const result = await verifyCheckout(cart, { requireReview: checkoutNeedsReview });
+    const result = await commerce.checkout(cart, { requireReview: checkoutNeedsReview }, url => window.location.assign(url));
     checkoutBusy = false;
-    if (result.status === 'ready') {
-      const safety = commerce.readCartSafety();
-      if (safety.id === result.cart.id && safety.revision === result.revision &&
-        safety.unsafeId !== safety.id && safety.pendingCartId !== safety.id) {
-        try {
-          if (!redirectToVerifiedCheckout(result.checkoutUrl, url => window.location.assign(url))) throw new Error();
-          return;
-        } catch { cartError = 'We couldn’t open secure checkout. Check your cart and try again.'; }
-      } else cartError = 'Your cart changed in another tab. Check your cart before checkout.';
-      cart = { ...cart, checkoutUrl: null };
-    } else {
-      if (result.cart) cart = result.cart;
-      else cart = { ...cart, checkoutUrl: null };
-      checkoutNeedsReview = result.status === 'review' ? false : checkoutNeedsReview;
-      cartError = result.message || 'Couldn’t check your cart. Check your cart and try again.';
-    }
+    if (result.status === 'navigating') return;
+    if (result.cart) cart = result.cart;
+    else cart = { ...cart, checkoutUrl: null };
+    checkoutNeedsReview = result.status === 'review' ? false : checkoutNeedsReview;
+    cartError = result.message || 'Couldn’t check your cart. Check your cart and try again.';
     syncCartCount();
     openCart();
     const next = document.querySelector(result.status === 'review' ? '[data-checkout]' : '[data-refresh-cart]');

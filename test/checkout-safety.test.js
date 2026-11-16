@@ -238,3 +238,9 @@ test('a replacement cart must be explicitly reviewed even when items match', asy
   assert.equal((await verify(displayed)).status, 'ready');
   assert.equal(checkoutCartIsComplete(cart(displayed.id, [glove('line-1', 1, 'break-in'), child()])), true);
 });
+
+test('another tab’s per-operation safety record invalidates cached checkout like the other cart keys', async () => {
+  const { UNSAFE_RECORD_PREFIX } = await import('../src/commerce.js');
+  assert.equal(isCartStorageKey(`${UNSAFE_RECORD_PREFIX}abc123`), true);
+  assert.equal(isCartStorageKey('anawin-shopify-unsafe-operation'), false);
+});
