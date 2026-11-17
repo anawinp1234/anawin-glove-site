@@ -11,8 +11,8 @@ const read = path => readFileSync(join(root, path), 'utf8');
 const htmlFor = path => read(path === '/' ? 'dist/index.html' : `dist/${path.slice(1)}.html`);
 const matches = (html, pattern) => [...html.matchAll(pattern)];
 
-test('all 16 public routes have complete raw HTML and unique route metadata', () => {
-  assert.equal(Object.keys(seoRoutes).length, 16);
+test('all 17 public routes have complete raw HTML and unique route metadata', () => {
+  assert.equal(Object.keys(seoRoutes).length, 17);
   for (const [path, metadata] of Object.entries(seoRoutes)) {
     const html = htmlFor(path);
     const canonical = canonicalOrigin + path;

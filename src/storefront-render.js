@@ -1,4 +1,4 @@
-import { FULL_SIZE_SHAPING_FIELDS, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
+import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -112,7 +112,7 @@ export function createStorefrontRenderer({ products, breakInService, fullSizeSer
 const galleryLoading = i => ({ index: i });
 const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
 function headerInfoMenus() {
-  return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
+  return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/faq" data-link>FAQ</a><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
     <details class="header-info"><summary>Care</summary><div class="header-info-links"><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-In Guide</a></div></details>`;
 }
 
@@ -143,7 +143,7 @@ function footer() {
   return `<footer><div class="footer-mark"><a href="/" data-link aria-label="ANAWIN home" style="display:block">${wordmark('calc(100vw - 56px)', 'lazy')}</a></div><div class="footer-grid">
     ${footerGroup('navigation', 'Navigation', `<a href="/shop" data-link>Shop</a><a href="/about" data-link>About</a><a href="/community" data-link>Community</a>`)}
     ${footerGroup('connect', 'Connect', `<a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join our Discord</a><a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a><a href="https://www.instagram.com/anawinofficial" target="_blank" rel="noreferrer">Instagram — @anawinofficial</a><a href="https://www.tiktok.com/@anawinofficial" target="_blank" rel="noreferrer">TikTok — @anawinofficial</a>`)}
-    ${footerGroup('information', 'Information', `<a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-In Guide</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a>`)}
+    ${footerGroup('information', 'Information', `<a href="/faq" data-link>FAQ</a><a href="/shipping" data-link>Shipping Policy</a><a href="/returns" data-link>Returns &amp; Refunds Policy</a><a href="/warranty" data-link>Warranty</a><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-In Guide</a><a href="https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en" target="_blank" rel="noreferrer">Privacy Policy</a><a href="https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en" target="_blank" rel="noreferrer">Terms of Service</a>`)}
   </div><div class="legal"><span>© ${new Date().getFullYear()} ANAWIN</span> <span>Baseball gloves</span></div></footer>`;
 }
 
@@ -343,12 +343,12 @@ function productPage(product) {
 
 function gloveLinkCard(product) {
   const role = product.line === 'full-size' ? product.specs.find(([label]) => label === 'Position')[1] : 'Trainer';
-  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small></span>${arrow()}</a>`;
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small>${product.comingSoon ? '<small class="other-glove-status">Coming soon</small>' : ''}</span>${arrow()}</a>`;
 }
 
 function about() {
   return `<main><section class="about-hero"><h1>ABOUT<br><em>ANAWIN</em></h1><div class="about-image">${responsivePhoto('/images/cherry_pink.png', 'cherry_pink', [720, 1200, 1448], '100vw', 'Cherry-pink ANAWIN glove among flowers', 1448, 1086, 'eager')}</div></section>
-    <section class="origin"><p class="eyebrow">Company</p><div><h2>HOW IT STARTED</h2><p>ANAWIN started with two best friends, over 10 years of friendship, and a shared love for baseball.</p><p>We created ANAWIN with a simple goal: bring more energy and attention back to the game we grew up loving. From the beginning, authenticity has been at the center of what we do. We shared the process, listened to feedback, and let the baseball community help shape what we were building.</p><p>ANAWIN was not just built for the baseball community. It was built with them.</p></div></section>
+    <section class="origin"><p class="eyebrow">Company</p><div><h2>OUR STORY</h2><p>ANAWIN started with two best friends and a shared love for baseball. We met in sixth grade and have been close ever since, spending countless hours playing catch, throwing sliders into the dirt, talking baseball, and competing over just about everything.</p><p>Baseball has always been part of our friendship, so building ANAWIN felt natural. We wanted to bring more energy and attention back to the game we grew up loving, and to make gloves that reflect how we grew up around it: competitive, creative, and authentic.</p><p>From the beginning, we shared the process, listened to feedback, and let the baseball community help shape what we were building. ANAWIN was not just built for the baseball community. It was built with them.</p></div></section>
     <section class="founders founders-editorial" aria-labelledby="founders-heading">
       <div class="founders-heading"><p class="eyebrow">ANAWIN / Co-founders</p><h2 id="founders-heading"><em>FOUNDERS</em></h2></div>
       <div class="founders-layout">
@@ -362,7 +362,55 @@ function about() {
         </article>
       </div>
     </section>
-    <section class="philosophy"><p class="eyebrow">ANAWIN</p><h2>OUR STORY</h2><div class="story-copy"><p>We met in sixth grade and have been close ever since. Over the years, we have spent countless hours playing catch, throwing sliders into the dirt, talking baseball, and competing over just about everything.</p><p>Baseball has always been part of our friendship, so building ANAWIN felt natural. We wanted to create something that reflected the way we actually grew up around the game: competitive, creative, and authentic.</p><p>What started as an idea between two friends became a brand shaped by the same baseball community we have always been part of.</p></div></section></main>`;
+    <section class="philosophy" aria-labelledby="about-build-heading"><p class="eyebrow">ANAWIN / How we build</p><h2 id="about-build-heading">HOW WE<br>BUILD GLOVES</h2><div class="story-copy about-principles">
+      <section><h3>Made for a purpose</h3><p>Every glove starts with how it will be used. Our 10.25-inch trainers are made to make defensive reps more demanding. Our Kip Series full-size gloves are built for specific positions: pitcher, infield, and outfield.</p></section>
+      <section><h3>Clear about what goes into it</h3><p>Our trainers use U.S. steerhide, and the Kip Series uses Japanese Kip leather. Every product page lists the size, web, lining, and throwing hand, so you know exactly what you are getting.</p></section>
+      <section><h3>Shaped by the community</h3><p>Colorways, patterns, and new models are tested with our Discord community before they are released. Your feedback helps decide what we make next.</p></section>
+      <section><h3>Backed after you buy</h3><p>Our team can break in your glove before it ships. Eligible gloves can be returned within 30 days of delivery, including gloves we broke in, and every ANAWIN glove has a 1-year limited warranty against manufacturing defects.</p></section>
+    </div></section>
+    <section class="about-next" aria-label="Keep exploring"><a href="/shop" data-link>Shop gloves ${arrow()}</a><a href="/faq" data-link>Read the FAQ ${arrow()}</a><a href="/community" data-link>Join the community ${arrow()}</a></section></main>`;
+}
+
+const supportEmail = '<a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a>';
+const faqGroups = () => [
+  ['Sizing & fit', [
+    ['What size are the trainer gloves?', `<p>The BR16, OB16, and CL16 are all 10.25-inch defensive training gloves. They come in one size.</p>`],
+    ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves, all coming soon:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
+    ['What is wrist fit?', `<p>Every glove ships with a regular wrist strap, about a 7–7.5 inch opening. If you have smaller or narrower hands, you can choose Tightened when you order, and our team will tighten the strap to about a 6.5–7 inch opening. Wrist fit is free.</p>`]
+  ]],
+  ['Throwing hand', [
+    ['Which throwing hand should I choose?', `<p>Choose the hand you throw with. The glove is worn on your other hand. A right-hand throw glove is worn on the left hand, and a left-hand throw glove is worn on the right hand.</p>`],
+    ['Do you make left-hand throw gloves?', `<p>The BR16, OB16, and CL16 trainers are right-hand throw only. When the Kip Series launches, the MI26, BL50, and OR17 will be offered in right-hand and left-hand throw. The CM24 will be right-hand throw only.</p>`]
+  ]],
+  ['Trainer gloves', [
+    ['What is a trainer glove for?', `<p>A trainer glove is smaller than a game glove, so you have to field the ball cleanly and get it out quickly. Our 10.25-inch trainers are made for defensive work: cleaner transfers, more precise fielding mechanics, and better control.</p>`],
+    ['Is a trainer the right glove for me?', `<p>If you want a glove for drills and focused defensive reps, yes. If you want a glove for a specific position, look at the full-size Kip Series. It is coming soon, and you can <a href="/community" data-link>join the community</a> to hear when it launches.</p>`]
+  ]],
+  ['Break-in', [
+    ['What does the Break-In Service do?', `<p>${escapeHtml(breakInService.copy)}</p><p>For trainers, choose a break-in level (${escapeHtml(BREAK_IN_LEVELS.join(', '))}) and a wearing style (${escapeHtml(GLOVE_WEARING_STYLES.join(' or '))}). The price is shown on each product page.</p>`],
+    ['Why does the full-size Full-Service Break-In cost more?', `<p>Because it does more than loosen the leather. Our trainer Break-In Service softens the glove so it is easier to close. The Full-Service Break-In is custom work: our team breaks in your glove and forms it around how you wear it and how you play.</p><p>When you order, you tell us:</p><ul><li>How you wear the glove, including where your fingers go and whether your index finger sits inside or outside</li><li>Where you want your thumb to meet when the glove closes</li><li>How you want the thumb, pinky, and fingers shaped</li><li>How firm you want it</li><li>Anything else, like a glove you are used to or how you like your pocket shaped</li></ul><p>We shape the glove to match your choices, so it arrives formed for you instead of just softened. Not sure about an option? Choose “Recommend for me” and we will decide for you. The Full-Service Break-In will be available when the Kip Series launches.</p>`],
+    ['Can I break in the glove myself?', `<p>Yes. Our <a href="/break-in" data-link>Break-In Guide</a> walks through the process step by step, and the <a href="/care" data-link>Glove Care</a> guide covers cleaning, drying, conditioning, and storage.</p>`]
+  ]],
+  ['Shipping', [
+    ['Where do you ship?', `<p>We ship to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines. U.S. standard shipping is free. International rates are calculated at checkout.</p>`],
+    ['How long will my order take?', `<p>Orders are processed within 1–3 business days. Break-In Service adds 2–5 business days. U.S. standard shipping usually arrives 3–7 business days after the order ships. International delivery times vary, and available estimates are shown at checkout.</p><p>See the <a href="/shipping" data-link>Shipping Policy</a> for details.</p>`]
+  ]],
+  ['Returns & exchanges', [
+    ['What is your return policy?', `<p>Eligible gloves can be returned within 30 days of delivery. They must be unused or only lightly tried on, free from game or practice use, and free from alterations or damage. Gloves that received our Break-In Service can still be returned if they meet these requirements.</p><p>To start a return, email ${supportEmail} with your order number and the reason for the return. Eligible U.S. returns get a prepaid return label. Approved refunds are issued within 3–5 business days after we receive and inspect the glove.</p><p>See the <a href="/returns" data-link>Returns &amp; Refunds Policy</a> for details.</p>`],
+    ['Can I exchange my glove?', `<p>For exchange requests, contact the ANAWIN team at ${supportEmail}.</p><p>For returns, see the <a href="/returns" data-link>Returns &amp; Refunds Policy</a>.</p>`],
+    ['My order arrived damaged or incorrect. What should I do?', `<p>Email ${supportEmail} as soon as possible with your order number so we can review it and make it right.</p>`]
+  ]],
+  ['Free product', [
+    ['How can I get free ANAWIN product?', `<p>Free product opportunities are shared with our Discord community. <a href="${discordInviteUrl}" target="_blank" rel="noreferrer">Join the ANAWIN Discord</a> so you don’t miss them.</p>`]
+  ]],
+  ['Warranty', [
+    ['What does the warranty cover?', `<p>${escapeHtml(warrantyParagraphs[0])} It does not cover normal wear, cosmetic changes from use, misuse, improper care, or damage from improper break-in methods.</p>`],
+    ['How do I make a warranty claim?', `<p>Email ${supportEmail} with your order number, a description of the issue, and clear photos of the glove. See the <a href="/warranty" data-link>Warranty</a> page for details.</p>`]
+  ]]
+];
+
+function faqPage() {
+  return `<main class="policy-page faq-page"><h1>FAQ</h1><p class="faq-intro">Answers to common questions about sizing, throwing hand, break-in, shipping, returns, warranty, and free product. Still have a question? Email ${supportEmail}.</p>${faqGroups().map(([heading, items]) => `<section><h2>${escapeHtml(heading)}</h2>${items.map(([question, answer]) => `<div class="faq-item"><h3>${escapeHtml(question)}</h3>${answer}</div>`).join('')}</section>`).join('')}</main>`;
 }
 
 function shippingPolicy() {
@@ -418,6 +466,7 @@ function routeView(pathname) {
   if (path === '/shop') return shop();
   if (path === '/about') return about();
   if (path === '/community') return communityPage();
+  if (path === '/faq') return faqPage();
   if (path === '/shipping') return shippingPolicy();
   if (path === '/returns') return returnsPolicy();
   if (path === '/warranty') return warrantyPolicy();

@@ -124,7 +124,7 @@ test('footer uses native keyboard buttons with matching unique panel IDs and acc
 });
 test('every existing footer destination, routing attribute and external-link protection is preserved', () => {
   const links = [...markup.matchAll(/<a href="([^"]+)"([^>]*)>/g)].map(([, href, attributes]) => ({ href, attributes }));
-  const internal = ['/', '/shop', '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'];
+  const internal = ['/', '/shop', '/about', '/community', '/faq', '/shipping', '/returns', '/warranty', '/care', '/break-in'];
   const external = ['https://discord.com/invite/acstj7uMt', 'https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial', 'https://checkout.shopify.com/84529185016/policies/46558740728.html?locale=en', 'https://checkout.shopify.com/84529185016/policies/47782691064.html?locale=en'];
   const mail = ['mailto:support@anawinofficial.com'];
   assert.deepEqual(links.map(link => link.href).sort(), [...internal, ...external, ...mail].sort());

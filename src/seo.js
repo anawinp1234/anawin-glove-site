@@ -65,7 +65,7 @@ export const seoRoutes = Object.freeze({
   }])),
   '/about': {
     title: 'About ANAWIN | Built with the Baseball Community',
-    description: 'Learn how two friends started ANAWIN and shaped the brand with the baseball community.',
+    description: 'Learn how two friends started ANAWIN, how we build our baseball gloves, and how the baseball community shapes what we make.',
     image: homeImage,
     type: 'website'
   },
@@ -73,6 +73,12 @@ export const seoRoutes = Object.freeze({
     title: 'ANAWIN Community | Built With You',
     description: 'Join the ANAWIN Discord to talk directly with the team, vote on future baseball glove designs, and connect with the community.',
     image: communityImage,
+    type: 'website'
+  },
+  '/faq': {
+    title: 'FAQ | ANAWIN',
+    description: 'Answers about ANAWIN glove sizing, throwing hand, trainer gloves, break-in service, shipping, returns, exchanges, warranty, and free product.',
+    image: homeImage,
     type: 'website'
   },
   '/shipping': {
