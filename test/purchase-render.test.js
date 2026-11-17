@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { breakInService, localProducts } from '../src/catalog.js';
+import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
 import { cartTriggerLabel, createStorefrontRenderer } from '../src/storefront-render.js';
 import { productPath } from '../src/seo.js';
 import { stickyPurchaseAccent } from '../src/sticky-purchase.js';
@@ -162,4 +162,14 @@ test('mobile photo dots aim for 44px but can shrink to 28px instead of overflowi
   assert.match(dot, /flex:0 1 44px;min-width:28px;height:44px/);
   // A fixed width would make the dot row's minimum 4 × 44px and defeat the shrink.
   assert.doesNotMatch(dot, /[;{]width:/);
+});
+
+test('every PDP offers a free wrist fit, regular by default, before break-in', () => {
+  for (const product of [...localProducts, ...fullSizeProducts]) {
+    const html = renderProduct(product);
+    assert.match(html, /<fieldset class="wrist-fit"><legend>Wrist fit <span>Free<\/span><\/legend>/, product.id);
+    assert.match(html, /name="wrist-fit" value="regular" checked><span><strong>Regular \(7–7\.5 inch opening\)/, product.id);
+    assert.match(html, /name="wrist-fit" value="tightened"><span><strong>Tightened \(6\.5–7 inch opening\)/, product.id);
+    assert.ok(html.indexOf('class="wrist-fit"') < html.indexOf('class="service-option"'), product.id);
+  }
 });

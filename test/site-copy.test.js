@@ -7,8 +7,8 @@ const views = createStorefrontRenderer({ products: localProducts, breakInService
 
 test('homepage hero names the product category and keeps the shop CTA', () => {
   const hero = views.route('/').match(/<section class="hero">[^]*?<\/section>/)[0];
-  assert.match(hero, /<p class="eyebrow">ANAWIN \/ Baseball gloves<\/p><h1>BUILT FOR<br><em>BETTER HANDS\.<\/em><\/h1>/);
-  assert.match(hero, /<p class="hero-subhead">10\.25-inch leather training gloves\. Built for the baseball community\.<\/p>/);
+  assert.match(hero, /<p class="eyebrow">ANAWIN \/ Baseball gloves<\/p><h1>COMMUNITY<br><em>BUILT<\/em><\/h1><\/div>/);
+  assert.doesNotMatch(hero, /hero-subhead/);
   assert.match(hero, /<a href="\/shop" data-link class="hero-cta">View all gloves/);
 });
 

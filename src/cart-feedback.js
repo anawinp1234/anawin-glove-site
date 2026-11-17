@@ -1,3 +1,4 @@
+import { wristFitOf } from './catalog.js';
 export function cartFeedbackMarkup({ error = '', incomplete = false, recoveryAvailable = false,
   recoveryHasBreakIn = false, gloveOnlyRecoveryAvailable = false, busy = false, mode, guidance = '', announce = true,
   checkoutStarted = false }, escapeHtml) {
@@ -29,10 +30,13 @@ export function cartUpdateAnnouncement(before, after, nameFor) {
     const gloves = [count(before, productId, false), count(after, productId, false)];
     const services = [count(before, productId, true), count(after, productId, true)];
     const gloveChange = gloves[1] - gloves[0];
+    const tightened = [before, after].map(cart => (cart?.lines || []).filter(line => line.productId === productId && !line.isBreakIn &&
+      wristFitOf(line) === 'tightened').reduce((sum, line) => sum + line.quantity, 0));
     const serviceChange = services[1] - services[0];
     if (gloves[0] === 0 && gloves[1] > 0) parts.push(`${name}${services[1] ? ' with Break-in service' : ''} added to cart.`);
     else if (gloves[1] === 0 && gloves[0] > 0) parts.push(`${name} removed from cart.`);
     else if (gloveChange) parts.push(`${name} quantity ${gloves[1]}.`);
+    if (gloves[0] && gloves[0] === gloves[1] && tightened[0] !== tightened[1]) parts.push(`${name} wrist fit updated.`);
     // A service that moved in step with its glove is already covered by the glove sentence.
     if (gloves[0] && gloves[1] && serviceChange && serviceChange !== gloveChange) {
       parts.push(serviceChange < 0 ? `Break-in service removed from ${gloves[1] > 1 ? `${-serviceChange} ` : ''}${name}.`

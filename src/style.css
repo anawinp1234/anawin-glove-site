@@ -336,7 +336,6 @@ body{background:var(--paper)}
 .hero h1{font-style:normal;font-weight:900;letter-spacing:-.07em;line-height:.81;margin-top:5vh;text-shadow:0 2px 22px rgba(0,0,0,.3)}
 .hero h1 em{font-style:italic;font-weight:900}
 .hero .eyebrow{display:inline-block;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.85);color:#fff;font-weight:700}
-.hero-subhead{max-width:420px;margin:32px 0 0;font-size:17px;font-weight:500;line-height:1.45;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.45)}
 @media(min-width:761px){.hero h1{font-size:clamp(72px,min(11vw,13vh),178px)}}
 .hero-cta{width:260px;border:1px solid #fff;background:var(--ink);color:#fff;padding:18px 20px;font-weight:800;letter-spacing:.06em;transition:background-color .2s,transform .2s}
 .hero-cta:hover,.hero-cta:focus-visible{background:#333;transform:translateY(-3px)}
@@ -400,7 +399,6 @@ body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
   .announcement-bar p{font-size:10px;line-height:1.45;letter-spacing:.04em}
   .hero::after{background:linear-gradient(180deg,rgba(0,0,0,.57),rgba(0,0,0,.08) 60%,rgba(0,0,0,.43))}
   .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
-  .hero-subhead{max-width:330px;margin-top:22px;font-size:15px}
   .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
   body:has(.hero) .commerce-notice[role="status"]{top:64px}
   .product-meta{padding:16px}
@@ -844,3 +842,48 @@ body.newsletter-open{overflow:hidden}
 .cart-drawer:is(.is-editing-service,.is-discount-open) .cart-head{position:sticky;top:0;z-index:1;background:var(--paper)}
 .cart-drawer:is(.is-editing-service,.is-discount-open) .cart-body{flex:0 0 auto;overflow:visible}
 .cart-drawer:is(.is-editing-service,.is-discount-open) .cart-foot{flex:0 0 auto;max-height:none;overflow:visible}
+
+/* PDP product information: Size & Fit, Description, and Details open independently. */
+.pdp-accordions{margin:32px 0 0;border-top:1px solid var(--line)}
+.pdp-accordion{border-bottom:1px solid var(--line)}
+.pdp-accordion-heading{margin:0;font-size:inherit}
+.pdp-accordion-trigger{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:68px;padding:20px 0;border:0;border-radius:0;background:none;text-align:left;font-family:var(--font-sans);font-size:19px;font-weight:700;line-height:1.3;letter-spacing:-.01em;cursor:pointer}
+.pdp-accordion-trigger:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.pdp-accordion-chevron{flex:0 0 20px;transition:transform 180ms ease}
+.pdp-accordion-trigger[aria-expanded="true"] .pdp-accordion-chevron{transform:rotate(180deg)}
+.pdp-accordion-panel{display:grid;grid-template-rows:0fr;visibility:hidden;transition:grid-template-rows 180ms ease,visibility 180ms}
+.pdp-accordion-panel.is-expanded{grid-template-rows:1fr;visibility:visible}
+.pdp-accordion-content{min-height:0;overflow:hidden;font-size:15px;line-height:1.6;overflow-wrap:break-word}
+.pdp-accordion-content p{margin:0 0 24px}
+.pdp-accordion-content ul{margin:0 0 24px;padding-left:20px}
+.pdp-accordion-content li+li{margin-top:6px}
+.pdp-fit{margin:0 0 16px}
+.pdp-fit div{display:flex;justify-content:space-between;gap:16px;padding:6px 0}
+.pdp-fit dt{flex:0 0 auto;color:var(--muted)}
+.pdp-fit dd{min-width:0;margin:0;text-align:right}
+.pdp-fit:last-child{margin-bottom:24px}
+@media(max-width:760px){
+  .pdp-accordions{margin-top:30px}
+  .pdp-accordion-trigger{min-height:64px;font-size:17px}
+  .pdp-accordion-content{font-size:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .pdp-accordion-chevron,.pdp-accordion-panel{transition:none}
+}
+
+/* Free wrist strap choice, shown above break-in on every PDP. */
+.wrist-fit{min-width:0;border:0;padding:0;margin:0 0 18px}
+.wrist-fit legend{display:flex;width:100%;justify-content:space-between;gap:16px;margin:0 0 9px;padding:0;font-size:13px;line-height:1.4;font-weight:700}
+.wrist-fit legend span{color:var(--muted);font-weight:400}
+.cart-item .cart-wrist{font-size:12px;line-height:1.35}.cart-wrist .cart-service-control{margin:0 0 0 8px;color:inherit}
+
+/* PDP selection boxes take their outline from all of the glove's colorway colors. */
+.pdp{--pdp-outline:linear-gradient(var(--pdp-accent,var(--ink)),var(--pdp-accent,var(--ink)))}
+.pdp .break-in-choice:has(input:checked),.pdp .service-option{position:relative}
+.pdp .break-in-choice:has(input:checked){border-color:transparent;box-shadow:none}
+.pdp .break-in-choice:has(input:checked)::after,.pdp .service-option::after{content:"";position:absolute;inset:-1px;padding:2px;background:var(--pdp-outline);pointer-events:none;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.pdp .service-option,.pdp .service-option:hover,.pdp .service-option:has(input:checked),.pdp .service-option:has(input:disabled):hover{border-color:transparent}
+.pdp .service-option::after{inset:-2px;opacity:.35;transition:opacity .2s ease}
+.pdp .service-option:hover::after{opacity:.65}
+.pdp .service-option:has(input:checked)::after,.pdp .service-option:has(input:focus-visible)::after{opacity:1}
+.pdp .service-option:has(input:disabled):hover::after{opacity:.35}

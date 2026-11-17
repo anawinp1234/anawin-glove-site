@@ -10,6 +10,25 @@ export const DEFAULT_BREAK_IN = Object.freeze({ level: 'Medium (65%)', wearingSt
 export const BREAK_IN_LEVELS = Object.freeze(['Firm (40%)', 'Medium (65%)', 'Game Ready (90%)']);
 export const GLOVE_WEARING_STYLES = Object.freeze(['Traditional', 'Two in the Pinky (TIP)']);
 
+// Wrist fit is a free glove option, saved on the glove line only when the strap is tightened.
+export const WRIST_FIT_KEY = 'Wrist Fit';
+export const TIGHTENED_WRIST = 'Tightened (6.5–7 in)';
+export const WRIST_FITS = Object.freeze([
+  { value: 'regular', label: 'Regular', range: '7–7.5 inch opening', note: 'Standard wrist strap, as shipped.' },
+  { value: 'tightened', label: 'Tightened', range: '6.5–7 inch opening', note: 'Our team tightens the strap for smaller, narrower hands.' }
+]);
+export function normalizeWristFit(fit = 'regular') {
+  if (!WRIST_FITS.some(option => option.value === fit)) throw new Error('Choose a wrist fit.');
+  return fit;
+}
+export function wristFitOf(line) {
+  return (line?.attributes || []).some(attribute => attribute.key === WRIST_FIT_KEY && attribute.value === TIGHTENED_WRIST) ? 'tightened' : 'regular';
+}
+export function withWristFit(attributes, fit) {
+  const kept = attributes.filter(attribute => attribute.key !== WRIST_FIT_KEY);
+  return normalizeWristFit(fit) === 'tightened' ? [...kept, { key: WRIST_FIT_KEY, value: TIGHTENED_WRIST }] : kept;
+}
+
 export const FULL_SIZE_SERVICE_HANDLE = 'full-size-glove-break-in-service';
 export const FULL_SIZE_SERVICE_VARIANT = 'gid://shopify/ProductVariant/68062398808312';
 export const FULL_SIZE_SERVICE_PRODUCT = 'gid://shopify/Product/15498355474680';
@@ -98,7 +117,10 @@ export function cartCustomizationIsComplete(lines = []) {
   const children = lines.filter(line => line.isBreakIn);
   if (parents.some(parent => parent.parentLineId)) return false;
   if (!children.every(child => parents.some(parent => parent.remoteLineId === child.parentLineId))) return false;
+  if (children.some(child => (child.attributes || []).some(attribute => attribute.key === WRIST_FIT_KEY))) return false;
   return parents.every(parent => {
+    const wrist = (parent.attributes || []).filter(attribute => attribute.key === WRIST_FIT_KEY);
+    if (wrist.length > 1 || wrist.some(attribute => attribute.value !== TIGHTENED_WRIST)) return false;
     if (SERVICE_ATTRIBUTE_KEYS.some(key => (parent.attributes || []).filter(attribute => attribute.key === key).length > 1)) return false;
     const service = value(parent, '_anawin_service');
     const attached = children.filter(child => child.parentLineId === parent.remoteLineId);

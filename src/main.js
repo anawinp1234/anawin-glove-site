@@ -1,5 +1,5 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice, savedBreakInOptions } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice, savedBreakInOptions } from './catalog.js';
 import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
@@ -24,6 +24,7 @@ import { createStickyPurchase } from './sticky-purchase.js';
 import { cartFocusKey, findCartFocusTarget, isVisibleFocusTarget, restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 import { installPdpScroll } from './pdp-scroll.js';
+import { installPdpAccordions } from './pdp-accordion.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -61,6 +62,9 @@ function showFullSizeFieldError(root, failure) {
 const app = document.querySelector('#app');
 let destroyFooterAccordion = () => {};
 let destroyPdpScroll = () => {};
+let destroyPdpAccordions = () => {};
+// Sections the shopper opened stay open when the same product page re-renders.
+let pdpAccordionState = { path: null, open: new Set() };
 let commerceError = '';
 let commerce;
 try {
@@ -217,11 +221,14 @@ function render(scrollTop = window.scrollY) {
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
   destroyPdpScroll();
+  destroyPdpAccordions();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
   renderedPath = path;
   // Same task as the insertion, before other binding can throw or the browser starts fetching.
   destroyGalleryLoading = galleryLoading()?.installGalleryLoading({ gallery: app.querySelector('.pdp-gallery'), hold: !releasedGalleryPaths.has(path), onRelease: () => { releasedGalleryPaths.add(path); } }) || (() => {});
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
+  if (pdpAccordionState.path !== path) pdpAccordionState = { path, open: new Set() };
+  destroyPdpAccordions = installPdpAccordions(app.querySelector('.pdp-info'), { open: pdpAccordionState.open });
   destroyPdpScroll = installPdpScroll({ main: app.querySelector('.pdp-main') });
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
@@ -543,6 +550,7 @@ async function confirmBreakIn(lineId) {
 
 function addProductFromButton(productId, trigger) {
   const product = products.find(product => product.id === productId);
+  const wristFit = document.querySelector('input[name="wrist-fit"]:checked')?.value || 'regular';
   if (product?.line === 'full-size') {
     const selected = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
     const includeBreakIn = Boolean(document.querySelector('[data-full-size-break-in]')?.checked);
@@ -565,14 +573,14 @@ function addProductFromButton(productId, trigger) {
       return;
     }
     if (error) { error.hidden = true; error.textContent = ''; }
-    return cartAction(() => commerce.addProduct(productId, includeBreakIn, options, variant.id), trigger, 'add');
+    return cartAction(() => commerce.addProduct(productId, includeBreakIn, options, variant.id, wristFit), trigger, 'add');
   }
   const includeBreakIn = document.querySelector('[data-break-in]')?.checked;
   const options = includeBreakIn ? {
     level: document.querySelector('input[name="break-in-level"]:checked')?.value,
     wearingStyle: document.querySelector('input[name="glove-wearing-style"]:checked')?.value
   } : undefined;
-  return cartAction(() => commerce.addProduct(productId, includeBreakIn, options), trigger, 'add');
+  return cartAction(() => commerce.addProduct(productId, includeBreakIn, options, null, wristFit), trigger, 'add');
 }
 
 async function discountAction(action, code = '', removingCode = '') {
@@ -670,6 +678,8 @@ function bindCart() {
     form.addEventListener('submit', event => { event.preventDefault(); confirmBreakIn(form.dataset.serviceForm); });
     form.querySelector('[data-cancel-service]')?.addEventListener('click', cancelBreakInEditor);
   });
+  document.querySelectorAll('[data-wrist-fit]').forEach(element => element.addEventListener('click', () =>
+    cartAction(() => commerce.setWristFit(element.dataset.wristFit, element.dataset.fit))));
   document.querySelectorAll('[data-remove-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeBreakIn(element.dataset.removeService))));
   document.querySelectorAll('[data-qty]').forEach(element => element.addEventListener('click', () => {
     const line = cart.lines.find(line => line.productId === element.dataset.qty && !line.isBreakIn);
@@ -805,11 +815,12 @@ function bind() {
     const shaping = FULL_SIZE_SHAPING_FIELDS.map(field => `${field.label}: ${selected(field.name) || 'Choose one'}`).join(' · ');
     const firmness = selected('full-size-firmness') || 'Choose firmness';
     const notes = document.querySelector('#full-size-break-in-notes')?.value.trim();
-    summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · ${enabled
+    const wrist = WRIST_FITS.find(option => option.value === selected('wrist-fit'))?.label || 'Regular';
+    summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · Wrist fit: ${wrist} · ${enabled
       ? `${style} · Thumb closure: ${closure || 'Choose one'} · ${shaping} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
       : 'No break-in service'}. Total before shipping/tax: ${money(purchasePrice({ price: Number(summary.dataset.price) }, fullSizeService, enabled), summary.dataset.currency)}.`;
   };
-  document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"]').forEach(input => {
+  document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"], .full-size-pdp input[name="wrist-fit"]').forEach(input => {
     const update = () => { clearFullSizeFieldErrors(document, input.name); updateFullSizeSetup(); };
     input.addEventListener('input', update);
     input.addEventListener('change', update);
