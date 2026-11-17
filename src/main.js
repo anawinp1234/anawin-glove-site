@@ -24,6 +24,7 @@ import { createStickyPurchase } from './sticky-purchase.js';
 import { cartFocusKey, findCartFocusTarget, isVisibleFocusTarget, restoreFocusWithVisibleFallback } from './cart-focus.js';
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 import { installPdpScroll } from './pdp-scroll.js';
+import { installPdpAccordions } from './pdp-accordion.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -61,6 +62,9 @@ function showFullSizeFieldError(root, failure) {
 const app = document.querySelector('#app');
 let destroyFooterAccordion = () => {};
 let destroyPdpScroll = () => {};
+let destroyPdpAccordions = () => {};
+// Sections the shopper opened stay open when the same product page re-renders.
+let pdpAccordionState = { path: null, open: new Set() };
 let commerceError = '';
 let commerce;
 try {
@@ -217,11 +221,14 @@ function render(scrollTop = window.scrollY) {
   updateSeo(document, location.pathname);
   destroyFooterAccordion();
   destroyPdpScroll();
+  destroyPdpAccordions();
   app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
   renderedPath = path;
   // Same task as the insertion, before other binding can throw or the browser starts fetching.
   destroyGalleryLoading = galleryLoading()?.installGalleryLoading({ gallery: app.querySelector('.pdp-gallery'), hold: !releasedGalleryPaths.has(path), onRelease: () => { releasedGalleryPaths.add(path); } }) || (() => {});
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
+  if (pdpAccordionState.path !== path) pdpAccordionState = { path, open: new Set() };
+  destroyPdpAccordions = installPdpAccordions(app.querySelector('.pdp-info'), { open: pdpAccordionState.open });
   destroyPdpScroll = installPdpScroll({ main: app.querySelector('.pdp-main') });
   headerHidden = false;
   document.querySelector('.site-header-stack')?.classList.remove('is-hidden');
