@@ -27,7 +27,7 @@ export function restoreFocusWithVisibleFallback(candidates, fallbackCandidates, 
 // carry a Shopify line ID, which can change when Break-In service splits or merges a line.
 const cartControlKinds = [
   ['data-qty-line', 'quantity'], ['data-qty', 'quantity'], ['data-remove-line', 'remove'], ['data-remove', 'remove'],
-  ['data-remove-service', 'remove-service'], ['data-add-service', 'add-service'], ['data-edit-service', 'edit-service'], ['data-remove-discount', 'remove-discount'],
+  ['data-remove-service', 'remove-service'], ['data-add-service', 'add-service'], ['data-edit-service', 'edit-service'], ['data-wrist-fit', 'wrist-fit'], ['data-remove-discount', 'remove-discount'],
   ['data-discount-toggle', 'discount-toggle'], ['data-discount-apply', 'discount-apply'], ['data-checkout', 'checkout'], ['data-refresh-cart', 'refresh'],
   ['data-recover-cart', 'recover'], ['data-recover-without-service', 'recover-glove-only'], ['data-close-cart', 'close']
 ];

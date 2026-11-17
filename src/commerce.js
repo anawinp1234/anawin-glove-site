@@ -1,4 +1,4 @@
-import { fullSizeProducts, fullSizeBreakInService, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes } from './catalog.js';
+import { fullSizeProducts, fullSizeBreakInService, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
 import { codeKey, discountCodeList } from './cart-discounts.js';
 import { createCheckoutVerifier, verifiedCheckoutUrl } from './checkout-safety.js';
 
@@ -7,6 +7,7 @@ const SHOPIFY_CART_KEY = 'anawin-shopify-cart-id';
 const CART_REVISION_KEY = 'anawin-shopify-cart-revision';
 const SERVICE_ATTRIBUTE = '_anawin_service';
 const SERVICE_CHANGE_KINDS = { add: 'Break-In addition', remove: 'Break-In removal', change: 'Break-In change' };
+const WRIST_FIT_CHANGE = 'wrist fit change';
 const UNSAFE_CART_KEY = 'anawin-shopify-unsafe-cart-id';
 const PENDING_MUTATION_KEY = 'anawin-shopify-pending-mutation';
 const LEGACY_PENDING_ADD_KEY = 'anawin-shopify-pending-addition';
@@ -78,7 +79,7 @@ function localCartFromState(state) {
   for (const product of localProducts) {
     const item = state.items[product.id];
     if (!item?.quantity) continue;
-    lines.push({ productId: product.id, quantity: item.quantity, merchandiseId: null });
+    lines.push({ productId: product.id, quantity: item.quantity, merchandiseId: null, attributes: withWristFit([], item.wristFit || 'regular') });
     subtotal += product.price * item.quantity;
     if (item.breakInQuantity) {
       lines.push({ productId: product.id, quantity: item.breakInQuantity, merchandiseId: null,
@@ -106,9 +107,11 @@ export function createLocalCommerce(storage) {
     async listProducts() { return localProducts; },
     async getBreakInService() { return breakInService; },
     async getCart() { return localCartFromState(state); },
-    async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN) {
+    async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN, merchandiseId = null, wristFit = 'regular') {
       const current = state.items[productId] || { quantity: 0, breakInQuantity: 0 };
       current.quantity += 1;
+      // The local cart keeps one entry per glove, so the latest wrist choice applies to all of them.
+      current.wristFit = normalizeWristFit(wristFit);
       if (includeBreakIn) {
         current.breakInOptions = normalizeBreakInOptions(options);
         current.breakInQuantity = current.quantity;
@@ -870,7 +873,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         if (line.attributes.some(attribute => attribute.key === FULL_SIZE_CONFIGURATION_KEY)) {
           const identity = line.attributes.filter(attribute => attribute.key === FULL_SIZE_CONFIGURATION_KEY);
           if (identity.length !== 1 || !/^v1:[0-9a-f]{64}$/.test(identity[0].value) ||
-            line.attributes.some(attribute => !['_anawin_service', '_anawin_service_type', FULL_SIZE_CONFIGURATION_KEY].includes(attribute.key)) ||
+            line.attributes.some(attribute => !['_anawin_service', '_anawin_service_type', FULL_SIZE_CONFIGURATION_KEY, WRIST_FIT_KEY].includes(attribute.key)) ||
             !['Right', 'Left'].includes(line.throwingHand)) return false;
         } else normalizeBreakInOptions(optionsFromAttributes(line.attributes));
       } catch { return false; }
@@ -1021,7 +1024,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     });
   }
 
-  function verifySplit(before, after, source, destinationValue, serviceDelta, options = null) {
+  // `destination` is the attribute list of the glove that moved off `source`.
+  function verifySplit(before, after, source, destination, serviceDelta) {
     if (after.id !== before.id || after.incomplete || !hasConsistentBreakInLines(after)) {
       throw new Error('Shopify returned an incomplete split cart.');
     }
@@ -1030,7 +1034,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     const sourceKey = JSON.stringify([source.productId, source.merchandiseId,
       [...source.attributes].sort((a, b) => a.key.localeCompare(b.key))]);
     const destinationKey = JSON.stringify([source.productId, source.merchandiseId,
-      withServiceAttribute(source.attributes, destinationValue, options).sort((a, b) => a.key.localeCompare(b.key))]);
+      [...destination].sort((a, b) => a.key.localeCompare(b.key))]);
     const keys = new Set([...oldQuantities.keys(), ...newQuantities.keys()]);
     for (const key of keys) {
       const expected = (oldQuantities.get(key) || 0) + (key === sourceKey ? -1 : key === destinationKey ? 1 : 0);
@@ -1108,8 +1112,51 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         current = await decrementSplitSource(current, source, true);
       }
       current = await getRawCart();
-      verifySplit(cart, current, parent, addService ? 'break-in' : 'none', { add: 1, remove: -1, change: 0 }[mode], options);
+      verifySplit(cart, current, parent, withServiceAttribute(parent.attributes, addService ? 'break-in' : 'none', options),
+        { add: 1, remove: -1, change: 0 }[mode]);
       if (addService) verifyServiceChoices(cart, current);
+      clearUnsafe(cart.id, ownMark);
+      return applySafety(current);
+    } catch (error) {
+      if (!firstMutationCompleted && error.code !== 'uncertain') clearUnsafe(cart.id, ownMark);
+      throw error;
+    }
+  }
+
+  // Moves one glove of a multi-glove line to its own line with `attributes` (the new wrist fit),
+  // taking a copy of its break-in service along; the source line keeps its own fit.
+  async function splitWristFit(cart, parent, attributes) {
+    if (!parent.instructions?.canUpdateQuantity) throw new Error('Shopify does not allow this glove quantity to change.');
+    const child = cart.lines.find(line => line.isBreakIn && line.parentLineId === parent.remoteLineId);
+    const template = { ...parent, attributes };
+    const ownMark = markUnsafe(cart.id, WRIST_FIT_CHANGE);
+    let firstMutationCompleted = false;
+    try {
+      await addLines(cart.id, [{ merchandiseId: parent.merchandiseId, quantity: 1, attributes }], WRIST_FIT_CHANGE);
+      firstMutationCompleted = true;
+      let current = await getRawCart();
+      let destination = resolveAddedDestination(cart, current, template, parent.serviceConfiguration);
+      if (child) {
+        const children = current.lines.filter(line => line.isBreakIn && line.parentLineId === destination.remoteLineId);
+        if (children.length > 1 || children[0]?.quantity > destination.quantity) {
+          throw new Error('Shopify returned inconsistent Break-in service children.');
+        }
+        if (!children.length) {
+          await addLines(current.id, [{ merchandiseId: child.merchandiseId, quantity: destination.quantity,
+            attributes: child.attributes, parent: { lineId: destination.remoteLineId } }], WRIST_FIT_CHANGE);
+        } else if (children[0].quantity !== destination.quantity) {
+          if (!children[0].instructions?.canUpdateQuantity) throw new Error('Shopify cannot synchronize the Break-in service quantity.');
+          await updateLines(current.id, [{ id: children[0].remoteLineId, quantity: destination.quantity }], WRIST_FIT_CHANGE);
+        }
+        current = await getRawCart();
+        destination = resolveCurrentLine(current, destination);
+        if (!current.lines.some(line => line.isBreakIn && line.parentLineId === destination.remoteLineId &&
+          line.quantity === destination.quantity)) throw new Error('Shopify did not attach the Break-in service to the selected glove.');
+      }
+      current = await decrementSplitSource(current, resolveCurrentLine(current, parent), Boolean(child));
+      current = await getRawCart();
+      verifySplit(cart, current, parent, attributes, 0);
+      verifyServiceChoices(cart, current);
       clearUnsafe(cart.id, ownMark);
       return applySafety(current);
     } catch (error) {
@@ -1235,7 +1282,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       if (!codes.some(existing => codeKey(existing) === codeKey(code))) return current;
       return updateDiscountCodes(current.id, codes.filter(existing => codeKey(existing) !== codeKey(code)));
     },
-    async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN, merchandiseId = null) {
+    async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN, merchandiseId = null, wristFit = 'regular') {
       const product = products.find(item => item.id === productId);
       if (!product?.merchandiseId || !product.available) throw new Error('This glove is not currently available from Shopify.');
       const fullSize = product.line === 'full-size';
@@ -1245,8 +1292,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       const selectedVariant = fullSize ? variant.id : product.merchandiseId;
       const serviceVariant = fullSize ? fullSizeVariant : breakInVariant;
       const selected = includeBreakIn ? normalizeBreakInOptions(options) : null;
-      const lines = [{ merchandiseId: selectedVariant, quantity: 1,
-        attributes: includeBreakIn ? gloveServiceAttributes(selected) : [{ key: SERVICE_ATTRIBUTE, value: 'none' }] }];
+      const lines = [{ merchandiseId: selectedVariant, quantity: 1, attributes: withWristFit(includeBreakIn
+        ? gloveServiceAttributes(selected) : [{ key: SERVICE_ATTRIBUTE, value: 'none' }], wristFit) }];
       if (includeBreakIn) {
         if (!serviceVariant?.availableForSale) throw new Error('Break-in service is not currently available.');
         lines.push({ merchandiseId: serviceVariant.id, quantity: 1,
@@ -1435,7 +1482,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           cartLineQuantity(updated, parent.productId, true) !== cartLineQuantity(cart, parent.productId, true) - child.quantity) {
           throw new Error('Shopify did not remove only the Break-in service.');
         }
-        try { verifySplit(cart, updated, parent, 'none', -1); }
+        try { verifySplit(cart, updated, parent, withServiceAttribute(parent.attributes, 'none'), -1); }
         catch (error) { markUnsafe(cart.id, 'Break-In removal validation failed', cart); throw error; }
         return updated;
       } catch (error) {
@@ -1464,11 +1511,31 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         { id: parent.remoteLineId, attributes: withServiceAttribute(parent.attributes, 'break-in', selectedOptions) }], SERVICE_CHANGE_KINDS.change);
       try {
         const updated = await getRawCart();
-        verifySplit(cart, updated, parent, 'break-in', 0, selectedOptions);
+        verifySplit(cart, updated, parent, withServiceAttribute(parent.attributes, 'break-in', selectedOptions), 0);
         verifyServiceChoices(cart, updated);
         return applySafety(updated);
       } catch (error) {
         markUnsafe(cart.id, SERVICE_CHANGE_KINDS.change);
+        throw error;
+      }
+    },
+    // Sets one glove's wrist fit. A line of several gloves changes one glove only; break-in stays as it was.
+    async setWristFit(lineId, fit) {
+      const cart = await getMutationCart();
+      if (cart.incomplete) throw new Error('The Shopify cart is incomplete. Please reload it before changing the wrist fit.');
+      const parent = cart.lines.find(line => line.remoteLineId === lineId && !line.isBreakIn);
+      if (!parent) throw new Error('This glove line is no longer in the Shopify cart.');
+      if (wristFitOf(parent) === normalizeWristFit(fit)) return cart;
+      const attributes = withWristFit(parent.attributes, fit);
+      if (parent.quantity > 1) return splitWristFit(cart, parent, attributes);
+      await updateLines(cart.id, [{ id: parent.remoteLineId, attributes }], WRIST_FIT_CHANGE);
+      try {
+        const updated = await getRawCart();
+        verifySplit(cart, updated, parent, attributes, 0);
+        verifyServiceChoices(cart, updated);
+        return applySafety(updated);
+      } catch (error) {
+        markUnsafe(cart.id, WRIST_FIT_CHANGE);
         throw error;
       }
     },
@@ -1489,7 +1556,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   };
   // Span the entire public operation, including all validation reads and paired service updates.
   // Never send a mutation unless its shared pending record can be persisted and enumerated.
-  for (const name of ['addProduct', 'setLineQuantity', 'removeLine', 'addBreakIn', 'removeBreakIn', 'editBreakIn',
+  for (const name of ['addProduct', 'setLineQuantity', 'removeLine', 'addBreakIn', 'removeBreakIn', 'editBreakIn', 'setWristFit',
     'setQuantity', 'removeProduct', 'applyDiscountCode', 'removeDiscountCode']) {
     const operation = api[name];
     api[name] = (...args) => {
@@ -1499,7 +1566,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         const key = UNSAFE_RECORD_PREFIX + (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
         const kind = ({ addProduct: 'addition', setLineQuantity: 'quantity update', setQuantity: 'quantity update',
           removeLine: 'removal', removeProduct: 'removal', addBreakIn: SERVICE_CHANGE_KINDS.add,
-          removeBreakIn: SERVICE_CHANGE_KINDS.remove, editBreakIn: SERVICE_CHANGE_KINDS.change })[name] || 'discount update';
+          removeBreakIn: SERVICE_CHANGE_KINDS.remove, editBreakIn: SERVICE_CHANGE_KINDS.change, setWristFit: WRIST_FIT_CHANGE })[name] || 'discount update';
         const record = { cartId, kind: name, kinds: [kind], status: 'pending', createdAt: Date.now() };
         try { storage.setItem(key, JSON.stringify(record)); }
         catch (error) { unpersistedUnsafe.add(cartId); throw new ShopifyRequestError('Cart safety storage is unavailable.', 'uncertain', error); }
