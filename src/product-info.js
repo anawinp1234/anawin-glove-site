@@ -1,6 +1,6 @@
 // Approved PDP copy for the Size & Fit, Description, and Details accordions.
 // Sizes, positions, throw hands, and colorways must agree with catalog.js; tests check them.
-const regularFit = ['Fit', 'Regular fit, 7–7.5 inches'];
+const regularFit = ['Fit', 'Regular fit (7–7.5 inches)'];
 const trainerFit = Object.freeze({
   rows: [['Size', '10.25 inches'], regularFit, ['Type', 'Defensive training glove'], ['Throwing hand', 'Right-hand throw'], ['Worn on', 'Left hand']]
 });
