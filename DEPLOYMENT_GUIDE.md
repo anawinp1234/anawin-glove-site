@@ -144,6 +144,10 @@ npx wrangler deployments status --name anawin-glove-site
 curl -sSI https://anawinofficial.com/ | head -1
 curl -sS https://anawinofficial.com/shop | grep -oE '/assets/index-[A-Za-z0-9_-]+\.(js|css)'
 # Then fetch the listed bundle and grep for a string unique to the change.
+# Hashed bundles are immutable (set by worker/asset-cache.js); HTML and a missing hash must still revalidate:
+curl -sSI https://anawinofficial.com/assets/<listed-bundle> | grep -i '^cache-control'   # public, max-age=31536000, immutable
+curl -sSI https://anawinofficial.com/ | grep -i '^cache-control'                         # public, max-age=0, must-revalidate
+curl -sSI https://anawinofficial.com/assets/index-MISSING1.js | grep -iE '^HTTP|^cache-control'  # 404, max-age=0
 ```
 
 Then, in a browser, load home, `/shop` and a product page on desktop and a

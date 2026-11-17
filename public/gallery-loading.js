@@ -92,8 +92,85 @@ export function installGalleryLoading({ gallery, hold = true, matchMedia = globa
   return cleanup;
 }
 
-const api = { installGalleryLoading, firstGalleryPhotoSettled };
+// Lead-first loading. On slow connections, lazy photos within Chrome's lazy-load distance (product
+// cards, the footer mark) start while the lead photo (fetchpriority="high": the homepage hero or a
+// product's first gallery photo) is still downloading, and share its bandwidth. Hold them until the
+// lead photo finishes or fails, the shopper scrolls or interacts, or a safety timeout passes. The
+// product gallery is left to the rules above. Markup stays plain, so nothing is held without this file.
+export const LEAD_IMAGE_SELECTOR = 'img[fetchpriority="high"]';
+export const LEAD_HOLD_TIMEOUT_MS = 6000;
+const LEAD_RELEASE_EVENTS = ['scroll', 'pointerdown', 'touchstart', 'keydown'];
+
+export function holdBehindLead(root) {
+  let held = 0;
+  root.querySelectorAll('img[loading="lazy"]').forEach(image => {
+    if (image.closest('.pdp-gallery') || loaded(image) || image.hasAttribute('data-lead-src')) return;
+    const picture = image.parentElement?.tagName === 'PICTURE' ? image.parentElement : null;
+    picture?.querySelectorAll('source').forEach(source => {
+      source.setAttribute('data-lead-media', source.getAttribute('media') ?? '');
+      source.setAttribute('media', 'not all');
+    });
+    image.setAttribute('data-lead-src', image.getAttribute('src'));
+    image.setAttribute('src', GALLERY_PLACEHOLDER);
+    held++;
+  });
+  return held;
+}
+
+export function releaseBehindLead(root) {
+  let released = false;
+  root.querySelectorAll('source[data-lead-media]').forEach(source => {
+    const media = source.getAttribute('data-lead-media');
+    if (media) source.setAttribute('media', media);
+    else source.removeAttribute('media');
+    source.removeAttribute('data-lead-media');
+    released = true;
+  });
+  root.querySelectorAll('img[data-lead-src]').forEach(image => {
+    image.setAttribute('src', image.getAttribute('data-lead-src'));
+    image.removeAttribute('data-lead-src');
+    released = true;
+  });
+  return released;
+}
+
+export function installLeadFirstLoading({ root = globalThis.document, win = globalThis, setTimer = globalThis.setTimeout, clearTimer = globalThis.clearTimeout } = {}) {
+  const lead = root?.querySelector(LEAD_IMAGE_SELECTOR);
+  if (!lead || (lead.complete && lead.currentSrc)) return () => {};
+  try {
+    if (!holdBehindLead(root)) return () => {};
+  } catch (error) {
+    // Never leave photos held when holding itself failed.
+    releaseBehindLead(root);
+    return () => {};
+  }
+  let done = false;
+  let timer = null;
+  const cleanup = () => {
+    lead.removeEventListener('load', release);
+    lead.removeEventListener('error', release);
+    LEAD_RELEASE_EVENTS.forEach(type => win.removeEventListener?.(type, release));
+    if (timer !== null) clearTimer?.(timer);
+  };
+  function release() {
+    if (done) return;
+    done = true;
+    cleanup();
+    releaseBehindLead(root);
+  }
+  lead.addEventListener('load', release);
+  lead.addEventListener('error', release);
+  LEAD_RELEASE_EVENTS.forEach(type => win.addEventListener?.(type, release, { passive: true }));
+  timer = setTimer?.(release, LEAD_HOLD_TIMEOUT_MS) ?? null;
+  // The lead may have settled while the holds were applied.
+  if (lead.complete && lead.currentSrc) release();
+  // Called before the app replaces this markup: stop listening without starting the discarded fetches.
+  return () => { if (!done) { done = true; cleanup(); } };
+}
+
+const api = { installGalleryLoading, firstGalleryPhotoSettled, installLeadFirstLoading };
 if (typeof document !== 'undefined') {
   globalThis.anawinGalleryLoading = api;
   installGalleryLoading({ gallery: document.querySelector('.pdp-gallery') });
+  installLeadFirstLoading();
 }

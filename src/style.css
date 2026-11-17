@@ -730,8 +730,9 @@ body.newsletter-open{overflow:hidden}
 .shop-products.full-size-collection{padding-top:56px;padding-bottom:110px}
 .shop-line-heading{margin:0 0 6px;font-family:var(--font-display);font-size:clamp(30px,3.6vw,52px);font-weight:900;letter-spacing:-.04em;line-height:.9}
 .shop-products .collection-cue{margin:0 0 24px}
-.coming-soon-label{white-space:nowrap;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--card-accent)}
-.full-size-pdp .coming-soon-price{text-transform:uppercase;letter-spacing:.06em;color:var(--pdp-accent)}
+/* Accent text is darkened 15% so every colorway meets 4.5:1 on white and tinted backgrounds (raw mint and orange do not). */
+.coming-soon-label{white-space:nowrap;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in srgb,var(--card-accent) 85%,#000)}
+.full-size-pdp .coming-soon-price{text-transform:uppercase;letter-spacing:.06em;color:color-mix(in srgb,var(--pdp-accent) 85%,#000)}
 .pdp-notify{margin:28px 0;padding:28px;background:var(--ink);color:#fff}
 .pdp-notify h2{margin:0 0 8px;font-family:var(--font-display);font-size:30px;font-weight:900;letter-spacing:-.03em;line-height:1;text-transform:uppercase}
 .pdp-notify>p{margin:0 0 20px;color:#d1d1d1;font-size:14px;line-height:1.5}

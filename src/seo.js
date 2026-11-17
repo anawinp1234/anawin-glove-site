@@ -129,6 +129,10 @@ export function productJsonLd(path) {
   const product = localProducts.find(item => normalizedPath === productPath(item));
   // Coming-soon gloves are not purchasable, so they get no Product offer markup.
   if (!product) return null;
+  // Deferred (Phase 4): this markup is fixed at build time. The price comes from the local catalog and can
+  // drift from Shopify until the next deploy. Availability, SKU, and ratings are deliberately omitted
+  // because a build-time value would go stale. Add them only with reliable Shopify synchronization.
+  // See docs/phase-4-audit.md.
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
