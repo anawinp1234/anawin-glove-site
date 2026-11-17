@@ -148,7 +148,7 @@ test('full-size pages offer the confirmed throw-hand options and stay in teaser 
     assert.deepEqual(options.map(match => match[1]), expected[product.color], product.color);
     assert.deepEqual(options.map(match => match[2]), expected[product.color], product.color);
     assert.doesNotMatch(fieldset, /checked/);
-    assert.match(html, /Throw hand: Choose one · No break-in service\./);
+    assert.match(html, /Throw hand: Choose one · Wrist fit: Regular · No break-in service\./);
     assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Add to cart — Coming soon<\/button>/);
     assert.match(html, /class="pdp-notify"/);
     assert.doesNotMatch(html, /in stock|InStock|units? (left|available)|\b\d+ (RHT|LHT)\b/i);

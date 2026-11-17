@@ -870,3 +870,9 @@ body.newsletter-open{overflow:hidden}
 @media(prefers-reduced-motion:reduce){
   .pdp-accordion-chevron,.pdp-accordion-panel{transition:none}
 }
+
+/* Free wrist strap choice, shown above break-in on every PDP. */
+.wrist-fit{min-width:0;border:0;padding:0;margin:0 0 18px}
+.wrist-fit legend{display:flex;width:100%;justify-content:space-between;gap:16px;margin:0 0 9px;padding:0;font-size:13px;line-height:1.4;font-weight:700}
+.wrist-fit legend span{color:var(--muted);font-weight:400}
+.cart-item .cart-wrist{font-size:12px;line-height:1.35}.cart-wrist .cart-service-control{margin:0 0 0 8px;color:inherit}
