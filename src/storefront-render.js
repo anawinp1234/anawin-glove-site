@@ -248,6 +248,10 @@ function home() {
 const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>ALL<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="shop-line-heading">MINI GLOVES</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section><section class="shop-products full-size-collection" aria-labelledby="shop-full-size-heading"><h2 id="shop-full-size-heading" class="shop-line-heading">FULL-SIZE GLOVES</h2><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p>${fullSizeGrid()}</section></main>`;
 
 // Coming-soon page: approved product details and an email signup until launch.
+// Selection box outlines run through every colorway color, not just the accent.
+const outlineStyle = product => product.swatches?.length > 1
+  ? `--pdp-outline:linear-gradient(90deg,${product.swatches.map(escapeHtml).join(',')});` : '';
+
 // Free with or without break-in; regular is the strap as it ships.
 function wristFitChoices() {
   return `<fieldset class="wrist-fit"><legend>Wrist fit <span>Free</span></legend>${WRIST_FITS.map(option => `<label class="break-in-choice"><input type="radio" name="wrist-fit" value="${option.value}"${option.value === 'regular' ? ' checked' : ''}><span><strong>${escapeHtml(option.label)} (${escapeHtml(option.range)})</strong><small>${escapeHtml(option.note)}</small></span></label>`).join('')}</fieldset>`;
@@ -276,7 +280,7 @@ function fullSizeBreakInDetails(product) {
 
 function fullSizePage(product) {
   const purchasable = product.comingSoon === false && product.available && !commerceLoading && !commerceError;
-  const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};`;
+  const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};${outlineStyle(product)}`;
   const count = product.images.length;
   const modelSwitcher = `<nav class="model-switcher" aria-label="Full-size glove colorways"><span class="model-switcher-label">Colorways</span><div class="model-switcher-options">${fullSizeProducts.map(model => model.id === product.id
     ? `<span class="model-switcher-current" aria-current="page" data-product="${escapeHtml(model.id)}">${escapeHtml(model.name)} <small>Current</small></span>`
@@ -307,7 +311,7 @@ function productPage(product) {
   const serviceDisabled = unavailable || breakInService.available === false;
   const buttonLabel = commerceLoading ? 'Checking availability…' : commerceError ? 'Unavailable' : product.available ? 'Add to cart' : 'Sold out';
   const purchaseStatus = commerceLoading ? 'Checking glove and Break-In Service availability…' : commerceError ? 'Unable to confirm availability. Add to Cart is disabled.' : breakInService.available === false ? 'Break-In Service is unavailable.' : '';
-  const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}`;
+  const accentStyle = `${product.accentColor ? `--pdp-accent:${escapeHtml(product.accentColor)};` : ''}${product.accentBackground ? `--pdp-accent-background:${escapeHtml(product.accentBackground)};` : ''}${outlineStyle(product)}`;
   const fullSizeGlove = fullSizeProducts.find(other => other.id === otherGlovePairings[product.id]);
   const otherGloves = [...products.filter(other => other.line !== 'full-size' && other.id !== product.id), ...(fullSizeGlove ? [fullSizeGlove] : [])];
   const modelSwitcher = `<nav class="model-switcher" aria-label="Glove models"><span class="model-switcher-label">Models</span><div class="model-switcher-options">${products.filter(model => model.line !== 'full-size').map(model => model.id === product.id

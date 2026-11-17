@@ -876,3 +876,14 @@ body.newsletter-open{overflow:hidden}
 .wrist-fit legend{display:flex;width:100%;justify-content:space-between;gap:16px;margin:0 0 9px;padding:0;font-size:13px;line-height:1.4;font-weight:700}
 .wrist-fit legend span{color:var(--muted);font-weight:400}
 .cart-item .cart-wrist{font-size:12px;line-height:1.35}.cart-wrist .cart-service-control{margin:0 0 0 8px;color:inherit}
+
+/* PDP selection boxes take their outline from all of the glove's colorway colors. */
+.pdp{--pdp-outline:linear-gradient(var(--pdp-accent,var(--ink)),var(--pdp-accent,var(--ink)))}
+.pdp .break-in-choice:has(input:checked),.pdp .service-option{position:relative}
+.pdp .break-in-choice:has(input:checked){border-color:transparent;box-shadow:none}
+.pdp .break-in-choice:has(input:checked)::after,.pdp .service-option::after{content:"";position:absolute;inset:-1px;padding:2px;background:var(--pdp-outline);pointer-events:none;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.pdp .service-option,.pdp .service-option:hover,.pdp .service-option:has(input:checked),.pdp .service-option:has(input:disabled):hover{border-color:transparent}
+.pdp .service-option::after{inset:-2px;opacity:.35;transition:opacity .2s ease}
+.pdp .service-option:hover::after{opacity:.65}
+.pdp .service-option:has(input:checked)::after,.pdp .service-option:has(input:focus-visible)::after{opacity:1}
+.pdp .service-option:has(input:disabled):hover::after{opacity:.35}
