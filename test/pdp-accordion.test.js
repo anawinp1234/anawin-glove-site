@@ -51,6 +51,11 @@ test('accordion content is the model’s own approved copy', () => {
 
 test('accordion facts agree with the catalog', () => {
   const row = (product, label) => productInfo[product.id].sizeFit.rows.find(([key]) => key === label)?.[1];
+  for (const product of allProducts) {
+    assert.deepEqual(productInfo[product.id].sizeFit.rows.slice(0, 2).map(([label]) => label), ['Size', 'Fit'], product.name);
+    assert.equal(row(product, 'Fit'), 'Regular fit, 7–7.5 inches', product.name);
+    assert.equal(productInfo[product.id].sizeFit.note, undefined, product.name);
+  }
   for (const product of localProducts) {
     assert.equal(row(product, 'Size'), '10.25 inches');
     assert.equal(row(product, 'Throwing hand'), `${product.throwingHand}-hand throw`);

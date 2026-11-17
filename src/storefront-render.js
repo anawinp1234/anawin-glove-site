@@ -48,7 +48,7 @@ export function productAccordions(product) {
   const info = productInfo[product.id];
   if (!info) return '';
   const sections = [
-    ['size-fit', 'Size &amp; Fit', `<dl class="pdp-fit">${info.sizeFit.rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>${info.sizeFit.note ? `<p>${escapeHtml(info.sizeFit.note)}</p>` : ''}`],
+    ['size-fit', 'Size &amp; Fit', `<dl class="pdp-fit">${info.sizeFit.rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>`],
     ['description', 'Description', `<p>${escapeHtml(info.description)}</p>`],
     ['details', 'Details', `<ul>${info.details.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`]
   ];

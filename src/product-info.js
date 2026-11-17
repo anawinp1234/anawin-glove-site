@@ -1,12 +1,12 @@
 // Approved PDP copy for the Size & Fit, Description, and Details accordions.
 // Sizes, positions, throw hands, and colorways must agree with catalog.js; tests check them.
+const regularFit = ['Fit', 'Regular fit, 7–7.5 inches'];
 const trainerFit = Object.freeze({
-  rows: [['Size', '10.25 inches'], ['Type', 'Defensive training glove'], ['Throwing hand', 'Right-hand throw'], ['Worn on', 'Left hand']],
-  note: 'Designed for focused defensive training'
+  rows: [['Size', '10.25 inches'], regularFit, ['Type', 'Defensive training glove'], ['Throwing hand', 'Right-hand throw'], ['Worn on', 'Left hand']]
 });
 const trainerDetails = colorway => ['U.S. steerhide leather', 'Double finger pad', 'Sheepskin thumb sleeve', '10.25-inch training design', `${colorway} colorway`];
 const fullSizeFit = (size, position, bothHands) => ({
-  rows: [['Size', `${size} inches`], ['Position', position], ...(bothHands
+  rows: [['Size', `${size} inches`], regularFit, ['Position', position], ...(bothHands
     ? [['Throwing hand', 'Right-hand or left-hand throw'], ['Right-hand throw', 'Worn on left hand'], ['Left-hand throw', 'Worn on right hand']]
     : [['Throwing hand', 'Right-hand throw'], ['Worn on', 'Left hand']])]
 });
