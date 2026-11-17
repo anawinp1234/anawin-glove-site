@@ -259,7 +259,7 @@ export const fullSizeProducts = Object.freeze([
     id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: true,
     title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
     price: 285, currencyCode: 'USD', throwHands: rightHandOnly,
-    pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. Camel is the more compact of the two infield models. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
+    pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. The CM24 is the more compact of the two infield models in the ANAWIN Kip Series. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
     specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Welting', 'Dual welting'], ['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
     metaDescription: 'ANAWIN Camel is an 11.5-inch Japanese Kip infield glove with a Diamond web, sheepskin-lined finger stalls, and a moisture-wicking wrist pad.',
     tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel')
@@ -268,7 +268,7 @@ export const fullSizeProducts = Object.freeze([
     id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: true,
     title: 'Orange 11.75″ Japanese Kip Infield Glove', descriptor: '11.75″ Japanese Kip Infield Glove',
     price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
-    pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. Orange is the larger of the two infield models in the ANAWIN Kip Series, giving you a quarter inch more length than Camel. The thumb features a carved ANAWIN logo, and the Modified T-web makes sure you swallow every ball in the infield.',
+    pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. The OR17 is the longer of the two infield models in the ANAWIN Kip Series, a quarter inch longer than the CM24. The thumb features a carved ANAWIN logo.',
     specs: fullSizeSpecs('11.75', 'Infield', 'Modified T-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
     metaDescription: 'ANAWIN Orange is an 11.75-inch Japanese Kip infield glove with a Modified T-web, a carved thumb logo, and a fur wrist lining. Choose right-hand or left-hand throw.',
     tone: 'Orange / Gold / Chestnut Brown', swatches: ['#e8732a', '#b9973f', '#70452f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange')

@@ -887,3 +887,14 @@ body.newsletter-open{overflow:hidden}
 .pdp .service-option:hover::after{opacity:.65}
 .pdp .service-option:has(input:checked)::after,.pdp .service-option:has(input:focus-visible)::after{opacity:1}
 .pdp .service-option:has(input:disabled):hover::after{opacity:.35}
+.about-principles section+section{margin-top:36px}
+.about-principles h3{margin:0 0 10px;font-family:var(--font-display);font-size:24px;letter-spacing:-.02em;text-transform:uppercase}
+.philosophy .about-principles p{margin:0;max-width:560px}
+.about-next{display:flex;flex-wrap:wrap;gap:16px 48px;padding:72px 28px;background:var(--paper)}
+.about-next a{display:flex;justify-content:space-between;gap:24px;width:240px;max-width:100%;padding:12px 0;border-bottom:1px solid var(--ink);text-transform:uppercase}
+.other-glove-meta .other-glove-status{color:var(--ink);text-transform:uppercase;letter-spacing:.08em;font-size:10px}
+.faq-intro{color:var(--muted)}
+.faq-item+.faq-item{margin-top:28px}
+.faq-item h3{margin:0 0 8px;font-size:18px;line-height:1.35}
+.faq-page a{text-decoration:underline;text-underline-offset:3px}
+@media(max-width:760px){.about-next{flex-direction:column;padding:56px 16px}.about-next a{width:100%}}

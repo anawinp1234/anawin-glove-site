@@ -7,7 +7,7 @@ import { fullSizeProducts, localProducts } from '../src/catalog.js';
 const paths = [
   '/', '/shop', '/product/br16', '/product/ob16', '/product/cl16',
   '/product/mi26', '/product/bl50', '/product/cm24', '/product/or17',
-  '/about', '/community', '/shipping', '/returns', '/warranty', '/care', '/break-in'
+  '/about', '/community', '/faq', '/shipping', '/returns', '/warranty', '/care', '/break-in'
 ];
 
 test('metadata covers exactly the public routes with unique titles and descriptions', () => {
