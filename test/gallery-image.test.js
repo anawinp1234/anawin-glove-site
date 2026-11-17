@@ -76,12 +76,18 @@ for (const width of [480, 960]) {
     assert.equal(profile.toString('ascii', 36, 40), 'acsp');
     assert.equal(profile.toString('ascii', 16, 20), 'RGB ');
     assert.ok(webp.get('VP8X')[0] & 0x20, 'ICC flag must be set');
-    const lossless = webp.get('VP8L');
-    assert.equal(lossless[0], 0x2f);
-    const dimensions = lossless.readUInt32LE(1);
-    assert.equal((dimensions & 0x3fff) + 1, width);
-    assert.equal(((dimensions >>> 14) & 0x3fff) + 1, width);
+    // Phase 4: the owner approved q95 lossy encoding (sharp YUV, ICC kept) after a P3 visual review,
+    // so either bitstream is accepted; dimensions come from the VP8X canvas, which both carry.
+    assert.ok(webp.has('VP8 ') || webp.has('VP8L'), 'image bitstream present');
+    assert.deepEqual(canvasSize(webp), [width, width]);
     const zoom = chunks(await readFile(new URL('../public/images/optimized/black1-zoom-1045.webp', import.meta.url)), 'webp');
     assert.deepEqual(profile, zoom.get('ICCP'));
+    assert.ok(zoom.get('VP8X')[0] & 0x20, 'zoom ICC flag must be set');
+    assert.deepEqual(canvasSize(zoom), [1045, 1044]);
   });
+}
+
+function canvasSize(webp) {
+  const header = webp.get('VP8X');
+  return [header.readUIntLE(4, 3) + 1, header.readUIntLE(7, 3) + 1];
 }

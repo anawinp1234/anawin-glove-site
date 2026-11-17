@@ -25,6 +25,7 @@ import { cartFocusKey, findCartFocusTarget, isVisibleFocusTarget, restoreFocusWi
 import { installScrollMemory, scrollToInstant } from './scroll-memory.js';
 import { installPdpScroll } from './pdp-scroll.js';
 import { installPdpAccordions } from './pdp-accordion.js';
+import { replaceMarkupPreservingLead } from './lead-image.js';
 
 // Errors belong to the native controls so screen readers announce them on focus.
 function clearFullSizeFieldErrors(root, name = null) {
@@ -126,6 +127,7 @@ const releasedGalleryPaths = new Set();
 // Provided by /gallery-loading.js; without it photos simply load as ordinary pictures.
 const galleryLoading = () => globalThis.anawinGalleryLoading;
 let destroyGalleryLoading = () => {};
+let destroyLeadFirstLoading = () => {};
 // The prerendered page already shows the current route's gallery.
 let renderedPath = location.pathname;
 const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
@@ -214,6 +216,7 @@ function render(scrollTop = window.scrollY) {
   stickyPurchase?.destroy();
   stickyPurchase = null;
   destroyGalleryLoading();
+  destroyLeadFirstLoading();
   const path = location.pathname;
   // Re-rendering a route whose first photo already finished (or failed) has nothing left to protect.
   if (renderedPath === path && galleryLoading()?.firstGalleryPhotoSettled(app)) releasedGalleryPaths.add(path);
@@ -222,10 +225,12 @@ function render(scrollTop = window.scrollY) {
   destroyFooterAccordion();
   destroyPdpScroll();
   destroyPdpAccordions();
-  app.innerHTML = views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer();
+  // Keeps the identical lead photo node so its request and paint survive the re-render (LCP).
+  replaceMarkupPreservingLead(app, views.header() + views.commerceNotice() + views.route(location.pathname) + views.footer());
   renderedPath = path;
   // Same task as the insertion, before other binding can throw or the browser starts fetching.
   destroyGalleryLoading = galleryLoading()?.installGalleryLoading({ gallery: app.querySelector('.pdp-gallery'), hold: !releasedGalleryPaths.has(path), onRelease: () => { releasedGalleryPaths.add(path); } }) || (() => {});
+  destroyLeadFirstLoading = galleryLoading()?.installLeadFirstLoading?.({ root: app }) || (() => {});
   destroyFooterAccordion = installFooterAccordion(app.querySelector('footer'));
   if (pdpAccordionState.path !== path) pdpAccordionState = { path, open: new Set() };
   destroyPdpAccordions = installPdpAccordions(app.querySelector('.pdp-info'), { open: pdpAccordionState.open });

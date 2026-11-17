@@ -1,5 +1,7 @@
 import { handleNewsletter } from './newsletter.js';
+import { HASHED_ASSET, serveHashedAsset } from './asset-cache.js';
 
+// The Workers runtime treats every export of this entry module as a handler: export only the default.
 export default {
   async fetch(request, env) {
     const pathname = new URL(request.url).pathname;
@@ -14,6 +16,7 @@ export default {
         }
       });
     }
+    if (HASHED_ASSET.test(pathname)) return serveHashedAsset(request, env);
     return env.ASSETS.fetch(request);
   }
 };
