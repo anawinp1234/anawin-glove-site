@@ -13,7 +13,7 @@ import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focu
 import { dismissDiscountError, discountEntryExpanded, discountResultFeedback, renderCartDiscountSection } from './cart-discounts.js';
 import { containTab } from './dialog.js';
 import { loadZoomImage } from './zoom-image.js';
-import { lightboxCounter, stepLightboxIndex } from './lightbox-nav.js';
+import { lightboxCounter, stepLightboxIndex, swipeStep } from './lightbox-nav.js';
 import { updateSeo, productPath } from './seo.js';
 import { createNewsletterSignup } from './newsletter.js';
 import { bindNewsletterForm } from './newsletter-form.js';
@@ -883,9 +883,10 @@ function openLightbox(buttons, index) {
     const dx = event.changedTouches[0].clientX - touchStart.x;
     const dy = event.changedTouches[0].clientY - touchStart.y;
     touchStart = null;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const step = swipeStep({ dx, dy, scale: window.visualViewport?.scale ?? 1 });
+    if (!step) return;
     event.preventDefault();
-    stepLightbox(dx < 0 ? 1 : -1);
+    stepLightbox(step);
   });
   document.body.append(lightboxOverlay);
   document.body.classList.add('lightbox-open');
@@ -909,7 +910,8 @@ function showLightboxImage(index) {
   if (counter) counter.textContent = lightboxCounter(index, lightboxGallery.length);
   const image = document.createElement('img');
   image.alt = [document.querySelector('.pdp-info h1')?.textContent, element.querySelector('img')?.alt].filter(Boolean).join(' — ') || 'Expanded product view';
-  const loaded = loadZoomImage(image, element.dataset.image, controller.signal);
+  const preferAvif = /\.avif$/.test(element.querySelector('img')?.currentSrc || '');
+  const loaded = loadZoomImage(image, element.dataset.image, controller.signal, { preferAvif });
   overlay.insertBefore(image, overlay.querySelector('.lightbox-nav'));
   loaded.then(result => {
     if (lightboxOverlay !== overlay || lightboxImageController !== controller || result === 'aborted') return;

@@ -148,7 +148,18 @@ curl -sS https://anawinofficial.com/shop | grep -oE '/assets/index-[A-Za-z0-9_-]
 curl -sSI https://anawinofficial.com/assets/<listed-bundle> | grep -i '^cache-control'   # public, max-age=31536000, immutable
 curl -sSI https://anawinofficial.com/ | grep -i '^cache-control'                         # public, max-age=0, must-revalidate
 curl -sSI https://anawinofficial.com/assets/index-MISSING1.js | grep -iE '^HTTP|^cache-control'  # 404, max-age=0
+# CSP reports reach the Worker (report-only; nothing is stored):
+curl -sSI https://anawinofficial.com/ | grep -i '^content-security-policy-report-only' | grep -o 'report-uri [^;]*'  # report-uri /api/csp-report
+curl -sS -o /dev/null -w '%{http_code}\n' https://anawinofficial.com/api/csp-report                              # 405
+# Lead photos are offered as AVIF:
+curl -sSI https://anawinofficial.com/images/optimized/hero-background-1200.avif | grep -iE '^HTTP|^content-type'   # 200, image/avif
+curl -sSI https://anawinofficial.com/images/optimized/black1-zoom-1045.avif | grep -iE '^HTTP|^content-type'      # 200, image/avif
 ```
+
+`npx wrangler tail anawin-glove-site --search csp-violation` shows CSP reports
+live. In the dashboard's Workers Logs, confirm that `csp-violation` lines are
+retained and that no per-request invocation logs (`cf-worker-event`) appear,
+because `wrangler.jsonc` sets `observability.logs.invocation_logs: false`.
 
 Then, in a browser, load home, `/shop` and a product page on desktop and a
 mobile width. Confirm prices and service availability come from Shopify, and

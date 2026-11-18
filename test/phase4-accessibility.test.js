@@ -40,3 +40,23 @@ test('coming-soon accent text meets WCAG AA 4.5:1 for every colorway on white an
     }
   }
 });
+
+// Phase 4 part 2: the browser scan found 9px text on the mobile cart "Remove" button and the model
+// switcher's "Current" label; "Sold out" used 9px too (rendered only when a glove is unavailable).
+const sizesFor = selector => [...css.matchAll(new RegExp(`(?:^|[}\\s,])${selector.replace(/[.]/g, '\\.')}\\{([^}]*)\\}`, 'gm'))]
+  .map(match => match[1].match(/font-size:([\d.]+)px/)?.[1]).filter(Boolean).map(Number);
+
+test('small UI text renders at 11px or larger: cart remove, current model label, sold-out label, legal line', () => {
+  for (const selector of ['.remove', '.model-switcher-current small', '.sold-out', '.legal']) {
+    const sizes = sizesFor(selector);
+    assert.ok(sizes.length, `${selector} has a font-size`);
+    assert.ok(sizes.at(-1) >= 11, `${selector} ends at ${sizes.at(-1)}px`);
+  }
+  // .remove must not depend on a desktop-only override any more.
+  assert.ok(sizesFor('.remove').every(size => size >= 11));
+});
+
+test('no stylesheet text size is below 10px except the overridden legacy .legal base rule', () => {
+  const tiny = [...css.matchAll(/([^{}]+)\{[^}]*font-size:([\d.]+)px/g)].filter(match => Number(match[2]) < 10).map(match => match[1].trim());
+  assert.deepEqual(tiny, ['.legal']);
+});

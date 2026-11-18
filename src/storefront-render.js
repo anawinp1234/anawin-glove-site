@@ -66,25 +66,34 @@ const cardImageSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 80p
 const galleryImageSizes = '(max-width: 760px) 90vw, 30vw';
 // Gallery photo 1 is fetched first at high priority; later photos are ordinary lazy pictures.
 // Mobile deferral of photos 2+ happens only in gallery-loading.js once the app is running.
-function pictureMarkup({ srcset, sizes, src, alt, width, height, loading, gallery = null }) {
+// An AVIF source is offered only on lead photos: gallery-loading.js holds photos 2+ through their
+// first <source>, so a second source there would escape the hold.
+const avifSource = (srcset, sizes) => srcset ? `<source type="image/avif" srcset="${srcset}" sizes="${sizes}">` : '';
+function pictureMarkup({ srcset, avifSrcset = '', sizes, src, alt, width, height, loading, gallery = null }) {
   const lead = gallery?.index === 0;
   const attrs = lead ? 'loading="eager" fetchpriority="high"' : `loading="${gallery ? 'lazy' : loading}"`;
-  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" ${attrs} /></picture>`;
+  return `<picture>${lead ? avifSource(avifSrcset, sizes) : ''}<source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" ${attrs} /></picture>`;
 }
 
 function productImage(src, alt, sizes, loading, card = false, gallery = null) {
   const name = src.split('/').pop().replace(/\.PNG$/, '');
   const fullWidth = name === 'black1' ? 1045 : 1254;
   const fullHeight = name === 'black1' ? 1044 : 1254;
-  const optimized = width => {
-    // Scope the P3 correction to the gallery, preserving cards and recommendations.
-    if (name === 'black1' && sizes === galleryImageSizes) return width === fullWidth
-      ? '/images/optimized/black1-zoom-1045.webp'
-      : `/images/optimized/black1-p3-${width}.webp`;
-    return `/images/optimized/${name}-${width}.webp`;
+  // Scope the P3 correction to the gallery, preserving cards and recommendations.
+  const p3Gallery = name === 'black1' && sizes === galleryImageSizes;
+  const optimized = (width, type = 'webp') => {
+    if (p3Gallery) return width === fullWidth
+      ? `/images/optimized/black1-zoom-1045.${type}`
+      : `/images/optimized/black1-p3-${width}.${type}`;
+    return `/images/optimized/${name}-${width}.${type}`;
   };
-  const srcset = [480, ...(card ? [768] : []), 960, fullWidth].map(width => `${optimized(width)} ${width}w`).join(', ');
-  return pictureMarkup({ srcset, sizes, src, alt, width: fullWidth, height: fullHeight, loading, gallery });
+  const widths = [480, ...(card ? [768] : []), 960, fullWidth];
+  const srcset = widths.map(width => `${optimized(width)} ${width}w`).join(', ');
+  // Phase 4 part 2: BR16's P3 lead photo is also offered as 4:4:4 AVIF with the same ICC profile.
+  // It is numerically at least as similar to the source as the approved q95 WebP (which stays as the
+  // fallback), but has not been approved on a colour-managed device. A failed decode falls back to WebP.
+  const avifSrcset = p3Gallery ? widths.map(width => `${optimized(width, 'avif')} ${width}w`).join(', ') : '';
+  return pictureMarkup({ srcset, avifSrcset, sizes, src, alt, width: fullWidth, height: fullHeight, loading, gallery });
 }
 
 // Full-size photos are square, white-backed, and stored in /images/full-size/.
@@ -98,9 +107,10 @@ const gloveThumbnail = (product, alt, sizes, loading, card = false) => product.l
   ? fullSizePhoto(product.images[0], alt, sizes, loading)
   : productImage(product.images[0], alt, sizes, loading, card);
 
-function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '', fetchPriority = '') {
-  const srcset = widths.map(candidate => `/images/optimized/${name}-${candidate}.webp ${candidate}w`).join(', ');
-  return `<picture><source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}"${fetchPriority ? ` fetchpriority="${fetchPriority}"` : ''} /></picture>`;
+function responsivePhoto(src, name, widths, sizes, alt, width, height, loading, className = '', fetchPriority = '', avif = false) {
+  const set = type => widths.map(candidate => `/images/optimized/${name}-${candidate}.${type} ${candidate}w`).join(', ');
+  const srcset = set('webp');
+  return `<picture>${avif ? avifSource(set('avif'), sizes) : ''}<source type="image/webp" srcset="${srcset}" sizes="${sizes}"><img class="${className}" src="${src}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="${loading}"${fetchPriority ? ` fetchpriority="${fetchPriority}"` : ''} /></picture>`;
 }
 
 function wordmark(sizes, loading = 'eager') {
@@ -237,7 +247,7 @@ function communityPage() {
 }
 
 function home() {
-  return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high')}<div class="hero-copy"><p class="eyebrow">ANAWIN / Baseball gloves</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
+  return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high', true)}<div class="hero-copy"><p class="eyebrow">ANAWIN / Baseball gloves</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
     <section class="collection full-size-collection" aria-labelledby="full-size-heading"><div class="section-heading"><div><p class="eyebrow">New / Full-size</p><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p></div><h2 id="full-size-heading">FULL-SIZE<br><em>GLOVES</em></h2></div>${fullSizeGrid()}</section>
     <section class="community-spotlight" aria-labelledby="discord-heading"><div class="community-spotlight-copy"><p class="eyebrow">ANAWIN COMMUNITY</p><h2 id="discord-heading">BUILT<br>WITH YOU.</h2><p class="community-description">Talk directly with us, vote on what we make next, and connect with other players.</p><div class="community-actions">${discordButton()}<a class="community-explore" href="/community" data-link>See what members get ${arrow()}</a></div></div><div class="community-spotlight-photo">${communityPhoto('lazy')}</div></section>

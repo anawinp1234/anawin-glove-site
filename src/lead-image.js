@@ -10,7 +10,14 @@ export function leadPicture(root) {
   return picture && picture.tagName === 'PICTURE' ? picture : null;
 }
 
+// Set on <html> by public/gallery-loading.js after an AVIF lead photo failed to decode.
+export const AVIF_FAILED_ATTRIBUTE = 'data-avif-failed';
+const AVIF_SOURCE = /<source type="image\/avif"[^>]*>/g;
+
 export function replaceMarkupPreservingLead(root, html) {
+  // After an AVIF failure, drop AVIF sources before the markup exists, so no new picture fetches
+  // the failing file again and the kept lead picture (already without AVIF) still matches.
+  if (root?.ownerDocument?.documentElement?.hasAttribute(AVIF_FAILED_ATTRIBUTE)) html = html.replace(AVIF_SOURCE, '');
   const previous = leadPicture(root);
   const previousMarkup = previous?.outerHTML;
   root.innerHTML = html;

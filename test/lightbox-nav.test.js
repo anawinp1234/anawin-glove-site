@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { lightboxCounter, stepLightboxIndex } from '../src/lightbox-nav.js';
+import { lightboxCounter, stepLightboxIndex, swipeStep } from '../src/lightbox-nav.js';
 
 test('lightbox navigation wraps in both directions across the product views', () => {
   assert.equal(stepLightboxIndex(0, 1, 4), 1);
@@ -63,7 +63,7 @@ function lightboxFixture() {
     }
   }));
   const context = {
-    document: documentRef, app, AbortController, lightboxCounter, stepLightboxIndex,
+    document: documentRef, app, AbortController, lightboxCounter, stepLightboxIndex, swipeStep,
     loadZoomImage: () => Promise.resolve('loaded')
   };
   runInNewContext(`let lightboxOverlay, lightboxReturnFocus, lightboxImageController;
@@ -104,4 +104,19 @@ test('each new lightbox opening captures its own opener and tolerates a removed 
   env.openLightbox(env.buttons, 3);
   assert.doesNotThrow(() => env.closeLightbox());
   assert.equal(env.buttons[3].focusCalls.length, 0);
+});
+
+test('a deliberate horizontal swipe steps; taps, short or vertical drags do not', () => {
+  assert.equal(swipeStep({ dx: -80, dy: 10 }), 1);
+  assert.equal(swipeStep({ dx: 80, dy: -10 }), -1);
+  assert.equal(swipeStep({ dx: -49, dy: 0 }), 0);
+  assert.equal(swipeStep({ dx: -80, dy: 60 }), 0);
+  assert.equal(swipeStep({ dx: 0, dy: 0 }), 0);
+});
+
+test('while pinch-zoomed, a one-finger pan inspects the photo and never changes it', () => {
+  assert.equal(swipeStep({ dx: -200, dy: 0, scale: 2.4 }), 0);
+  assert.equal(swipeStep({ dx: 200, dy: 5, scale: 1.2 }), 0);
+  assert.equal(swipeStep({ dx: -200, dy: 0, scale: 1.005 }), 1, 'rounding noise at 1x still swipes');
+  assert.equal(swipeStep({ dx: -200, dy: 0, scale: Number.NaN }), 0, 'an unreadable scale fails safe');
 });

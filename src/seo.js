@@ -221,6 +221,12 @@ const jsonLdBlocks = path => [
 
 const serializeJsonLd = value => JSON.stringify(value).replace(/</g, '\\u003c');
 
+export const LIVE_OFFER_ATTRIBUTE = 'data-anawin-live-offer';
+export function keepsLiveOffer(script, data) {
+  if (!script.hasAttribute?.(LIVE_OFFER_ATTRIBUTE)) return false;
+  try { return JSON.parse(script.textContent)?.url === data.url; } catch { return false; }
+}
+
 export function renderSeoHead(path) {
   const normalizedPath = normalizePath(path);
   const route = routeMetadata(normalizedPath);
@@ -303,7 +309,12 @@ export function updateSeo(document, path) {
       const script = scripts.shift() || document.createElement('script');
       script.setAttribute('type', 'application/ld+json');
       script.setAttribute(attribute, '');
-      script.textContent = serializeJsonLd(data);
+      // The Worker may have refreshed this page's offer from Shopify (worker/product-offer.js).
+      // That markup is fresher than build-time data, so keep it while it describes this page.
+      if (!keepsLiveOffer(script, data)) {
+        script.removeAttribute(LIVE_OFFER_ATTRIBUTE);
+        script.textContent = serializeJsonLd(data);
+      }
       if (!script.isConnected) document.head.append(script);
     }
     scripts.forEach(script => script.remove());

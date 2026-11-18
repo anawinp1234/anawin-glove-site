@@ -48,7 +48,7 @@ Existing image loading is correct, so it was not rebuilt. Each hero is a `<pictu
 - `src/lead-image.js`: `render()` now keeps the existing lead `<picture>` (the `fetchpriority="high"` photo) when the new markup for it is byte-identical. Its in-flight or finished request survives the re-render. A test asserts the prerendered and client-rendered lead markup is identical for `/`, `/community`, and all seven product pages.
 - `public/gallery-loading.js` (`installLeadFirstLoading`): while the lead photo is loading, other `loading="lazy"` photos outside the product gallery (cards, footer mark, community photo) are held on a placeholder. They are released when the lead finishes or fails, on any scroll, pointer, touch, or key event, or after 6 s. Holding uses the existing gallery technique and plain markup, so nothing is held if the script never runs. A failed hold releases immediately.
 
-**Before and after, identical conditions.** Both builds were served from local `dist/` copies by the same gzip static server. Settings: same Chrome, 412×823 at DPR 1.75, 4× CPU, 562.5 ms RTT, 1.47 Mbps, cache disabled, 7 runs per page. *Lead paint* is the first animation frame where the connected `fetchpriority="high"` image is complete. Locally, Chrome's own LCP entry for `/` stays on the H1 text both before and after (a hero entry is never emitted locally, although live emits one), so lead paint is the comparable metric. On product pages, lead paint and LCP agree within 20 ms.
+**Before and after, identical conditions.** Both builds were served from local `dist/` copies by the same gzip static server. Settings: same Chrome, 412×823 at DPR 1.75, 4× CPU, 562.5 ms RTT, 1.47 Mbps, cache disabled, 7 runs per page. *Lead paint* is the first animation frame where the connected `fetchpriority="high"` image is complete. Locally, Chrome's own LCP entry for `/` stays on the H1 text both before and after (a hero entry is never emitted locally, although live emits one), so lead paint is the comparable metric. *Correction (part 2): the local server sent no `Content-Length`, and Chrome then left the hero out of LCP. With `Content-Length` the local hero is the LCP element, as on live.* On product pages, lead paint and LCP agree within 20 ms.
 
 | Page | Lead paint before (median) | After (median) | Bytes fetched before LCP |
 |---|---|---|---|
@@ -170,6 +170,15 @@ Regression checks on the new build: 22/22 Phase 2 keyboard checks, no reflow ove
 
 ## Deferred follow-ups
 
+*Status after part 2 (see [Phase 4 part 2](#phase-4-part-2-completion)):*
+- *Items 1–2: prepared as a Worker module, not enabled (D2).*
+- *Item 4: `report-uri` endpoint done, with summary retention configured.*
+- *Item 5: D1.*
+- *Item 6: met in lab with AVIF.*
+- *Item 7: AVIF added; DPR 3 still unmet (recorded, not waived).*
+- *Item 8: human checklist.*
+- *Item 9: fixed.*
+
 1. **Offer availability.** Deliberately not emitted. `InStock` taken from `src/catalog.js` at build time would stay "in stock" after a sell-out until the next deploy. This needs reliable Shopify synchronization (a webhook-triggered rebuild, or edge-rendered JSON-LD from the Storefront API).
 2. **Offer price freshness.** It has the same limit: the build-time catalog price matches Shopify today (155.00 USD), but it will not follow a Shopify change until a rebuild.
 3. **Ratings.** Add them only once they are server-rendered and synced with Judge.me.
@@ -179,3 +188,178 @@ Regression checks on the new build: 22/22 Phase 2 keyboard checks, no reflow ove
 7. **Homepage hero encode.** It is shown at 50% brightness, so a lighter encode is possible. It is not needed for the lab target, so wait for live data.
 8. **Testing not done:** a real screen-reader session; Safari, Firefox, and physical devices; and a real production cart or checkout navigation.
 9. **Smallest text** is 9 px (legal line and cart "remove"). Consider raising it.
+
+# Phase 4 part 2: completion
+
+Branch `phase-4-part-2`, from `origin/main` at `8806d9f`. Phase 4 was already merged and deployed: live hashed assets return `immutable`. Worked 2026-11-17, revised after review. Not committed, pushed or deployed. No Cloudflare zone or Shopify changes.
+
+## Checklist
+
+| # | Issue | Acceptance criterion | Evidence | Status |
+|---|---|---|---|---|
+| 1 | Homepage mobile LCP and its real breakdown | Identify the LCP element and phases. LCP ≤ 2.5 s (lab) at DPR 1.75 and DPR 3, keeping the full-quality hero and current script behaviour | LCP is the hero `<img>` (live and local). At DPR 3 the time is load duration. AVIF sources added at measured similarity ≥ the shipped WebP | **DPR 1.75 met: 2380 ms. DPR 3 UNMET: 3224 ms** (was 3656). See [Homepage at DPR 3](#homepage-at-dpr-3-unmet) |
+| 2 | BR16 LCP at DPR 3 was 2.51–2.54 s | ≤ 2.5 s at both DPRs, approved q95 files preserved | 4:4:4 AVIF, same P3 ICC, offered before the unchanged q95 WebP. DPR 1.75: 2216 ms. DPR 3: 2320 ms | **Met in lab.** AVIF not yet approved on a colour-managed device (M1) |
+| 2a | AVIF must never leave a blank image | A failed decode is replaced by a working WebP: gallery, hero, zoom, re-render, navigation | Forced decode failures in Chrome, on a static server and on the real Worker: [Image safety](#image-safety) | **Demonstrated** for decode errors. Not covered: wrong pixels with no error (M1) |
+| 3 | 9 px text | No rendered text below 11 px in the reported components | Rendered-size scan, 9 pages × 2 widths + open cart: none below 10 px now | **Fixed.** 10 px label text remains (design scale) |
+| 4 | Intermittent mobile zoom failure | Reproduce and fix, or narrow down for a device test | Not reproduced in Chromium. The old screenshot predates the current hero. A defensive guard was added | **Not reproduced** (M3) |
+| 5 | Offer price/availability staleness | Reviewed, safe solution; no invented data, no credentials | `worker/product-offer.js` revised after review: [Offer sync](#offer-sync-prepared-disabled) | **Prepared, disabled** |
+| 6 | CSP reporting | Reports reach a sanitized, abuse-limited, retained log | `report-uri` → `worker/csp-report.js`. Retention configured with invocation logs off: [CSP reports](#csp-reports) | **Done locally.** Retention verified after deploy |
+| 7 | HSTS | Concrete setting prepared | [HSTS](#hsts-prepared-not-applied) | **Prepared, not applied** |
+
+## 1–2. LCP: method and results
+
+**Lab.** Installed Chrome over CDP, mobile UA, touch, 4× CPU, 562.5 ms RTT, 1.47 Mbps down, cache disabled. 7 runs per cell, median. Same gzip static server for both builds, run back to back. The server sends `Content-Length`; without it, Chrome leaves the hero out of LCP, which caused the earlier "H1 is LCP locally" result. Phases follow web.dev: TTFB, load delay, load duration, render delay. Raw output and scripts are in the session scratchpad (not committed).
+
+| Page | Viewport | Build | LCP element | Bytes | TTFB | Load delay | Load duration | Render delay | **LCP** |
+|---|---|---|---|---|---|---|---|---|---|
+| `/` | 412×823 @1.75 | baseline | `hero-background-800.webp` | 148 KB | 563 | 29 | 1858 | 11 | **2472** |
+| | | part 2 | `hero-background-800.avif` | 130 KB | 563 | 31 | 1760 | 8 | **2380** |
+| `/` | 390×844 @3 | baseline | `hero-background-1200.webp` | 360 KB | 563 | 27 | 3040 | 14 | **3656** |
+| | | part 2 | `hero-background-1200.avif` | 279 KB | 564 | 34 | 2598 | 6 | **3224** |
+| `/product/br16` | 412×823 @1.75 | baseline | `black1-p3-960.webp` | 137 KB | 563 | 30 | 1800 | 8 | **2408** |
+| | | part 2 | `black1-p3-960.avif` | 101 KB | 563 | 31 | 1596 | 11 | **2216** |
+| `/product/br16` | 390×844 @3 | baseline | `black1-zoom-1045.webp` | 157 KB | 563 | 29 | 1931 | 6 | **2544** |
+| | | part 2 | `black1-zoom-1045.avif` | 114 KB | 563 | 28 | 1702 | 5 | **2320** |
+
+Run spread was small (for example, BR16 @3 part 2: 2291–2340 ms). Load delay is ~30 ms and render delay ≤ 14 ms, so load duration is the only meaningful phase. These are lab numbers, not field data.
+
+### Homepage at DPR 3: unmet
+
+**3224 ms against a 2.5 s target, recorded as unmet.** Keeping the full-quality hero and the current script behaviour, as decided, the cause is bandwidth:
+
+- Before the hero finishes, ~93 KB of other critical bytes share the link: JS 63 KB, CSS 15 KB, wordmark 12 KB, `gallery-loading.js` 3 KB.
+- With TTFB plus one RTT ≈ 1.13 s at 184 KB/s, the hero must be ≤ ~160 KB to land by 2.5 s.
+- The best AVIF at full measured quality is 279 KB. With `object-fit: cover` on a tall box, the 1200 w file already gives only ~1.9× density at DPR 3, so a smaller file would soften it.
+- Live serves Brotli, which is no smaller than gzip here (JS 66.2 vs 66.7 KB). One live run at DPR 3 measured 3984 ms with the WebP.
+
+**Still open to investigate:**
+
+1. **Live HTTP/2 prioritisation.** Cloudflare's prioritisation may favour the `fetchpriority="high"` image over the JS. The local lab server is HTTP/1.1, so this needs a post-deploy lab run on live.
+2. **Smaller competing bytes without behaviour changes.** For example, a vector wordmark, if a source exists, would save ~12 KB, about 65 ms. That isn't enough alone.
+
+Waiting for field data alone does not fix this.
+
+### Image encoding (measured similarity, not approval)
+
+For each width, the selected AVIF is the smallest whose **measured similarity** to the source is equal to or better than the shipped file on all four of: mean ΔE00, 95th-percentile ΔE00, SSIM (L) and PSNR. avifenc 1.3.0 (aom), speed 3.
+
+**What these numbers are:** a numerical comparison of decoded pixel values, with CIEDE2000 computed as if the values were sRGB. They are **not** colour-managed rendering. For the P3-tagged BR16 files, both sides carry the same profile, so the comparison is consistent, but the absolute ΔE values are approximate. They say nothing about how a real P3 display or Safari will render the file. They are not, and do not replace, the owner's visual approval on a colour-managed device. The approved q95 WebP files are unchanged and remain the fallback.
+
+| File | Shipped (unchanged) | AVIF added | Settings | Colour signalling |
+|---|---|---|---|---|
+| hero 480 / 640 / 800 / 960 / 1200 / 1350 | 84 / 141 / 148 / 265 / 360 / 496 KB WebP | 67 / 115 / 129 / 211 / 278 / 395 KB | 4:2:0, q54 / 54 / 46 / 52 / 52 / 58 | Untagged sRGB (nclx 1/13/6), like the WebP |
+| BR16 `black1-p3-480`, `-960`, `black1-zoom-1045` | 45 / 137 / 156 KB q95 WebP | 36 / 100 / 114 KB | 4:4:4, q85 | Identical 536-byte Display P3 ICC |
+
+**Why 4:4:4 for BR16.** At 4:2:0, no file that saved bytes measured as similar as the q95 WebP on the 95th-percentile ΔE (red stitching). At 1045 px: q95 WebP mean ΔE 0.39 / p95 1.67 / SSIM .9930 / PSNR 46.5, versus AVIF 0.34 / 1.50 / .9940 / 47.3.
+
+**Decoder evidence and gaps.**
+
+- Shown: macOS 26.4 ImageIO (`sips`) decoded all three 4:4:4 files with a max 1-level difference from libavif and recognised the P3 profile. Safari uses ImageIO.
+- Not shown: iOS behaviour, and any Apple documentation of 4:4:4 (AV1 High profile) image support. No source found settles it. (An earlier chat note cited a WebKit bug that concerns VP9 video; it is not evidence either way for AVIF images.)
+- Safari automation was unavailable (needs Safari › Settings › Developer › Allow remote automation), and Firefox is not installed here.
+
+**Rendered colour, hero only.** Chrome screenshots (sRGB), WebP vs AVIF at DPR 1.75: mean channel shift R +0.18, G −0.17, B +0.23 levels, so there is no profile-handling shift. The DPR 3 capture stalled and was not completed. This is not a P3 assessment.
+
+### Image safety
+
+AVIF `<source>` elements appear only on the two lead pictures, before the unchanged WebP `<source>`. Browsers without AVIF support skip them by `type`.
+
+**How a failed AVIF is replaced:**
+
+- `public/gallery-loading.js` runs before the app bundle. A capture-phase `error` listener sees a failed AVIF `<img>` and removes the picture's AVIF `<source>`, so the browser re-selects from the WebP set. An install-time scan also repairs an image that failed before the script ran. The failure is recorded as `<html data-avif-failed>`.
+- After that, `src/lead-image.js` strips AVIF sources from new markup *before* it is inserted. Re-renders keep the repaired lead node, and client-side navigation never requests AVIF again.
+- The lightbox prefers the AVIF zoom file only when the gallery photo itself loaded as AVIF. A decode failure there falls back to WebP, then PNG (`src/zoom-image.js`).
+
+**Forced decode failures.** CDP answered AVIF requests with corrupt bytes labelled `image/avif`. All scenarios passed on a static server and again on the real Worker (`wrangler dev`), with 0 runtime errors and each failing AVIF requested once:
+
+| Scenario | Result |
+|---|---|
+| Control | Hero, BR16 photo and zoom all AVIF |
+| Hero corrupt, before the scripts ran | `hero-background-1200.webp` shown, lead node kept |
+| Hero corrupt, delivered 1.5 s later (after the scripts ran) | `hero-background-1200.webp` shown, lead node kept |
+| All AVIF corrupt, then client navigation to BR16 | BR16 used WebP directly; **0 AVIF requests after the failure**; zoom WebP |
+| BR16 gallery AVIF corrupt @3× | `black1-zoom-1045.webp` shown, lead node kept; zoom WebP |
+| Only the zoom AVIF corrupt @1.75× | Gallery stayed AVIF; lightbox showed `black1-zoom-1045.webp` (1045 px, visible) |
+| Desktop 1280, all AVIF corrupt | `hero-background-1350.webp`, `black1-p3-480.webp`, zoom WebP |
+| AVIF disabled (`Emulation.setDisabledImageTypes`) | WebP everywhere, **0 AVIF requests** |
+
+**Limit.** This handles decode *errors*. A decoder that draws wrong colours or garbage without raising an error cannot be detected in the page. So AVIF stays the default on the strength of the demonstrated fallback, and the exact files still need the real-iPhone check (M1) before release.
+
+## 3–4. Accessibility and zoom
+
+- **Rendered-size scan:** `/`, `/shop`, `/product/br16`, `/product/mi26`, `/about`, `/faq`, `/community`, `/shipping` and `/nope` at 375 @3 and 1280, plus the open cart. Before: 9 px on the cart "Remove" (mobile only; the 11 px override was desktop-only) and the model-switcher "Current". `.sold-out` was also 9 px but renders only when unavailable. After: nothing below 10 px. Guarded by `test/phase4-accessibility.test.js`.
+- **Zoom:** after a synthesized pinch (scale 2.5), one-finger pans, including six at the visual-viewport edge, never changed the image on either build. Control: an unzoomed swipe steps. The `swipeStep` guard (no swipe while `visualViewport.scale > 1`) is defensive only. Not testable here: iOS double-tap (a tap on the lightbox image closes it by design) and Safari page zoom or text size.
+- **Hero overflow:** none at effective widths 390, 320, 260, 430 or landscape 844×300. At 223 px (≈ 175% Safari page zoom on a 390 px phone) content is 260 px wide. That is below the WCAG 320 px reflow width.
+
+## 5. Offer sync: prepared, disabled
+
+It is off in `wrangler.jsonc` (a test enforces that). It runs only if `/product/*` is added to `run_worker_first` and `PRODUCT_OFFER_SYNC` is `on`. Review results:
+
+| Concern | Behaviour | Test |
+|---|---|---|
+| Credentials | None: tokenless Storefront API read (product queries are allowed tokenless) | `no token of any kind` |
+| Market and currency | Query pinned with `@inContext(country: US)`. Verified: the same product returns 155.0 USD for US and 250.0 CAD for CA. Cache key `…/2026-07/US/<handle>`. Non-USD results are rejected | `U.S. market`, `currency-mismatch` |
+| Cache isolation | The result does not depend on the visitor (no buyer IP or token sent, fixed country), so one shared per-edge entry is correct | cache key test |
+| Timeout | 1000 ms via `AbortSignal.timeout`. Worst case: one page view per edge location per minute waits ≤ 1 s | `abort signal` |
+| API failures | HTTP error, invalid JSON, GraphQL `errors` (for example, throttled), timeout, cache failure: page served exactly as built. Failures are remembered for 60 s, so an outage is not retried on every view | `failures … remembered briefly` |
+| Variants | Exactly one variant required (`first: 2`). More than one, none, zero or invalid price, or non-boolean availability: no offer | `anything ambiguous` |
+| HTML/JSON-LD agreement | The Worker never changes the price. It adds `availability` only when Shopify's price equals the page's built JSON-LD price, which equals the visible `<p class="price">` (tested for all three trainers). Otherwise the page is served as built and `offer-price-mismatch` is logged once per fetch | `only availability is added`, `price change … rebuild signal` |
+| Client re-render | `updateSeo()` keeps a `data-anawin-live-offer` block for the same URL, because Googlebot renders JavaScript | `client keeps` |
+| Validators | `ETag`/`Last-Modified` removed, and conditional request headers dropped before fetching the asset | `drops stale validators` |
+
+**Stale-price behaviour that remains.**
+
+- *Today, with sync off:* JSON-LD and the static HTML carry the build-time price, with no availability, until the next deploy. After the app runs, the visible price comes from Shopify. So after a Shopify price change, the JS-rendered visible price differs from the JSON-LD until a rebuild.
+- *With sync on:* the price behaves the same (the Worker never changes it). Availability follows Shopify within 5 minutes, and is omitted for up to 60 s after a failure. After a price change, availability is withheld and `offer-price-mismatch` is logged until a rebuild.
+
+**Rule either way: rebuild and deploy after any Shopify price change.**
+
+Verified in `workerd` after the revision, with a scratch config enabling it and live tokenless reads. BR16, OB16 and CL16 each got the live block: price `155.00` (equal to the visible `$155`) plus `InStock`. A repeat BR16 view was served from the edge cache. A direct read-only request confirmed the market pinning (US 155.0 USD, CA 250.0 CAD).
+
+## 6. CSP reports
+
+- **Header:** `report-uri /api/csp-report` only. In Chrome, `report-uri` alone delivered. With both directives, Chrome sent nothing: `report-to` takes precedence, and Reporting API delivery did not happen on plain-HTTP loopback within 75 s. Cloudflare already sends its own `Report-To` (NEL group `cf-nel`), so `_headers` must not add one.
+- **Endpoint** (`worker/csp-report.js`):
+  - Limits: POST only, three content types, 8 KB body, at most 10 distinct reports per request.
+  - Validation: the directive must match `[a-z-]`; disposition must be `enforce` or `report`; line and status are bounded integers; the document must be a page on the request's own origin, otherwise the report is dropped.
+  - Sanitization: no query strings, fragments, credentials, script samples or control characters. Blocked URLs are reduced to their origin, and third-party source files likewise.
+  - Abuse: a per-IP rate limit (`CSP_REPORT_LIMITER`, 30 per 60 s, namespace `732613`; check that no other Worker in the account uses that id). A limiter error drops the report. Dropped reports still get 204.
+- **Retention** (`wrangler.jsonc`): `observability.enabled: true`, `logs.enabled: true`, `logs.invocation_logs: false`, `logs.head_sampling_rate: 1`. The schema comes from installed Wrangler 4.157.0 (`config-schema.json`), and `wrangler deploy --dry-run` validated it with no warnings. The Worker's only routine `console.log` lines are these summaries (plus a rare `offer-price-mismatch` if offer sync is ever enabled). Each line is one log event: free plan 200,000 per day with 3-day retention; paid plan 20 M per month included. With 30 per minute per IP, a single source can produce at most ~43,000 events a day, while a distributed flood could still use the quota.
+- **Verified in `wrangler dev`:**
+  - 35 reports from one IP: all 204, exactly 30 logged.
+  - A report claiming another site's page: 204, not logged.
+  - A real Chrome violation: logged with the blocked URL reduced to its origin.
+  - GET 405, `text/plain` 415, oversized 413.
+- **After deploy:** confirm in Workers Logs that `csp-violation` lines persist and that no `cf-worker-event` invocation logs appear. Cloudflare's page does not state explicitly that `console.log` lines persist with invocation logs off.
+
+## HSTS: prepared, not applied
+
+Cloudflare › SSL/TLS › Edge Certificates › HTTP Strict Transport Security:
+
+| Setting | Value |
+|---|---|
+| Enable HSTS | On |
+| Max Age | 6 months |
+| Apply HSTS policy to subdomains (`includeSubDomains`) | **Off**, pending verification of every hostname in the DNS list (only the apex and `www` were found) |
+| Preload | **Off** |
+| No-Sniff | On (already sent by `_headers`) |
+
+Live today: `max-age=86400`. Risk: if HTTPS stops working while the policy is cached, browsers cannot reach the site until it expires.
+
+## Owner decisions recorded
+
+- HSTS: prepare six months, subdomains and preload off.
+- Shopify refresh: keep disabled pending this review.
+- CSP: keep it, retain sanitized summaries with invocation logs off.
+- Homepage at 3×: keep the sharp image and current script behaviour; record the miss as unmet.
+
+## Checks run (part 2 revision)
+
+- `npm test` with a local-mode build: 627/627.
+- `git diff --check`: clean. No `.webp` file modified.
+- `wrangler deploy --dry-run`: config valid.
+- `wrangler dev`: CSP endpoint, rate limit and real-browser report; the forced-AVIF-failure suite.
+- Static server: forced-AVIF-failure suite and AVIF-disabled run.
+- Rendered-size scan, pinch test and hero overflow.
+- Fixture-mode commerce run (390 @3 and 1280): lead nodes kept, prices, lightbox by keyboard, cart, checkout enabled, no runtime errors.
+- `scripts/browser/break-in-browser.mjs`: one failure when started immediately after the fixture servers came up (a cold start, probably Vite), then two consecutive passes at 1440 and 375 with the same code.

@@ -168,8 +168,38 @@ export function installLeadFirstLoading({ root = globalThis.document, win = glob
   return () => { if (!done) { done = true; cleanup(); } };
 }
 
+// AVIF fallback (Phase 4 part 2). Lead photos list an AVIF <source> before the WebP one. A browser
+// that claims AVIF support but cannot decode the file fires `error` on the <img> and shows nothing.
+// Removing the AVIF <source> makes the browser select again, from the WebP set. The failure is
+// recorded on <html> so later renders skip AVIF (src/lead-image.js) instead of failing again.
+// Not covered: a decoder that draws wrong pixels without an error. That needs device testing.
+export const AVIF_FAILED_ATTRIBUTE = 'data-avif-failed';
+const AVIF_SOURCE = 'source[type="image/avif"]';
+
+export function fallBackFromAvif(image, root = globalThis.document) {
+  if (image?.tagName !== 'IMG' || !/\.avif(?:$|[?#])/i.test(image.currentSrc || '')) return false;
+  const picture = image.parentElement?.tagName === 'PICTURE' ? image.parentElement : null;
+  if (!picture?.querySelector(AVIF_SOURCE)) return false;
+  root?.documentElement?.setAttribute(AVIF_FAILED_ATTRIBUTE, '');
+  picture.querySelectorAll(AVIF_SOURCE).forEach(source => source.remove());
+  return true;
+}
+
+export function installAvifFallback(root = globalThis.document) {
+  if (!root?.addEventListener) return () => {};
+  const onError = event => fallBackFromAvif(event.target, root);
+  // `error` does not bubble, so listen in the capture phase for every image, including re-rendered ones.
+  root.addEventListener('error', onError, true);
+  // An image can fail before this module runs: it is then complete with no pixels.
+  root.querySelectorAll(`picture ${AVIF_SOURCE} ~ img`).forEach(image => {
+    if (image.complete && image.naturalWidth === 0) fallBackFromAvif(image, root);
+  });
+  return () => root.removeEventListener('error', onError, true);
+}
+
 const api = { installGalleryLoading, firstGalleryPhotoSettled, installLeadFirstLoading };
 if (typeof document !== 'undefined') {
+  installAvifFallback(document);
   globalThis.anawinGalleryLoading = api;
   installGalleryLoading({ gallery: document.querySelector('.pdp-gallery') });
   installLeadFirstLoading();

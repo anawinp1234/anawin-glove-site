@@ -198,10 +198,17 @@ test('static responses carry one restrictive report-only CSP without changing HT
     'style-src': ["'self'", "'unsafe-inline'"],
     'img-src': ["'self'", 'data:'], 'font-src': ["'self'"],
     'connect-src': ["'self'", 'https://ignvv0-zh.myshopify.com', 'https://cdn.judge.me'],
-    'media-src': ["'self'"], 'form-action': ["'self'"]
+    'media-src': ["'self'"], 'form-action': ["'self'"],
+    // Phase 4 part 2: violations go only to the same-origin Worker endpoint (worker/csp-report.js).
+    'report-uri': ['/api/csp-report']
   })) assert.deepEqual(directives.get(name), expected, name);
-  assert.equal(directives.size, 12);
-  assert.doesNotMatch(policy, /\*\.|https?:\/\/\*|unsafe-eval|report-uri|report-to|upgrade-insecure-requests/);
+  assert.equal(directives.size, 13);
+  // report-to is deliberately absent: Chrome ignores report-uri once report-to is set, and Reporting
+  // API delivery could not be verified locally (see docs/phase-4-audit.md). Cloudflare also already
+  // sends its own Report-To header (NEL group cf-nel), so this file must not add one.
+  assert.doesNotMatch(policy, /\*\.|https?:\/\/\*|unsafe-eval|upgrade-insecure-requests|report-to/);
+  assert.equal(values.has('report-to'), false);
+  assert.equal(values.has('reporting-endpoints'), false);
   for (const path of [...Object.keys(seoRoutes), '/404']) {
     const html = path === '/404' ? read('dist/404.html') : htmlFor(path);
     assert.doesNotMatch(html, /http-equiv=["']Content-Security-Policy/i, path);

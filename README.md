@@ -33,8 +33,13 @@ Shopify owns them at runtime.
 
 `public/_headers` adds a Content-Security-Policy-Report-Only header to static
 responses, including prerendered pages and the HTML 404. It does not enforce
-restrictions or configure a reporting endpoint; use browser console reports
-on a production-like preview before considering enforcement. The `/*` rule
+restrictions. Violations are sent with `report-uri` to the same-origin Worker
+endpoint `/api/csp-report` (`worker/csp-report.js`). It rate-limits and validates
+reports, then writes one redacted summary line (no query strings, credentials or
+script samples) to Workers Logs. Per-request invocation logs are disabled in
+`wrangler.jsonc`. Review those
+logs before considering enforcement. `report-to` is deliberately not used: see
+`docs/phase-4-audit.md` (Phase 4 part 2). The `/*` rule
 also sends the header on static assets, where it does not govern the page.
 Worker-generated `/api/*` responses do not inherit `_headers`.
 
