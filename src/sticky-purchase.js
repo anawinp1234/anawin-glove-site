@@ -1,5 +1,6 @@
+// Same color as the page's own mobile Add to cart button (--pdp-accent), including BR16's red.
 export function stickyPurchaseAccent(product) {
-  return product.id === 'black' ? product.swatches[0] : product.accentColor;
+  return product.accentColor;
 }
 
 export function stickyPurchaseVisible({ mobile, originalVisible, purchaseAreaVisible,

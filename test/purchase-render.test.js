@@ -48,12 +48,14 @@ test('every trainer offers accessible break-in choices above Add to Cart', () =>
   }
 });
 
-test('mobile purchase bar reuses each glove color and confirmed product price', () => {
-  const accents = { black: '#202326', blue: '#2560ae', brown: '#9a622d' };
+test("mobile purchase bar matches each page's Add to cart color and confirmed product price", () => {
+  // The same accent as the in-page mobile Add to cart (--pdp-accent); BR16 is red, not its black swatch.
+  const accents = { black: '#d3423e', blue: '#2560ae', brown: '#9a622d' };
   for (const product of localProducts) {
     const confirmed = { ...product, price: 163 };
     const html = createStorefrontRenderer({ products: [confirmed], breakInService }).route(productPath(confirmed));
     assert.equal(stickyPurchaseAccent(product), accents[product.id]);
+    assert.equal(stickyPurchaseAccent(product), product.accentColor);
     assert.match(html, new RegExp(`data-sticky-purchase hidden style="--sticky-accent:${accents[product.id]}"`));
     assert.match(html, /data-sticky-price aria-label="Selected price">\$163/);
     assert.match(html, /data-sticky-add aria-label="Add to cart (BR16|OB16|CL16)" >Add to cart/);
