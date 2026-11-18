@@ -30,6 +30,8 @@ function renderDocument(path) {
     throw new Error('Built index.html must contain exactly one SEO head marker pair.');
   }
   const head = template.slice(0, startAt) + renderSeoHead(path) + template.slice(endAt + end.length);
+  // Availability is live data (worker/product-offer.js); a built page never claims stock or a preorder.
+  if (/schema\.org\/(InStock|PreOrder)/.test(head)) throw new Error(`Prerendered ${path} must not claim availability.`);
   const body = views.header() + (path === '/404' ? '' : views.commerceNotice()) + views.route(path) + views.footer();
   if ((body.match(/<h1\b/g) || []).length !== 1 || !body.includes('<main')) {
     throw new Error(`Prerendered ${path} must contain a main element and exactly one H1.`);
