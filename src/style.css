@@ -899,3 +899,13 @@ body.newsletter-open{overflow:hidden}
 .faq-item h3{margin:0 0 8px;font-size:18px;line-height:1.35}
 .faq-page a{text-decoration:underline;text-underline-offset:3px}
 @media(max-width:760px){.about-next{flex-direction:column;padding:56px 16px}.about-next a{width:100%}}
+/* Preorder: the word "Preorder" and the estimate are always text, never color alone. */
+.full-size-pdp .preorder-status{margin:0 0 24px}
+.preorder-badge{display:inline-block;padding:5px 10px;border:1px solid currentColor;color:color-mix(in srgb,var(--pdp-accent) 70%,#000);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.preorder-ship-estimate{margin:0 0 4px;color:var(--ink);font-size:14px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
+.preorder-payment-note{margin:0 0 12px;color:var(--ink);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.cart-item .cart-preorder-note{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.cart-item .cart-preorder-blocked,.cart-foot .cart-preorder-blocked{color:#8b2929}
+.cart-foot .cart-preorder-disclosure{display:block;text-transform:none;margin:12px 0 0;padding:12px;border:1px solid var(--line);color:var(--ink);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.cart-foot .cart-preorder-disclosure p{margin:0;color:inherit;font-size:12px}
+.cart-foot .cart-preorder-disclosure ul{margin:6px 0;padding-left:18px}

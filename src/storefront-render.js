@@ -1,10 +1,10 @@
-import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, purchasePrice, throwHandLabels } from './catalog.js';
+import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, PREORDER_LABEL, PREORDER_PAYMENT_NOTE, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, preorderShipLine, preorderState, purchasePrice, throwHandLabels } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
 import { shopifyProductId } from './judgeme.js';
 import { validProductReviewLink } from './review-links.js';
-import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections } from './policy-content.js';
+import { warrantyParagraphs, careIntro, careSections, breakInIntro, breakInSections, preorderShippingSection, preorderFaqItems } from './policy-content.js';
 import { normalizePath, productPath, routeMetadata } from './seo.js';
 import { productInfo } from './product-info.js';
 import { stickyPurchaseAccent } from './sticky-purchase.js';
@@ -165,10 +165,18 @@ function productCard(product, index, eagerFirst) {
   </article>`;
 }
 
+// Shopify-loaded data (availability, preorder estimate) when present; otherwise the catalog entry.
+const liveProduct = product => products.find(item => item.id === product.id) || product;
+// A full-size glove is labelled Preorder only once Shopify confirmed it; anything else stays Coming soon.
+const fullSizeStatus = product => preorderState(liveProduct(product)).status === 'active' ? PREORDER_LABEL : 'Coming soon';
+// Preorder policy and FAQ copy appear only while Shopify has confirmed at least one active preorder.
+const preorderActive = () => !commerceError && fullSizeProducts.some(product => fullSizeStatus(product) === PREORDER_LABEL);
+const fullSizeCue = () => `${fullSizeProducts.length} full-size gloves${fullSizeProducts.some(product => fullSizeStatus(product) === PREORDER_LABEL) ? '' : ' · Coming soon'}`;
+
 function fullSizeCard(product, index) {
   return `<article class="product-card full-size-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor)}">
     <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)} full-size glove: ${escapeHtml(product.tone)}">${gloveThumbnail(product, `${product.tone} full-size ANAWIN glove`, fullSizeCardSizes, 'lazy')}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p></div><strong class="coming-soon-label">Coming soon</strong></div>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p></div><strong class="coming-soon-label">${fullSizeStatus(product)}</strong></div>
   </article>`;
 }
 const fullSizeCardSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 92px) / 4)';
@@ -249,13 +257,13 @@ function communityPage() {
 function home() {
   return `<main><section class="hero">${responsivePhoto('/images/hero-background.jpg', 'hero-background', [480, 640, 800, 960, 1200, 1350], '100vw', '', 1350, 1800, 'eager', 'hero-background', 'high', true)}<div class="hero-copy"><p class="eyebrow">ANAWIN / Baseball gloves</p><h1>COMMUNITY<br><em>BUILT</em></h1></div><a href="/shop" data-link class="hero-cta">View all gloves ${arrow()}</a></section>
     <section class="collection"><div class="section-heading"><div><p class="eyebrow">Collection</p><p class="collection-cue">3 trainer gloves</p></div><h2>MINI<br><em>GLOVES</em></h2></div>${productGrid()}</section>
-    <section class="collection full-size-collection" aria-labelledby="full-size-heading"><div class="section-heading"><div><p class="eyebrow">New / Full-size</p><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p></div><h2 id="full-size-heading">FULL-SIZE<br><em>GLOVES</em></h2></div>${fullSizeGrid()}</section>
+    <section class="collection full-size-collection" aria-labelledby="full-size-heading"><div class="section-heading"><div><p class="eyebrow">New / Full-size</p><p class="collection-cue">${fullSizeCue()}</p></div><h2 id="full-size-heading">FULL-SIZE<br><em>GLOVES</em></h2></div>${fullSizeGrid()}</section>
     <section class="community-spotlight" aria-labelledby="discord-heading"><div class="community-spotlight-copy"><p class="eyebrow">ANAWIN COMMUNITY</p><h2 id="discord-heading">BUILT<br>WITH YOU.</h2><p class="community-description">Talk directly with us, vote on what we make next, and connect with other players.</p><div class="community-actions">${discordButton()}<a class="community-explore" href="/community" data-link>See what members get ${arrow()}</a></div></div><div class="community-spotlight-photo">${communityPhoto('lazy')}</div></section>
     ${communitySection()}<section class="statement"><p class="eyebrow">ANAWIN / Baseball gloves</p><div class="statement-mark"><picture><source type="image/webp" srcset="/images/optimized/anawin-mark-240.webp 240w, /images/optimized/anawin-mark-480.webp 480w, /images/optimized/anawin-mark-860.webp 860w" sizes="(max-width: 760px) 55vw, min(38vw, 430px)"><img src="/images/anawin-mark.png" alt="ANAWIN emblem" width="1200" height="800" loading="lazy" /></picture></div><a href="/about" data-link>About ANAWIN ${arrow()}</a></section>
     <section class="newsletter" aria-labelledby="newsletter-heading"><div class="newsletter-copy"><p class="eyebrow">ANAWIN / Email</p><h2 id="newsletter-heading">JOIN OUR<br>NEWSLETTER</h2><p>Be the first to hear about new gloves, releases, and what’s next.</p></div>${newsletterFormMarkup('newsletter')}</section></main>`;
 }
 
-const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>ALL<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="shop-line-heading">MINI GLOVES</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section><section class="shop-products full-size-collection" aria-labelledby="shop-full-size-heading"><h2 id="shop-full-size-heading" class="shop-line-heading">FULL-SIZE GLOVES</h2><p class="collection-cue">${fullSizeProducts.length} full-size gloves · Coming soon</p>${fullSizeGrid()}</section></main>`;
+const shop = () => `<main><section class="page-intro"><p class="eyebrow">Shop</p><h1>ALL<br><em>GLOVES</em></h1></section><section class="shop-products" aria-labelledby="shop-products-heading"><h2 id="shop-products-heading" class="shop-line-heading">MINI GLOVES</h2><p class="collection-cue">3 trainer gloves</p>${productGrid(true)}</section><section class="shop-products full-size-collection" aria-labelledby="shop-full-size-heading"><h2 id="shop-full-size-heading" class="shop-line-heading">FULL-SIZE GLOVES</h2><p class="collection-cue">${fullSizeCue()}</p>${fullSizeGrid()}</section></main>`;
 
 // Coming-soon page: approved product details and an email signup until launch.
 // Selection box outlines run through every colorway color, not just the accent.
@@ -267,15 +275,15 @@ function wristFitChoices() {
   return `<fieldset class="wrist-fit"><legend>Wrist fit <span>Free</span></legend>${WRIST_FITS.map(option => `<label class="break-in-choice"><input type="radio" name="wrist-fit" value="${option.value}"${option.value === 'regular' ? ' checked' : ''}><span><strong>${escapeHtml(option.label)} (${escapeHtml(option.range)})</strong><small>${escapeHtml(option.note)}</small></span></label>`).join('')}</fieldset>`;
 }
 
-function fullSizeBreakInDetails(product) {
+function fullSizeBreakInDetails(product, preorderView = null) {
   const service = fullSizeService;
   const firmnessHelp = { Firm: 'Arrives with a structured feel and more break-in left to do.', Medium: 'Arrives easier to close while keeping some structure.', 'Game Ready': 'Arrives with the softest feel and easiest closure.' };
   const choices = (name, values) => values.map(value => `<label class="break-in-choice"><input type="radio" name="${name}" value="${escapeHtml(value)}"${['full-size-closure-point', ...FULL_SIZE_SHAPING_FIELDS.map(field => field.name)].includes(name) ? ` aria-describedby="${name}-help"` : ''}><span><strong>${escapeHtml(value)}</strong>${name === 'full-size-firmness' ? `<small>${escapeHtml(firmnessHelp[value])}</small>` : ''}</span></label>`).join('');
   const fieldError = name => `<p id="${name}-error" class="full-size-field-error" data-full-size-field-error="${name}" role="alert" hidden></p>`;
   const group = (name, legend, values, help = '') => `<fieldset><legend>${escapeHtml(legend)}</legend>${help ? `<p id="${name}-help" class="full-size-shaping-help">${escapeHtml(help)}</p>` : ''}${choices(name, values)}${fieldError(name)}</fieldset>`;
   return `<section class="full-size-service" aria-label="Full-Service Break-In">
-    <label class="service-option"><input type="checkbox" data-full-size-break-in ${product.comingSoon === false && (commerceLoading || Boolean(commerceError) || !product.available || service.available === false) ? 'disabled' : ''} aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
-    <p class="full-size-service-availability">Available to add when this glove launches.</p>
+    <label class="service-option"><input type="checkbox" data-full-size-break-in ${preorderView && preorderView !== 'open' || product.comingSoon === false && (commerceLoading || Boolean(commerceError) || !product.available || service.available === false) ? 'disabled' : ''} aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
+    ${preorderView === 'open' ? '' : '<p class="full-size-service-availability">Available to add when this glove launches.</p>'}
     <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
       ${group('full-size-wearing-style', 'How do you wear your glove?', service.wearingStyles)}
       <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea>${fieldError('full-size-finger-placement')}</div>
@@ -288,8 +296,31 @@ function fullSizeBreakInDetails(product) {
     </section></section>`;
 }
 
+// Preorder views: 'open' (Shopify confirmed), 'checking' (not yet loaded) or 'unavailable' (fails closed).
+function fullSizePreorderView(product) {
+  const preorder = preorderState(product);
+  if (preorder.status === 'inactive') return { view: null };
+  if (commerceLoading) return { view: 'checking' };
+  return !commerceError && preorder.status === 'active' ? { view: 'open', estimate: preorder.estimate } : { view: 'unavailable' };
+}
+
+function fullSizePurchase(product, purchasable, { view, estimate }) {
+  if (view === 'open') return `<p id="full-size-ship-estimate" class="preorder-ship-estimate">${escapeHtml(preorderShipLine(estimate))}</p>
+      <p id="full-size-payment-note" class="preorder-payment-note">${escapeHtml(PREORDER_PAYMENT_NOTE)}</p>
+      <button type="button" class="add-button" data-add="${escapeHtml(product.id)}" aria-describedby="full-size-ship-estimate full-size-payment-note full-size-setup-summary">${PREORDER_LABEL}</button>`;
+  if (view === 'checking') return '<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Checking availability…</button>';
+  if (view === 'unavailable') return `<p id="full-size-preorder-status" class="purchase-status">${escapeHtml(product.name)} isn’t available to order right now. Sign up below to hear when it is.</p>
+      <button type="button" class="add-button" disabled aria-describedby="full-size-preorder-status full-size-setup-summary">Unavailable</button>`;
+  return purchasable ? `<button type="button" class="add-button" data-add="${escapeHtml(product.id)}" aria-describedby="full-size-setup-summary">Add to cart</button>` : '<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>';
+}
+
 function fullSizePage(product) {
-  const purchasable = product.comingSoon === false && product.available && !commerceLoading && !commerceError;
+  const preorder = fullSizePreorderView(product);
+  const purchasable = preorder.view ? preorder.view === 'open' : product.comingSoon === false && product.available && !commerceLoading && !commerceError;
+  const availabilityLabel = preorder.view === 'open' ? `<p class="preorder-status"><span class="preorder-badge">${PREORDER_LABEL}</span></p>`
+    : preorder.view === 'checking' ? ''
+      : preorder.view === 'unavailable' ? '<p class="coming-soon-price">Currently unavailable</p>'
+        : purchasable ? '' : '<p class="coming-soon-price">Coming soon</p>';
   const accentStyle = `--pdp-accent:${escapeHtml(product.accentColor)};--pdp-accent-background:${escapeHtml(product.accentBackground)};${outlineStyle(product)}`;
   const count = product.images.length;
   const modelSwitcher = `<nav class="model-switcher" aria-label="Full-size glove colorways"><span class="model-switcher-label">Colorways</span><div class="model-switcher-options">${fullSizeProducts.map(model => model.id === product.id
@@ -298,14 +329,14 @@ function fullSizePage(product) {
   const trainer = products.find(other => other.id === otherGlovePairings[product.id]);
   const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
   return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, 'lazy', galleryLoading(i))}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
-    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p>${purchasable ? '' : '<p class="coming-soon-price">Coming soon</p>'}<p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
+    <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p>${availabilityLabel}<p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
       <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
       ${wristFitChoices()}
-      ${fullSizeBreakInDetails(product)}
+      ${fullSizeBreakInDetails(product, preorder.view)}
       <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
       <p data-full-size-error role="alert" tabindex="-1" hidden></p>
-      ${purchasable ? `<button type="button" class="add-button" data-add="${escapeHtml(product.id)}" aria-describedby="full-size-setup-summary">Add to cart</button>` : '<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon</button>'}
-      <section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>
+      ${fullSizePurchase(product, purchasable, preorder)}
+      ${preorder.view === 'open' ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}
       ${productAccordions(product)}
 
       <div class="purchase-trust" aria-label="Store information"><p><a href="/shipping" data-link>Free U.S. shipping</a> <span aria-hidden="true">·</span> <a href="/returns" data-link>30-day returns</a> <span aria-hidden="true">·</span> <a href="/warranty" data-link>1-year limited warranty</a></p></div>
@@ -353,7 +384,7 @@ function productPage(product) {
 
 function gloveLinkCard(product) {
   const role = product.line === 'full-size' ? product.specs.find(([label]) => label === 'Position')[1] : 'Trainer';
-  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small>${product.comingSoon ? '<small class="other-glove-status">Coming soon</small>' : ''}</span>${arrow()}</a>`;
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small>${product.line === 'full-size' && (product.comingSoon || fullSizeStatus(product) === PREORDER_LABEL) ? `<small class="other-glove-status">${fullSizeStatus(product)}</small>` : ''}</span>${arrow()}</a>`;
 }
 
 function about() {
@@ -385,7 +416,7 @@ const supportEmail = '<a href="mailto:support@anawinofficial.com">support@anawin
 const faqGroups = () => [
   ['Sizing & fit', [
     ['What size are the trainer gloves?', `<p>The BR16, OB16, and CL16 are all 10.25-inch defensive training gloves. They come in one size.</p>`],
-    ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves, all coming soon:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
+    ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves${preorderActive() ? '' : ', all coming soon'}:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
     ['What is wrist fit?', `<p>Every glove ships with a regular wrist strap, about a 7–7.5 inch opening. If you have smaller or narrower hands, you can choose Tightened when you order, and our team will tighten the strap to about a 6.5–7 inch opening. Wrist fit is free.</p>`]
   ]],
   ['Throwing hand', [
@@ -405,6 +436,8 @@ const faqGroups = () => [
     ['Where do you ship?', `<p>We ship to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines. U.S. standard shipping is free. International rates are calculated at checkout.</p>`],
     ['How long will my order take?', `<p>Orders are processed within 1–3 business days. Break-In Service adds 2–5 business days. U.S. standard shipping usually arrives 3–7 business days after the order ships. International delivery times vary, and available estimates are shown at checkout.</p><p>See the <a href="/shipping" data-link>Shipping Policy</a> for details.</p>`]
   ]],
+  ...(preorderActive() ? [['Preorders', preorderFaqItems.map(({ question, paragraphs }) => [question, paragraphs.map(text => `<p>${escapeHtml(text)}</p>`).join('')])
+    .concat([['How do I pay for a preorder?', `<p>${escapeHtml(PREORDER_PAYMENT_NOTE)}</p>`]])]] : []),
   ['Returns & exchanges', [
     ['What is your return policy?', `<p>Eligible gloves can be returned within 30 days of delivery. They must be unused or only lightly tried on, free from game or practice use, and free from alterations or damage. Gloves that received our Break-In Service can still be returned if they meet these requirements.</p><p>To start a return, email ${supportEmail} with your order number and the reason for the return. Eligible U.S. returns get a prepaid return label. Approved refunds are issued within 3–5 business days after we receive and inspect the glove.</p><p>See the <a href="/returns" data-link>Returns &amp; Refunds Policy</a> for details.</p>`],
     ['Can I exchange my glove?', `<p>For exchange requests, contact the ANAWIN team at ${supportEmail}.</p><p>For returns, see the <a href="/returns" data-link>Returns &amp; Refunds Policy</a>.</p>`],
@@ -429,6 +462,7 @@ function shippingPolicy() {
     <section><h2>United States</h2><p>Standard Shipping — FREE</p></section>
     <section><h2>Canada, Australia, Japan, South Korea, Mexico &amp; the Philippines</h2><p>International shipping rates and available services are calculated at checkout based on destination and shipping method.</p></section>
     <section><h2>Processing Times</h2><p>Orders are processed within 1–3 business days.</p><p>Break-In Service adds 2–5 business days.</p><p>Business days exclude weekends and holidays.</p></section>
+    ${preorderActive() ? `<section class="preorder-policy"><h2>${escapeHtml(preorderShippingSection.heading)}</h2>${[...preorderShippingSection.paragraphs, PREORDER_PAYMENT_NOTE].map(text => `<p>${escapeHtml(text)}</p>`).join('')}</section>` : ''}
     <section><h2>Delivery Estimates</h2><p>U.S. standard shipping is typically delivered in 3–7 business days after shipment.</p><p>International delivery times vary by destination and shipping service. Available transit estimates are shown at checkout.</p><p>Delivery estimates begin once the carrier has received the package and may vary due to carrier delays, weather, holidays, or other circumstances outside ANAWIN's control.</p></section>
     <section><h2>International Orders</h2><p>Applicable duties, taxes, and import charges are shown at checkout when available.</p></section>
     <section><h2>Tracking</h2><p>When available, tracking information will be provided after the order ships.</p></section>
