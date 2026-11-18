@@ -1,0 +1,139 @@
+{%- comment -%}
+  ANAWIN preorder acknowledgment block for Shopify Admin > Settings >
+  Notifications > Customer notifications > Order confirmation (Edit code).
+  Install guide: docs/preorder-emails/README.md.
+
+  Contract (shared with the storefront):
+    - product tag:        preorder
+    - product metafield:  custom.preorder_ship_estimate (single line text)
+  A line gets the notice only when its product has the tag AND a non-blank
+  estimate AND it is a shipped item. The $75/$20 Break-In Service products are
+  not shipped items and are never tagged, so they never get their own notice.
+  If no line qualifies, this snippet outputs nothing (fails silent).
+
+  Preferred source: the order attribute "Preorder estimated ship", which the
+  storefront writes at checkout handoff from the same approved estimates (for
+  example "BL50: first week of …; MI26: first week of …"). It records what the
+  customer saw when they paid, so it is used first. The tag + metafield loop
+  below runs only for orders without that attribute.
+
+  Preview only: to see the block in Shopify's Preview, type an estimate between
+  the quotes below, click Preview, then clear it again BEFORE clicking Save.
+  It is only used when the order has no real preorder lines.
+{%- endcomment -%}
+{%- assign anawin_preorder_preview_estimate = '' -%}
+
+{%- assign anawin_snapshot = attributes['Preorder estimated ship'] | default: '' | strip -%}
+{%- if anawin_snapshot != blank -%}
+  {%- assign anawin_snapshot_entries = anawin_snapshot | split: '; ' -%}
+<table class="row section anawin-preorder">
+  <tr>
+    <td class="section__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+              <h3>Preorder</h3>
+              <p>Thank you for your ANAWIN preorder. {% if anawin_snapshot_entries.size > 1 %}Your gloves are reserved.{% else %}Your glove is reserved.{% endif %}</p>
+              {%- for anawin_snapshot_entry in anawin_snapshot_entries -%}
+                {%- assign anawin_snap_model = anawin_snapshot_entry | split: ': ' | first | strip -%}
+                {%- assign anawin_snap_estimate = anawin_snapshot_entry | remove_first: anawin_snap_model | remove_first: ':' | strip -%}
+                {%- if anawin_snap_model != blank and anawin_snap_estimate != blank %}
+              <p><strong>{{ anawin_snap_model | escape }}</strong><br>Estimated to ship: {{ anawin_snap_estimate | escape }}</p>
+                {%- endif -%}
+              {%- endfor %}
+              <p>This is our current estimate, not a fixed ship or delivery date. If it changes, we’ll email you an update.</p>
+              <p>Any Break-In Service on a preorder glove is completed before that glove ships. Items that are not preorders may ship separately.</p>
+              <p>We’ll email you tracking information once your order ships.</p>
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+{%- else -%}
+
+{%- assign anawin_sep = '~~' -%}
+{%- assign anawin_estimates = anawin_sep -%}
+{%- assign anawin_preorder_count = 0 -%}
+{%- assign anawin_has_standard_items = false -%}
+{%- assign anawin_has_break_in = false -%}
+
+{%- for line in line_items -%}
+  {%- if line.quantity > 0 and line.requires_shipping -%}
+    {%- assign anawin_mf = line.product.metafields.custom.preorder_ship_estimate -%}
+    {%- assign anawin_estimate = anawin_mf.value | default: anawin_mf | default: '' | strip | replace: anawin_sep, '~' -%}
+    {%- if line.product.tags contains 'preorder' and anawin_estimate != blank -%}
+      {%- assign anawin_preorder_count = anawin_preorder_count | plus: line.quantity -%}
+      {%- assign anawin_key = anawin_sep | append: anawin_estimate | append: anawin_sep -%}
+      {%- unless anawin_estimates contains anawin_key -%}
+        {%- assign anawin_estimates = anawin_estimates | append: anawin_estimate | append: anawin_sep -%}
+      {%- endunless -%}
+      {%- for anawin_property in line.properties -%}
+        {%- if anawin_property.first == '_anawin_service' and anawin_property.last == 'break-in' -%}
+          {%- assign anawin_has_break_in = true -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- else -%}
+      {%- assign anawin_has_standard_items = true -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- assign anawin_preview = false -%}
+{%- assign anawin_preview_estimate = anawin_preorder_preview_estimate | strip -%}
+{%- if anawin_preorder_count == 0 and anawin_preview_estimate != blank -%}
+  {%- assign anawin_preview = true -%}
+  {%- assign anawin_preorder_count = 1 -%}
+  {%- assign anawin_estimates = anawin_sep | append: anawin_preview_estimate | append: anawin_sep -%}
+{%- endif -%}
+
+{%- if anawin_preorder_count > 0 -%}
+  {%- assign anawin_estimate_list = anawin_estimates | split: anawin_sep -%}
+<table class="row section anawin-preorder">
+  <tr>
+    <td class="section__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+              <h3>Preorder</h3>
+              <p>Thank you for your ANAWIN preorder. {% if anawin_preorder_count > 1 %}Your gloves are reserved.{% else %}Your glove is reserved.{% endif %}</p>
+              {%- for anawin_group_estimate in anawin_estimate_list -%}
+                {%- if anawin_group_estimate != blank %}
+              <p>
+                {%- if anawin_preview -%}
+                <strong>Sample preorder glove</strong><br>
+                {%- else -%}
+                  {%- for line in line_items -%}
+                    {%- if line.quantity > 0 and line.requires_shipping and line.product.tags contains 'preorder' -%}
+                      {%- assign anawin_mf = line.product.metafields.custom.preorder_ship_estimate -%}
+                      {%- assign anawin_estimate = anawin_mf.value | default: anawin_mf | default: '' | strip | replace: anawin_sep, '~' -%}
+                      {%- if anawin_estimate == anawin_group_estimate %}
+                <strong>{{ line.title | escape }}</strong>{% if line.quantity > 1 %} &times; {{ line.quantity }}{% endif %}<br>
+                      {%- endif -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                {%- endif %}
+                Estimated to ship: {{ anawin_group_estimate | escape }}
+              </p>
+                {%- endif -%}
+              {%- endfor %}
+              <p>This is our current estimate, not a fixed ship or delivery date. If it changes, we’ll email you an update.</p>
+              {%- if anawin_has_break_in %}
+              <p>{% if anawin_preorder_count > 1 %}Break-In Service is completed before each serviced glove ships.{% else %}Your Break-In Service will be completed before your glove ships.{% endif %}</p>
+              {%- endif -%}
+              {%- if anawin_has_standard_items %}
+              <p>Other items in this order are not preorder items and may ship separately.</p>
+              {%- endif %}
+              <p>We’ll email you tracking information once your order ships.</p>
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+{%- endif -%}
+{%- endif -%}
