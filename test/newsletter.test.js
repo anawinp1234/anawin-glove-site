@@ -7,7 +7,7 @@ import { breakInService, localProducts } from '../src/catalog.js';
 test('Home places the labeled signup above the footer with explicit unchecked consent', () => {
   const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
   const home = renderer.route('/');
-  assert.match(home, /JOIN OUR<br>COMMUNITY/);
+  assert.match(home, /JOIN OUR<br>NEWSLETTER/);
   assert.match(home, /Be the first to hear about new gloves, releases, and what’s next\./);
   assert.match(home, /<label class="visually-hidden" for="newsletter-email">Email address<\/label>/);
   assert.match(home, /type="email"[^>]*required/);
