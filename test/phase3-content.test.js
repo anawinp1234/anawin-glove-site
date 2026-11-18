@@ -44,7 +44,7 @@ test('the About page tells one origin story and links shoppers onward', () => {
   const html = renderer.route('/about');
   assert.equal((html.match(/sixth grade/g) || []).length, 1);
   assert.equal((html.match(/<h2[^>]*>OUR STORY<\/h2>/g) || []).length, 1);
-  assert.ok(html.includes('<p><strong>We’re building ANAWIN from the ground up and we\'ve been documenting each and every step We want you to be part of the journey and what comes next</strong></p>'));
+  assert.ok(html.includes('<p><strong>We’re building ANAWIN from the ground up, and we’ve been documenting each and every step. We want you to be part of the journey and what comes next.</strong></p>'));
   assert.ok(!html.includes('It was built with them.'));
   assert.match(html, /HOW WE<br>BUILD GLOVES/);
   for (const path of ['/shop', '/faq', '/community']) assert.match(html, new RegExp(`class="about-next"[^]*href="${path}"`));
