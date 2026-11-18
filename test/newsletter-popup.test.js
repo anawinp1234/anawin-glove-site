@@ -65,7 +65,7 @@ test('popup and inline markup use the same labeled, unchecked newsletter form wi
   const popup = newsletterPopupMarkup();
   assert.match(popup, /<dialog class="newsletter-dialog" aria-labelledby="newsletter-popup-heading" aria-describedby="newsletter-popup-copy">/);
   assert.match(popup, /aria-label="Close newsletter signup"/);
-  assert.match(popup, /JOIN OUR<br>COMMUNITY/);
+  assert.match(popup, /JOIN OUR<br>NEWSLETTER/);
   assert.match(popup, /Be the first to hear about new gloves, releases, and what’s next\./);
   assert.match(inline, /for="newsletter-email"/);
   assert.match(popup, /for="newsletter-popup-email"/);

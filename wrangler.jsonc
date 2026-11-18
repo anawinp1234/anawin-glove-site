@@ -13,8 +13,15 @@
   },
   "ratelimits": [
     { "name": "NEWSLETTER_IP_LIMITER", "namespace_id": "732611", "simple": { "limit": 30, "period": 60 } },
-    { "name": "NEWSLETTER_EMAIL_LIMITER", "namespace_id": "732612", "simple": { "limit": 3, "period": 60 } }
+    { "name": "NEWSLETTER_EMAIL_LIMITER", "namespace_id": "732612", "simple": { "limit": 3, "period": 60 } },
+    { "name": "CSP_REPORT_LIMITER", "namespace_id": "732613", "simple": { "limit": 30, "period": 60 } }
   ],
+  // Keep only what the Worker logs on purpose (redacted CSP report summaries, worker/csp-report.js),
+  // not one invocation log per request.
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": false, "head_sampling_rate": 1 }
+  },
   "assets": {
     "directory": "./dist/",
     "binding": "ASSETS",
