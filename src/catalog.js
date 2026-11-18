@@ -236,9 +236,11 @@ const fullSizeSpecs = (size, position, web, details, throwHands) => [
   ...details, ['Throw hand', throwHands.map(hand => throwHandLabels[hand]).join(' or ')]
 ];
 
+// `preorder` stays disabled until the owner approves a ship estimate; see docs/preorder-website.md.
 export const fullSizeProducts = Object.freeze([
   {
     id: 'full-mint', color: 'mint', name: 'MI26', line: 'full-size', comingSoon: true,
+    preorder: { enabled: false, shipEstimate: null },
     title: 'Mint 12″ Japanese Kip Pitcher’s Glove', descriptor: '12″ Japanese Kip Pitcher’s Glove',
     price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'A 12-inch Japanese Kip pitcher’s glove with a closed web and an external index finger hood. The solid panel helps keep your grip out of view on the mound, and the carved design on the outside gives this glove its signature look. If you wear your index finger outside the glove, you can tuck it under the hood.',
@@ -248,6 +250,7 @@ export const fullSizeProducts = Object.freeze([
   },
   {
     id: 'full-black', color: 'black', name: 'BL50', line: 'full-size', comingSoon: true,
+    preorder: { enabled: false, shipEstimate: null },
     title: 'Black 12.75″ Japanese Kip Outfield Glove', descriptor: '12.75″ Japanese Kip Outfield Glove',
     price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'A 12.75-inch Japanese Kip glove built for the outfield. It’s the longest model in the ANAWIN Kip Series and pairs that extra length with an open H-web. A carved ANAWIN logo on the thumb adds detail to the all-black design.',
@@ -257,6 +260,7 @@ export const fullSizeProducts = Object.freeze([
   },
   {
     id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: true,
+    preorder: { enabled: false, shipEstimate: null },
     title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
     price: 285, currencyCode: 'USD', throwHands: rightHandOnly,
     pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. The CM24 is the more compact of the two infield models in the ANAWIN Kip Series. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
@@ -266,6 +270,7 @@ export const fullSizeProducts = Object.freeze([
   },
   {
     id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: true,
+    preorder: { enabled: false, shipEstimate: null },
     title: 'Orange 11.75″ Japanese Kip Infield Glove', descriptor: '11.75″ Japanese Kip Infield Glove',
     price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. The OR17 is the longer of the two infield models in the ANAWIN Kip Series, a quarter inch longer than the CM24. The thumb features a carved ANAWIN logo.',
@@ -274,6 +279,64 @@ export const fullSizeProducts = Object.freeze([
     tone: 'Orange / Gold / Chestnut Brown', swatches: ['#e8732a', '#b9973f', '#70452f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange')
   }
 ]);
+
+// Single source for preorder wording and Shopify contract names. The product page, cart, policy
+// pages, FAQ and order attribute all use these; docs/preorder-emails/ must match them exactly.
+export const PREORDER_LABEL = 'Preorder';
+export const PREORDER_TAG = 'preorder';
+export const PREORDER_METAFIELD = Object.freeze({ namespace: 'custom', key: 'preorder_ship_estimate' });
+export const PREORDER_ESTIMATE_PREFIX = 'Estimated to ship:';
+// Cart attribute written at checkout handoff; Shopify copies it onto the order (Liquid: attributes).
+export const PREORDER_ORDER_ATTRIBUTE = 'Preorder estimated ship';
+export const PREORDER_PAYMENT_NOTE = 'Preorders are paid in full at checkout, the same as in-stock items.';
+const shipEstimateText = value => typeof value === 'string' && value.trim() ? value.trim() : null;
+export const preorderShipLine = estimate => `${PREORDER_ESTIMATE_PREFIX} ${estimate}`;
+// '' for a blank estimate, so callers fail silent instead of showing an empty or invented timeframe.
+export const preorderEstimateLine = estimate => shipEstimateText(estimate) ? preorderShipLine(shipEstimateText(estimate)) : '';
+export const preorderCartNote = estimate => `${PREORDER_LABEL} · ${preorderShipLine(estimate)}`;
+
+// Store-level checkout facts the preorder disclosure depends on. The Storefront API cannot read the
+// payment capture mode, so this stays false until the owner confirms in Shopify Admin > Settings >
+// Payments that capture is automatic and no selling plan or deferred payment applies to preorder
+// gloves. While false, no preorder can be sold (preorderState returns 'blocked').
+export const PREORDER_CHECKOUT = { chargedInFullAtCheckout: false };
+
+// The catalog alone says a model is meant to be sold as a preorder. Shopify must still confirm it.
+export function preorderConfigured(product) {
+  return product?.line === 'full-size' && product.comingSoon === false && product.preorder?.enabled === true &&
+    Boolean(shipEstimateText(product.preorder.shipEstimate)) && PREORDER_CHECKOUT.chargedInFullAtCheckout === true;
+}
+
+// Fails closed. 'active' needs comingSoon false, preorder enabled, an approved estimate, the same
+// custom.preorder_ship_estimate from Shopify, confirmed full payment at checkout and a Shopify variant
+// available for sale. 'blocked' must never be sold. 'inactive' means not a preorder (Coming Soon or a normal sale).
+export function preorderState(product) {
+  if (product?.line !== 'full-size' || product.comingSoon !== false) return { status: 'inactive', reason: 'coming-soon' };
+  const shopifyEstimate = shipEstimateText(product.shopifyPreorderShipEstimate);
+  if (product.preorder?.enabled !== true) {
+    return shopifyEstimate ? { status: 'blocked', reason: 'not-enabled' } : { status: 'inactive', reason: 'not-enabled' };
+  }
+  const estimate = shipEstimateText(product.preorder.shipEstimate);
+  if (!estimate) return { status: 'blocked', reason: 'missing-estimate' };
+  if (!shopifyEstimate) return { status: 'blocked', reason: 'missing-shopify-estimate' };
+  if (shopifyEstimate !== estimate) return { status: 'blocked', reason: 'estimate-mismatch' };
+  if (PREORDER_CHECKOUT.chargedInFullAtCheckout !== true) return { status: 'blocked', reason: 'payment-unverified' };
+  if (product.available !== true) return { status: 'blocked', reason: 'unavailable' };
+  return { status: 'active', estimate };
+}
+
+// One stable cart attribute value for the active preorder gloves in a cart, e.g.
+// "BL50: first week of December 2026; MI26: first week of December 2026". '' when there are none.
+export function preorderOrderAttributeValue(lines, productById) {
+  const entries = new Map();
+  for (const line of lines || []) {
+    if (line.isBreakIn) continue;
+    const product = productById(line.productId);
+    const state = preorderState(product);
+    if (state.status === 'active') entries.set(product.name, state.estimate);
+  }
+  return [...entries].sort(([a], [b]) => a.localeCompare(b)).map(([name, estimate]) => `${name}: ${estimate}`).join('; ');
+}
 
 // Synchronous SHA-256 keeps cart validation synchronous in the browser. The
 // fingerprint binds the private parent identity to the service's instructions;

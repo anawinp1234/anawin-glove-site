@@ -1,4 +1,4 @@
-import { fullSizeProducts, fullSizeBreakInService, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
+import { fullSizeProducts, fullSizeBreakInService, preorderState, preorderOrderAttributeValue, PREORDER_ORDER_ATTRIBUTE, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
 import { codeKey, discountCodeList } from './cart-discounts.js';
 import { createCheckoutVerifier, verifiedCheckoutUrl } from './checkout-safety.js';
 
@@ -194,12 +194,14 @@ export async function shopifyRequest(config, query, variables = {}, fetchImpl = 
 const PRODUCT_QUERY = `query ProductByHandle($handle: String!) {
   product(handle: $handle) {
     id title handle
+    preorderShipEstimate: metafield(namespace: "custom", key: "preorder_ship_estimate") { value }
     variants(first: 20) { nodes { id availableForSale selectedOptions { name value } price { amount currencyCode } } }
   }
 }`;
 
 const CART_FIELDS = `
   id checkoutUrl
+  attributes { key value }
   cost { subtotalAmount { amount currencyCode } }
   discountCodes { code applicable }
   discountApplications {
@@ -298,6 +300,7 @@ function normalizeShopifyCart(cart, handleToProductId, breakInHandle) {
   const normalized = {
     id: cart.id,
     checkoutUrl: cart.checkoutUrl,
+    attributes: (cart.attributes || []).map(({ key, value }) => ({ key, value })),
     subtotal: Number(cart.cost.subtotalAmount.amount),
     currencyCode: cart.cost.subtotalAmount.currencyCode,
     discountCodes: (cart.discountCodes || []).map(discount => ({ code: discount.code, applicable: discount.applicable === true })),
@@ -640,6 +643,25 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   const removeLines = (cartId, lineIds, kind = 'removal') => mutateCart(`mutation RemoveLines($cartId: ID!, $lineIds: [ID!]!) {
     cartLinesRemove(cartId: $cartId, lineIds: $lineIds) { cart { ${CART_FIELDS} } userErrors { message } }
   }`, { cartId, lineIds }, 'cartLinesRemove', kind);
+
+  // Snapshot of the approved preorder estimates as one cart attribute, which Shopify copies onto the
+  // order. Cart-level, so glove/service line attributes, configuration fingerprints, wrist fit and
+  // parent links are untouched. cartAttributesUpdate is sent the complete attribute list (Shopify's
+  // docs do not say whether it merges or replaces); a removal that leaves the key behind is retried
+  // with a blank value, and the result must match exactly or checkout stays blocked.
+  const preorderAttribute = cart => (cart.attributes || []).find(attribute => attribute.key === PREORDER_ORDER_ATTRIBUTE)?.value?.trim() || '';
+  async function syncPreorderOrderAttribute(cart) {
+    const value = preorderOrderAttributeValue(cart.lines, id => products.find(product => product.id === id));
+    if (preorderAttribute(cart) === value) return cart;
+    const others = (cart.attributes || []).filter(attribute => attribute.key !== PREORDER_ORDER_ATTRIBUTE);
+    const write = attributes => mutateCart(`mutation UpdateCartAttributes($cartId: ID!, $attributes: [AttributeInput!]!) {
+      cartAttributesUpdate(cartId: $cartId, attributes: $attributes) { cart { ${CART_FIELDS} } userErrors { message } warnings { code message target } }
+    }`, { cartId: cart.id, attributes }, 'cartAttributesUpdate', 'preorder details');
+    let updated = await write(value ? [...others, { key: PREORDER_ORDER_ATTRIBUTE, value }] : others);
+    if (!value && preorderAttribute(updated)) updated = await write([...others, { key: PREORDER_ORDER_ATTRIBUTE, value: '' }]);
+    if (preorderAttribute(updated) !== value) throw new Error('Shopify did not save the preorder details.');
+    return updated;
+  }
 
   async function updateDiscountCodes(cartId, discountCodes) {
     if (storage?.getItem(SHOPIFY_CART_KEY) !== cartId) {
@@ -1177,7 +1199,9 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       products = [...localProducts, ...fullSizeProducts.filter(product => config.handles[product.id])].map(local => {
         const remote = entries.find(([id]) => id === local.id)[1];
         const variant = remote.variants.nodes[0];
-        return { ...local, handle: remote.handle, shopifyProductGid: remote.id, merchandiseId: variant.id, price: Number(variant.price.amount), currencyCode: variant.price.currencyCode, available: local.line === 'full-size' ? remote.variants.nodes.some(variant => variant.availableForSale) : variant.availableForSale, variants: remote.variants.nodes };
+        return { ...local, handle: remote.handle, shopifyProductGid: remote.id, merchandiseId: variant.id, price: Number(variant.price.amount), currencyCode: variant.price.currencyCode, available: local.line === 'full-size' ? remote.variants.nodes.some(variant => variant.availableForSale) : variant.availableForSale, variants: remote.variants.nodes,
+          // Optional Shopify-side estimate; null when the metafield is unset or not exposed to the Storefront API.
+          ...(local.line === 'full-size' ? { shopifyPreorderShipEstimate: typeof remote.preorderShipEstimate?.value === 'string' ? remote.preorderShipEstimate.value : null } : {}) };
       });
       return products;
     },
@@ -1240,6 +1264,23 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       try {
         return await recoveryLocks.request('anawin-shopify-cart-recovery', { ifAvailable: true }, async lock => {
           if (!lock) return blocked('A cart change is still being checked. Check your cart before checkout.');
+          // A preorder glove that can no longer be confirmed is never handed to checkout.
+          const unconfirmed = (cart => cart.lines.some(line => !line.isBreakIn &&
+            preorderState(products.find(product => product.id === line.productId)).status === 'blocked'));
+          if (unconfirmed(displayedCart)) return blocked('A preorder glove in your cart isn’t available right now. Remove it to continue.');
+          // Only carts with preorder details (an active preorder glove, or a snapshot left from one) do
+          // the extra read and attribute write; every other checkout path is unchanged.
+          const hasPreorderDetails = cart => Boolean(preorderAttribute(cart) ||
+            preorderOrderAttributeValue(cart.lines, id => products.find(product => product.id === id)));
+          if (hasPreorderDetails(displayedCart)) {
+            const detailsFailed = () => blocked('Couldn’t save your preorder details with Shopify. Check your cart and try again.');
+            let current;
+            try { current = await getMutationCart(); } catch { return detailsFailed(); }
+            if (current.id && !current.incomplete && current.lines.length) {
+              if (unconfirmed(current)) return blocked('A preorder glove in your cart isn’t available right now. Remove it to continue.');
+              try { await syncPreorderOrderAttribute(current); } catch { return detailsFailed(); }
+            }
+          }
           const verify = createCheckoutVerifier({ getCart, readSafety: () => api.readCartSafety() });
           const result = await verify(displayedCart, options);
           if (result.status !== 'ready') return result;
@@ -1285,6 +1326,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     async addProduct(productId, includeBreakIn, options = DEFAULT_BREAK_IN, merchandiseId = null, wristFit = 'regular') {
       const product = products.find(item => item.id === productId);
       if (!product?.merchandiseId || !product.available) throw new Error('This glove is not currently available from Shopify.');
+      // A preorder that cannot be confirmed (missing or mismatched estimate) is never sold.
+      if (preorderState(product).status === 'blocked') throw new Error('This glove is not currently available for preorder.');
       const fullSize = product.line === 'full-size';
       const variant = fullSize ? product.variants.find(variant => variant.id === merchandiseId && variant.availableForSale) : null;
       if (fullSize && !variant) throw new Error('Choose an available throw hand.');

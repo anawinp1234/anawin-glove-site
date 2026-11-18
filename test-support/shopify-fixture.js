@@ -13,7 +13,10 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
   subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
   discountScenario = null, discountWarnings = [], serviceState = 'available', serviceHandle = 'break-in', timeoutMs,
-  recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, checkoutHost = 'store.myshopify.com' } = {}) {
+  recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, checkoutHost = 'store.myshopify.com',
+  cartAttributesMode = 'replace', metafields = {} } = {}) {
+  // Cart-level attributes. Shopify does not document whether cartAttributesUpdate replaces or merges, so both are modelled.
+  let cartAttributes = [];
   const config = {
     domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16', ...(fullSize ? { 'full-mint': 'mi26', 'full-black': 'bl50', 'full-orange': 'or17', 'full-camel': 'cm24' } : {}) }, breakInHandle: serviceHandle, timeoutMs
@@ -88,7 +91,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     const currentPrices = state.discountedPrices || discountedPrices;
     const currentAllocations = state.discountAllocations || discountAllocations;
     return ({
-    id, checkoutUrl: `https://${checkoutHost}/checkouts/${id.split('/').at(-1)}`,
+    id, checkoutUrl: `https://${checkoutHost}/checkouts/${id.split('/').at(-1)}`, attributes: structuredClone(cartAttributes),
     discountCodes: structuredClone(state.discountCodes || discountCodes), discountApplications: structuredClone(state.discountApplications || discountApplications),
     cost: { subtotalAmount: { amount: String(state.subtotalOverride ?? subtotalOverride ?? cartLines.reduce((sum, line) =>
       sum + line.quantity * Number(finalUnitPrice(line.merchandise.product.handle, currentPrices)), 0)), currencyCode: 'USD' } },
@@ -191,6 +194,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
       const [id, amount] = variants[variables.handle];
       return response({ product: {
         id: variables.handle === 'full-size-glove-break-in-service' ? FULL_SIZE_SERVICE_PRODUCT : `gid://product/${variables.handle}`, title: variables.handle.toUpperCase(), handle: variables.handle,
+        ...(Object.hasOwn(metafields, variables.handle) ? { preorderShipEstimate: metafields[variables.handle] === null ? null : { value: metafields[variables.handle] } } : {}),
         variants: { nodes: [{ id, selectedOptions: variables.handle === 'cm24' ? [{ name: 'Title', value: 'Default Title' }] : [{ name: 'Throwing Hand', value: 'Right' }], availableForSale: variables.handle !== 'break-in' || serviceState !== 'sold-out', price: { amount: variables.handle === 'break-in' && serviceState === 'invalid-price' ? 'bad' : amount, currencyCode: currencies[variables.handle] || 'USD' } }, ...(['mi26', 'bl50', 'or17'].includes(variables.handle) ? [{ id: id.replace('-right', '-left'), availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Left' }], price: { amount, currencyCode: 'USD' } }] : [])] }
       } });
     }
@@ -207,7 +211,8 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     }
     if (apiError) return { ok: false, status: 503 };
     const field = query.includes('CreateCart') ? 'cartCreate' : query.includes('AddLines') ? 'cartLinesAdd' :
-      query.includes('UpdateLines') ? 'cartLinesUpdate' : query.includes('UpdateDiscountCodes') ? 'cartDiscountCodesUpdate' : 'cartLinesRemove';
+      query.includes('UpdateLines') ? 'cartLinesUpdate' : query.includes('UpdateDiscountCodes') ? 'cartDiscountCodesUpdate' :
+      query.includes('UpdateCartAttributes') ? 'cartAttributesUpdate' : 'cartLinesRemove';
     mutationCount++;
     mutationWarnings = [];
     mutationObserver?.({ field, variables, storage });
@@ -220,6 +225,11 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     if (userError) return response({ [field]: { userErrors: [{ message: userError }], cart: snapshot() } });
     if (field === 'cartDiscountCodesUpdate') {
       discountCodes = variables.discountCodes.map(code => ({ code, applicable: true }));
+    } else if (field === 'cartAttributesUpdate') {
+      const incoming = structuredClone(variables.attributes);
+      cartAttributes = cartAttributesMode === 'merge'
+        ? [...cartAttributes.filter(attribute => !incoming.some(item => item.key === attribute.key)), ...incoming]
+        : incoming;
     } else if (field === 'cartCreate' || field === 'cartLinesAdd') {
       if (field === 'cartCreate' && expiredCart) {
         recoveryCartId = `gid://cart/${nextCartId++}`;
@@ -285,6 +295,8 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   };
   return { commerce, config, fetchImpl, storage, requests, restore: () => createShopifyCommerce(config, storage, fetchImpl, locks),
     get lines() { return storage.getItem('anawin-shopify-cart-id') === recoveryCartId ? recoveryLines : lines; },
+    get cartAttributes() { return structuredClone(cartAttributes); },
+    setCartAttributes(value) { cartAttributes = structuredClone(value); },
     setUserError(value) { userError = value; }, setApiError(value) { apiError = value; },
     setStock(handle, quantity) { stock[handle] = quantity; },
     transformNextMutationResponse(transform) { responseTransform = transform; },
