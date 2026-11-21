@@ -764,7 +764,24 @@ body.newsletter-open{overflow:hidden}
 .full-size-throw-hand{min-width:0;border:0;padding:0;margin:28px 0 16px}
 .full-size-throw-hand legend{font-size:13px;font-weight:700;margin-bottom:9px}
 .full-size-selected-glove{color:var(--muted);margin:0 0 20px}
-.full-size-setup-summary{font-size:13px;line-height:1.6;padding:16px;border:1px solid var(--line);overflow-wrap:anywhere}
+.pdp-info .full-size-setup{margin:0 0 16px;padding:0;border:1px solid var(--line);background:var(--white);font-size:13px}
+.pdp-info .full-size-setup summary{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:14px;padding:16px;text-transform:none}
+.full-size-setup-heading,.full-size-setup-total{display:flex;flex-direction:column;gap:3px;min-width:0}
+.full-size-setup-heading strong{font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.full-size-setup-heading small{color:var(--muted);font-size:13px}
+.full-size-setup[data-ready] .full-size-setup-heading small{color:color-mix(in srgb,var(--pdp-accent) 70%,#000);font-weight:700}
+.full-size-setup-total{align-items:flex-end;text-align:right}
+.full-size-setup-total strong{font-size:18px;line-height:1.1}
+.full-size-setup-total small{color:var(--muted);font-size:11px}
+.full-size-setup .accordion-indicator{width:14px;font-size:16px;text-align:center}
+.full-size-setup-list{margin:0;padding:4px 16px 10px;border-top:1px solid var(--line)}
+.full-size-setup-row{display:grid;grid-template-columns:minmax(104px,38%) minmax(0,1fr);gap:14px;padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent);line-height:1.45}
+.full-size-setup-row:last-child{border-bottom:0}
+.full-size-setup-row.is-service{border-top:1px solid var(--line);margin-top:-1px}
+.full-size-setup-row dt{color:var(--muted)}
+.full-size-setup-row dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.full-size-setup-row dd.is-missing{color:var(--muted);font-weight:400;font-style:italic}
+.full-size-setup-row dd small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:400}
 
 /* Bring product photos closer to the gallery edges without changing the layout. */
 .pdp-gallery .gallery-image{overflow:hidden}
@@ -886,6 +903,9 @@ body.newsletter-open{overflow:hidden}
 .pdp .break-in-choice:has(input:checked)::after,.pdp .service-option::after{content:"";position:absolute;inset:-1px;padding:2px;background:var(--pdp-outline);pointer-events:none;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 .pdp .service-option,.pdp .service-option:hover,.pdp .service-option:has(input:checked),.pdp .service-option:has(input:disabled):hover{border-color:transparent}
 .pdp .service-option::after{inset:-2px;opacity:.35;transition:opacity .2s ease}
+/* A thin ring in the glove's colorway colors draws the eye to the add-to-cart button. */
+.pdp-info .add-button{position:relative}
+.pdp-info .add-button::after{content:"";position:absolute;inset:-4px;padding:2px;background:var(--pdp-outline);pointer-events:none;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 .pdp .service-option:hover::after{opacity:.65}
 .pdp .service-option:has(input:checked)::after,.pdp .service-option:has(input:focus-visible)::after{opacity:1}
 .pdp .service-option:has(input:disabled):hover::after{opacity:.35}

@@ -26,6 +26,21 @@ const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberF
 export const money = (value, currency = 'USD') => formatMoney(value, currency, 0);
 export const cartMoney = (value, currency = 'USD') => formatMoney(value, currency, 2);
 export const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+
+// The full-size "Your setup" dropdown: one row per choice, unanswered choices marked. main.js re-renders it as choices change.
+// breakIn is null without the service, else { placement, closure, shaping: [[label, value]], firmness, notes }.
+export function fullSizeSetupDetails({ model, hand, wrist, breakIn, servicePrice, total, currency = 'USD' }) {
+  const rows = [['Glove', model], ['Throw hand', hand], ['Wrist fit', wrist],
+    ['Break-in', breakIn ? `Full-Service Break-In · +${money(servicePrice, currency)}` : 'None', breakIn ? 'Adds 2–5 business days' : '']];
+  if (breakIn) rows.push(['Finger placement', breakIn.placement], ['Thumb closure', breakIn.closure], ...breakIn.shaping,
+    ['Firmness', breakIn.firmness], ...(breakIn.notes ? [['Notes', 'Added']] : []));
+  const missing = rows.filter(([, value]) => !value).length;
+  return {
+    rows: rows.map(([label, value, note], index) => `<div class="full-size-setup-row${index === 4 ? ' is-service' : ''}"><dt>${escapeHtml(label)}</dt><dd${value ? '' : ' class="is-missing"'}>${escapeHtml(value || 'Choose one')}${note ? `<small>${escapeHtml(note)}</small>` : ''}</dd></div>`).join(''),
+    status: missing ? `${missing} choice${missing === 1 ? '' : 's'} left` : 'All set',
+    total: money(total, currency)
+  };
+}
 // Starts with the visible word so voice-control users can say “Cart”.
 export const cartTriggerLabel = count => `Cart, ${count} ${count === 1 ? 'item' : 'items'}`;
 
@@ -321,6 +336,8 @@ function fullSizePurchase(product, purchasable, { view, estimate }) {
 }
 
 function fullSizePage(product) {
+  // A model sold in one throw hand (CM24) starts with that hand chosen.
+  const onlyHand = product.throwHands.length === 1 ? throwHandLabels[product.throwHands[0]] : '';
   const preorder = fullSizePreorderView(product);
   const purchasable = preorder.view ? preorder.view === 'open' : product.comingSoon === false && product.available && !commerceLoading && !commerceError;
   const availabilityLabel = preorder.view === 'open' || preorder.view === 'checking' && preorder.estimate ? `<p class="preorder-status"><span class="preorder-badge">${PREORDER_LABEL}</span></p>`
@@ -336,10 +353,11 @@ function fullSizePage(product) {
   const others = [...fullSizeProducts.filter(other => other.id !== product.id), ...(trainer ? [trainer] : [])];
   return `<main class="pdp full-size-pdp" style="${accentStyle}"><div class="pdp-main"><div class="pdp-gallery-wrap"><section class="pdp-gallery" aria-label="Product images">${product.images.map((image, i) => `<button class="gallery-image" data-image="${fullSizeZoomSource(image)}" aria-label="View image ${i + 1}">${fullSizePhoto(image, image.alt, galleryImageSizes, 'lazy', galleryLoading(i))}</button>`).join('')}</section><div class="gallery-pagination"><span class="gallery-status" aria-live="polite">Image 1 of ${count}</span><div class="gallery-dots" aria-label="Select product image">${product.images.map((_, i) => `<button type="button" class="gallery-dot" data-gallery-index="${i}" aria-label="Show image ${i + 1} of ${count}" ${i === 0 ? 'aria-current="true"' : ''}></button>`).join('')}</div></div></div>
     <aside class="pdp-info"><p class="eyebrow">FULL-SIZE GLOVE</p><h1>${escapeHtml(product.name)}</h1><p class="product-descriptor">${escapeHtml(product.descriptor)}</p><p class="price">${money(product.price, product.currencyCode)}</p>${availabilityLabel}<p class="hand-orientation">${escapeHtml(product.throwHands.join(' or '))}</p><p class="product-pitch">${escapeHtml(product.pitch)}</p>${modelSwitcher}<div class="pdp-colorway"><span class="pdp-colorway-label">Colorway</span><div class="pdp-colorway-detail"><span class="pdp-swatch-combined" aria-hidden="true">${product.swatches.map(color => `<span style="--swatch-color:${escapeHtml(color)}"></span>`).join('')}</span><p class="tone">${escapeHtml(product.tone)}</p></div></div>
-      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
+      <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"${onlyHand ? ' checked' : ''}><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
       ${wristFitChoices()}
       ${fullSizeBreakInDetails(product, preorder.view)}
-      <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
+      ${(({ rows, status, total }) => `<details class="full-size-setup" data-full-size-setup><summary><span class="full-size-setup-heading"><strong>Your setup</strong><small data-full-size-setup-status>${status}</small></span><span class="full-size-setup-total"><strong data-full-size-setup-total>${total}</strong><small>before shipping &amp; tax</small></span><span class="accordion-indicator" aria-hidden="true"></span></summary><dl class="full-size-setup-list" data-full-size-setup-list>${rows}</dl></details>`)(fullSizeSetupDetails({ model: product.title, hand: onlyHand, wrist: 'Regular', breakIn: null, servicePrice: fullSizeService.price, total: purchasePrice(product, fullSizeService, false), currency: product.currencyCode }))}
+      <p id="full-size-setup-summary" class="visually-hidden" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: ${escapeHtml(onlyHand || 'Choose one')} · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
       <p data-full-size-error role="alert" tabindex="-1" hidden></p>
       ${fullSizePurchase(product, purchasable, preorder)}
       ${preorder.view === 'open' || preorder.estimate ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}
