@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const dir=process.env.ANAWIN_BREAK_IN_EVIDENCE_DIR || '/private/tmp/anawin-break-in-evidence';await mkdir(dir,{recursive:true});
-const chrome=spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new','--remote-debugging-port=9417',`--user-data-dir=${dir}/chrome`,'--no-first-run','--no-default-browser-check','about:blank'],{stdio:'ignore'});
+// ANAWIN_CHROME overrides the macOS Chrome path, e.g. a Linux Chrome binary.
+const chrome=spawn(process.env.ANAWIN_CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',['--headless=new','--remote-debugging-port=9417',`--user-data-dir=${dir}/chrome`,'--no-first-run','--no-default-browser-check','about:blank'],{stdio:'ignore'});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let socket;
 const results=[],errors=[],blocked=[];
 const startedAt = new Date().toISOString();

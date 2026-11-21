@@ -930,3 +930,26 @@ body.newsletter-open{overflow:hidden}
 .cart-foot .cart-preorder-disclosure{display:block;text-transform:none;margin:12px 0 0;padding:12px;border:1px solid var(--line);color:var(--ink);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
 .cart-foot .cart-preorder-disclosure p{margin:0;color:inherit;font-size:12px}
 .cart-foot .cart-preorder-disclosure ul{margin:6px 0;padding-left:18px}
+
+/* Cart break-in service: real buttons instead of underlined text links. Labels flow as plain text so a price
+   wraps with the words, and a word too long for the button breaks rather than clipping; the vertical padding
+   centers one line within the 44px minimum height. */
+.cart-service-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.cart-service-control.cart-service-button{display:block;width:fit-content;overflow-wrap:anywhere;min-width:44px;min-height:44px;max-width:100%;margin:0;padding:calc((42px - 1.3em) / 2) 16px;border:1px solid var(--ink);border-radius:0;font-size:11px;font-weight:700;line-height:1.3;letter-spacing:.06em;text-align:center;text-transform:uppercase;cursor:pointer;transition:background-color .2s ease,color .2s ease,border-color .2s ease}
+.cart-item .cart-service-button.is-primary{margin-top:12px;background:var(--ink);color:var(--paper)}
+.cart-service-button.is-primary:not(:disabled):hover{background:#333;border-color:#333}
+.cart-item .cart-service-button.is-secondary{flex:1 1 auto;background:transparent;color:var(--ink);border-color:var(--muted)}
+.cart-service-button.is-secondary:not(:disabled):hover{border-color:var(--ink);background:var(--white)}
+.cart-service-button:not(:disabled):active{transform:translateY(1px)}
+.cart-service-button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.cart-service-control.cart-service-button:disabled{opacity:.45;cursor:not-allowed}
+.cart-body[aria-busy="true"] .cart-service-control.cart-service-button:disabled{cursor:progress}
+@media(max-width:760px){.cart-service-control.cart-service-button{padding-inline:10px;letter-spacing:.02em}.cart-item .cart-service-button.is-primary{width:100%}}
+/* Below 375px the details column is too narrow for the labels, so the controls span the whole cart row
+   (image + details + price columns). They sit above the price column so all of each button stays clickable. */
+@media(max-width:374px){
+  .cart-item{container-type:inline-size}
+  .cart-item .cart-service-actions,.cart-item .cart-service-button.is-primary{position:relative;z-index:1;width:100cqw;max-width:none;margin-left:calc(-72px - 12px)}
+  .cart-service-actions{flex-direction:column}
+  .cart-service-actions .cart-service-button{width:100%}
+}
