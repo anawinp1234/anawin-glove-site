@@ -169,14 +169,16 @@ function productCard(product, index, eagerFirst) {
 const liveProduct = product => products.find(item => item.id === product.id) || product;
 // A full-size glove is labelled Preorder only once Shopify confirmed it; anything else stays Coming soon.
 const fullSizeStatus = product => preorderState(liveProduct(product)).status === 'active' ? PREORDER_LABEL : 'Coming soon';
+// Card and link labels: a catalog preorder also reads Preorder while Shopify loads. Purchase controls still wait for Shopify.
+const fullSizeCardStatus = product => fullSizeStatus(product) === PREORDER_LABEL || commerceLoading && preorderConfigured(product) ? PREORDER_LABEL : 'Coming soon';
 // Preorder policy and FAQ copy appear only while Shopify has confirmed at least one active preorder.
 const preorderActive = () => !commerceError && fullSizeProducts.some(product => fullSizeStatus(product) === PREORDER_LABEL);
-const fullSizeCue = () => `${fullSizeProducts.length} full-size gloves${fullSizeProducts.some(product => fullSizeStatus(product) === PREORDER_LABEL) ? '' : ' · Coming soon'}`;
+const fullSizeCue = () => `${fullSizeProducts.length} full-size gloves${fullSizeProducts.some(product => fullSizeCardStatus(product) === PREORDER_LABEL) ? '' : ' · Coming soon'}`;
 
 function fullSizeCard(product, index) {
   return `<article class="product-card full-size-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor)}">
     <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)} full-size glove: ${escapeHtml(product.tone)}">${gloveThumbnail(product, `${product.tone} full-size ANAWIN glove`, fullSizeCardSizes, 'lazy')}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p></div><strong class="coming-soon-label">${fullSizeStatus(product)}</strong></div>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p></div><strong class="coming-soon-label">${fullSizeCardStatus(product)}</strong></div>
   </article>`;
 }
 const fullSizeCardSizes = '(max-width: 760px) calc(100vw - 32px), calc((100vw - 92px) / 4)';
@@ -388,7 +390,7 @@ function productPage(product) {
 
 function gloveLinkCard(product) {
   const role = product.line === 'full-size' ? product.specs.find(([label]) => label === 'Position')[1] : 'Trainer';
-  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small>${product.line === 'full-size' && (product.comingSoon || fullSizeStatus(product) === PREORDER_LABEL) ? `<small class="other-glove-status">${fullSizeStatus(product)}</small>` : ''}</span>${arrow()}</a>`;
+  return `<a class="other-glove-card" href="${productPath(product)}" data-link data-product="${escapeHtml(product.id)}">${gloveThumbnail(product, '', '(max-width: 760px) 92px, 120px', 'lazy')}<span class="other-glove-meta"><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(`${role} · ${product.tone}`)}</small>${product.line === 'full-size' && (product.comingSoon || fullSizeCardStatus(product) === PREORDER_LABEL) ? `<small class="other-glove-status">${fullSizeCardStatus(product)}</small>` : ''}</span>${arrow()}</a>`;
 }
 
 function about() {
@@ -420,20 +422,20 @@ const supportEmail = '<a href="mailto:support@anawinofficial.com">support@anawin
 const faqGroups = () => [
   ['Sizing & fit', [
     ['What size are the trainer gloves?', `<p>The BR16, OB16, and CL16 are all 10.25-inch defensive training gloves. They come in one size.</p>`],
-    ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves${preorderActive() ? '' : ', all coming soon'}:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
+    ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves${fullSizeProducts.every(product => product.comingSoon) ? ', all coming soon' : ''}:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
     ['What is wrist fit?', `<p>Every glove ships with a regular wrist strap, about a 7–7.5 inch opening. If you have smaller or narrower hands, you can choose Tightened when you order, and our team will tighten the strap to about a 6.5–7 inch opening. Wrist fit is free.</p>`]
   ]],
   ['Throwing hand', [
     ['Which throwing hand should I choose?', `<p>Choose the hand you throw with. The glove is worn on your other hand. A right-hand throw glove is worn on the left hand, and a left-hand throw glove is worn on the right hand.</p>`],
-    ['Do you make left-hand throw gloves?', `<p>The BR16, OB16, and CL16 trainers are right-hand throw only. When the Kip Series launches, the MI26, BL50, and OR17 will be offered in right-hand and left-hand throw. The CM24 will be right-hand throw only.</p>`]
+    ['Do you make left-hand throw gloves?', `<p>The BR16, OB16, and CL16 trainers are right-hand throw only. In the Kip Series, the MI26, BL50, and OR17 come in right-hand and left-hand throw. The CM24 is right-hand throw only.</p>`]
   ]],
   ['Trainer gloves', [
     ['What is a trainer glove for?', `<p>A trainer glove is smaller than a game glove, so you have to field the ball cleanly and get it out quickly. Our 10.25-inch trainers are made for defensive work: cleaner transfers, more precise fielding mechanics, and better control.</p>`],
-    ['Is a trainer the right glove for me?', `<p>If you want a glove for drills and focused defensive reps, yes. If you want a glove for a specific position, look at the full-size Kip Series. It is coming soon, and you can <a href="/community" data-link>join the community</a> to hear when it launches.</p>`]
+    ['Is a trainer the right glove for me?', `<p>If you want a glove for drills and focused defensive reps, yes. If you want a glove for a specific position, look at the full-size <a href="/shop" data-link>Kip Series</a>.</p>`]
   ]],
   ['Break-in', [
     ['What does the Break-In Service do?', `<p>${escapeHtml(breakInService.copy)}</p><p>For trainers, choose a break-in level (${escapeHtml(BREAK_IN_LEVELS.join(', '))}) and a wearing style (${escapeHtml(GLOVE_WEARING_STYLES.join(' or '))}). The price is shown on each product page.</p>`],
-    ['Why does the full-size Full-Service Break-In cost more?', `<p>Because it does more than loosen the leather. Our trainer Break-In Service softens the glove so it is easier to close. The Full-Service Break-In is custom work: our team breaks in your glove and forms it around how you wear it and how you play.</p><p>When you order, you tell us:</p><ul><li>How you wear the glove, including where your fingers go and whether your index finger sits inside or outside</li><li>Where you want your thumb to meet when the glove closes</li><li>How you want the thumb, pinky, and fingers shaped</li><li>How firm you want it</li><li>Anything else, like a glove you are used to or how you like your pocket shaped</li></ul><p>We shape the glove to match your choices, so it arrives formed for you instead of just softened. Not sure about an option? Choose “Recommend for me” and we will decide for you. The Full-Service Break-In will be available when the Kip Series launches.</p>`],
+    ['Why does the full-size Full-Service Break-In cost more?', `<p>Because it does more than loosen the leather. Our trainer Break-In Service softens the glove so it is easier to close. The Full-Service Break-In is custom work: our team breaks in your glove and forms it around how you wear it and how you play.</p><p>When you order, you tell us:</p><ul><li>How you wear the glove, including where your fingers go and whether your index finger sits inside or outside</li><li>Where you want your thumb to meet when the glove closes</li><li>How you want the thumb, pinky, and fingers shaped</li><li>How firm you want it</li><li>Anything else, like a glove you are used to or how you like your pocket shaped</li></ul><p>We shape the glove to match your choices, so it arrives formed for you instead of just softened. Not sure about an option? Choose “Recommend for me” and we will decide for you.</p>`],
     ['Can I break in the glove myself?', `<p>Yes. Our <a href="/break-in" data-link>Break-In Guide</a> walks through the process step by step, and the <a href="/care" data-link>Glove Care</a> guide covers cleaning, drying, conditioning, and storage.</p>`]
   ]],
   ['Shipping', [

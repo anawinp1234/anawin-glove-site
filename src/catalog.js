@@ -189,7 +189,7 @@ export function productHandleMap(env = {}) {
   };
 }
 
-// Full-size gloves remain Coming Soon. Optional commerce handles support isolated launch rehearsal.
+// Full-size gloves sell as preorders once their VITE_SHOPIFY_*_HANDLE is set and Shopify confirms them.
 // Colorway names and swatches reflect the approved launch colors.
 const fullSizeAngles = Object.freeze([
   ['back', 'back view'],

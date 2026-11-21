@@ -142,7 +142,7 @@ test('while Shopify is loading a configured preorder reads as a preorder but can
   // Without an approved catalog estimate there is nothing to show yet.
   const unset = pdp(preorderMint({ available: undefined, preorder: { enabled: true, shipEstimate: null } }), { commerceLoading: true });
   assert.match(unset, /<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Checking availability…<\/button>/);
-  assert.doesNotMatch(unset, /data-add=|Preorder|Estimated to ship/);
+  assert.doesNotMatch(unset, /data-add=|preorder-badge|Estimated to ship|>Preorder<\/button>/);
 });
 
 test('cards and related links say Preorder only for a Shopify-confirmed preorder', () => {
@@ -154,6 +154,10 @@ test('cards and related links say Preorder only for a Shopify-confirmed preorder
   assert.match(views.route('/product/ob16'), /<strong>MI26<\/strong>[^]*?<small class="other-glove-status">Preorder<\/small>/);
   const blocked = renderer([preorderMint({ available: false })]).route('/shop');
   assert.doesNotMatch(blocked, /Preorder/);
+  // While Shopify loads, the launched catalog's cards already read Preorder (they are links, not purchase controls).
+  const loading = renderer([], { commerceLoading: true }).route('/shop');
+  assert.equal((loading.match(/class="coming-soon-label">Preorder</g) || []).length, 4);
+  assert.match(loading, /<p class="collection-cue">4 full-size gloves<\/p>/);
 });
 
 test('trainer pages are unaffected by full-size preorder state', () => {
@@ -237,7 +241,8 @@ test('shipping policy and FAQ show preorder copy only while a Shopify-confirmed 
     assert.doesNotMatch(inactive.route('/shipping'), /preorder-policy|paid in full/);
     assert.doesNotMatch(inactive.route('/faq'), /<h2>Preorders<\/h2>|How do I pay for a preorder/);
   }
-  assert.match(renderer([]).route('/faq'), /four Japanese Kip leather gloves, all coming soon:/);
+  assert.match(renderer([]).route('/faq'), /four Japanese Kip leather gloves:<\/p>/, 'the launched catalog never claims Coming soon');
+  assert.doesNotMatch(renderer([]).route('/faq'), /coming soon|when the Kip Series launches/i);
   PREORDER_CHECKOUT.chargedInFullAtCheckout = false;
   try { assert.doesNotMatch(renderer([preorderMint()]).route('/shipping'), /preorder-policy/); }
   finally { PREORDER_CHECKOUT.chargedInFullAtCheckout = true; }

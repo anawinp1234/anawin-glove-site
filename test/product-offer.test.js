@@ -95,7 +95,10 @@ test('the Worker reads the U.S. market tokenless with a short timeout, caches it
 test('a timeout is enforced through an abort signal', async () => {
   let signal;
   const fetchImpl = (_url, init) => { signal = init.signal; return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))); };
-  const { offer } = await fetchOffer('br16', env(), { fetchImpl, cache: memoryCache(), timeoutMs: 20 });
+  // Node's AbortSignal.timeout timer does not keep the process alive, unlike a Worker serving a request;
+  // without this the runner sees an idle event loop and cancels this test and every one after it.
+  const keepAlive = setInterval(() => {}, 1000);
+  const { offer } = await fetchOffer('br16', env(), { fetchImpl, cache: memoryCache(), timeoutMs: 20 }).finally(() => clearInterval(keepAlive));
   assert.equal(offer, null);
   assert.equal(signal.aborted, true);
 });
@@ -136,7 +139,8 @@ test('disabled, other pages and non-GET requests go straight to static assets', 
   const fetchImpl = async () => { shopifyCalls++; return new Response('{}'); };
   for (const [url, environment, method] of [
     ['https://anawinofficial.com/product/br16', env({ PRODUCT_OFFER_SYNC: undefined }), 'GET'],
-    ['https://anawinofficial.com/product/mi26', env(), 'GET'],
+    ['https://anawinofficial.com/shop', env(), 'GET'],
+    ['https://anawinofficial.com/product/unknown', env(), 'GET'],
     ['https://anawinofficial.com/product/br16', env(), 'POST']
   ]) {
     const response = await serveProductPage(new Request(url, { method }), environment, { fetchImpl, cache: memoryCache() });
