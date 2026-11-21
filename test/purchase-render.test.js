@@ -114,8 +114,8 @@ test('Shipping Policy lists all seven destinations without fixed international r
   assert.match(html, /<section><h2>United States<\/h2><p>Standard Shipping — FREE<\/p><\/section>/);
   assert.match(html, /<section><h2>Canada, Australia, Japan, South Korea, Mexico &amp; the Philippines<\/h2><p>International shipping rates and available services are calculated at checkout based on destination and shipping method\.<\/p><\/section>/);
   assert.doesNotMatch(html, /\$\d+|Express Shipping —/);
-  assert.match(html, /Orders are processed within 1–3 business days\./);
-  assert.match(html, /Break-In Service adds 2–5 business days\./);
+  assert.match(html, /In-stock orders are processed within 1–3 business days\./);
+  assert.match(html, /Break-In Service adds 2–5 business days to in-stock orders\./);
   assert.match(html, /U\.S\. standard shipping is typically delivered in 3–7 business days after shipment\./);
   assert.match(html, /International delivery times vary by destination and shipping service\. Available transit estimates are shown at checkout\./);
   assert.doesNotMatch(html, /International delivery[^<]*3–7 business days/);
@@ -131,7 +131,7 @@ test('all PDP shipping accordions retain timing and returns with the confirmed r
     assert.match(accordion, /Free U\.S\. standard shipping\./);
     assert.match(accordion, /International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
     assert.match(accordion, /International rates are calculated at checkout\./);
-    assert.match(accordion, /Orders process in 1–3 business days; Break-In Service adds 2–5 business days\./);
+    assert.match(accordion, /In-stock orders process in 1–3 business days; Break-In Service adds 2–5 business days\./);
     assert.match(accordion, /U\.S\. standard delivery is typically 3–7 business days after shipment\./);
     assert.match(accordion, /Eligible returns are accepted within 30 days of delivery\./);
     assert.match(accordion, /Prepaid return labels are provided for eligible U\.S\. returns\./);

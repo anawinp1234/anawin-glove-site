@@ -289,6 +289,10 @@ export const PREORDER_ESTIMATE_PREFIX = 'Estimated to ship:';
 // Cart attribute written at checkout handoff; Shopify copies it onto the order (Liquid: attributes).
 export const PREORDER_ORDER_ATTRIBUTE = 'Preorder estimated ship';
 export const PREORDER_PAYMENT_NOTE = 'Preorders are paid in full at checkout, the same as in-stock items.';
+// Owner-approved: break-in time is not part of the estimate. Shown only for a glove that has the service.
+export const PREORDER_BREAK_IN_NOTE = 'Break-In Service may add 2–5 business days beyond the estimated ship window for the glove receiving the service.';
+// The same fact where the row or line already names the serviced glove (setup summary).
+export const PREORDER_BREAK_IN_TIMING = 'May add 2–5 business days beyond the estimated ship window';
 const shipEstimateText = value => typeof value === 'string' && value.trim() ? value.trim() : null;
 export const preorderShipLine = estimate => `${PREORDER_ESTIMATE_PREFIX} ${estimate}`;
 // '' for a blank estimate, so callers fail silent instead of showing an empty or invented timeframe.
