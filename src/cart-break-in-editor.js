@@ -1,5 +1,5 @@
 import { BREAK_IN_LEVELS, DEFAULT_BREAK_IN, FULL_SIZE_CONFIGURATION_KEY, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES,
-  fullSizeBreakInService, fullSizeConfiguration, normalizeBreakInOptions } from './catalog.js';
+  PREORDER_BREAK_IN_NOTE, fullSizeBreakInService, fullSizeConfiguration, normalizeBreakInOptions, preorderState } from './catalog.js';
 
 const LEVEL_NOTES = Object.freeze({
   'Firm (40%)': 'Maintains stiffness and structure.',
@@ -177,8 +177,10 @@ export function renderBreakInEditor({ product, line, editor, serviceProduct, bus
       choice('cart-break-in-level', level, LEVEL_NOTES[level], editor.level === level, locked, escapeHtml)).join('')}</fieldset>
     <fieldset ${locked ? 'disabled' : ''}><legend>Wearing style</legend>${GLOVE_WEARING_STYLES.map(style =>
       choice('cart-glove-wearing-style', style, STYLE_NOTES[style], editor.wearingStyle === style, locked, escapeHtml)).join('')}</fieldset>`;
-  const priceNote = editing ? (line.quantity > 1 ? 'Only this glove changes. The price stays the same.' : 'Changing your choices doesn’t change the price.')
-    : verified ? `${fullSize ? 'Full-size break-in' : 'Break-in service'} <strong>${price}</strong> · Adds 2–5 business days.` : 'Break-in service is unavailable right now.';
+  // A confirmed preorder glove ships on its estimate; break-in time comes on top of it for this glove only.
+  const preorder = preorderState(product).status === 'active';
+  const priceNote = editing ? `${line.quantity > 1 ? 'Only this glove changes. The price stays the same.' : 'Changing your choices doesn’t change the price.'}${preorder ? ` ${escapeHtml(PREORDER_BREAK_IN_NOTE)}` : ''}`
+    : verified ? `${fullSize ? 'Full-size break-in' : 'Break-in service'} <strong>${price}</strong> · ${preorder ? escapeHtml(PREORDER_BREAK_IN_NOTE) : 'Adds 2–5 business days.'}` : 'Break-in service is unavailable right now.';
   const confirm = submitting ? (editing ? 'Saving…' : 'Adding…') : editing ? 'Save changes' : verified ? `Add break-in ${price}` : 'Unavailable';
   return `<form class="cart-service-editor${fullSize ? ' is-full-size' : ''}" data-service-form="${lineId}" aria-labelledby="cart-service-editor-heading" aria-describedby="cart-service-editor-price" ${submitting ? 'aria-busy="true"' : ''} novalidate>
     <h4 id="cart-service-editor-heading" tabindex="-1">${heading}</h4>

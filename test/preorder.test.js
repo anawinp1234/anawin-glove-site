@@ -226,7 +226,7 @@ test('preorder styles keep the estimate as wrapping text that fits a 375px scree
   }
 });
 
-test('shipping policy and FAQ show preorder copy only while a Shopify-confirmed preorder is active', () => {
+test('shipping policy and FAQ show full preorder copy only while a Shopify-confirmed preorder is active', () => {
   const active = renderer([preorderMint()]);
   const shipping = active.route('/shipping');
   assert.match(shipping, /<section class="preorder-policy"><h2>Preorders<\/h2>/);
@@ -236,10 +236,12 @@ test('shipping policy and FAQ show preorder copy only while a Shopify-confirmed 
   assert.match(faq, /<h2>Preorders<\/h2>[\s\S]*What does Preorder mean\?[\s\S]*How do I pay for a preorder\?/);
   assert.match(faq, /four Japanese Kip leather gloves:<\/p>/, 'no "all coming soon" claim once one is a preorder');
   assert.doesNotMatch(`${shipping}${faq}`, /WRECKER100|PREORDER30|December 2026/);
+  // Configured but not confirmed: placed-order guidance only, never purchase wording, payment or estimates.
   for (const inactive of [renderer([]), renderer([preorderMint({ comingSoon: true })]), renderer([preorderMint({ available: false })]),
     renderer([preorderMint({ shopifyPreorderShipEstimate: null })]), renderer([preorderMint()], { commerceError: 'Shopify unavailable' })]) {
-    assert.doesNotMatch(inactive.route('/shipping'), /preorder-policy|paid in full/);
-    assert.doesNotMatch(inactive.route('/faq'), /<h2>Preorders<\/h2>|How do I pay for a preorder/);
+    const pages = inactive.route('/shipping') + inactive.route('/faq');
+    assert.match(pages, /If you ordered a preorder glove and need its estimated ship window, email support@anawinofficial\.com with your order number\./);
+    assert.doesNotMatch(pages, /paid in full|How do I pay for a preorder|What does Preorder mean|marked Preorder|Estimated to ship:|December 2026/);
   }
   assert.match(renderer([]).route('/faq'), /four Japanese Kip leather gloves:<\/p>/, 'the launched catalog never claims Coming soon');
   assert.doesNotMatch(renderer([]).route('/faq'), /coming soon|when the Kip Series launches/i);
@@ -248,9 +250,12 @@ test('shipping policy and FAQ show preorder copy only while a Shopify-confirmed 
   finally { PREORDER_CHECKOUT.chargedInFullAtCheckout = true; }
 });
 
-test('prerendered shipping and FAQ pages carry no preorder copy with the shipped catalog', () => {
-  for (const page of ['shipping', 'faq']) {
-    const html = readFileSync(new URL(`../dist/${page}.html`, import.meta.url), 'utf8');
-    assert.doesNotMatch(html, /preorder-policy|Preorders are paid in full|How do I pay for a preorder|cart-preorder-disclosure/);
+// Same renderer state as scripts/prerender.mjs, so the check does not depend on a stale dist/ build.
+test('prerendered shipping and FAQ pages carry only placed-order preorder guidance with the shipped catalog', () => {
+  const prerender = createStorefrontRenderer({ products: localProducts, breakInService, commerceLoading: true });
+  for (const page of ['/shipping', '/faq']) {
+    const html = prerender.route(page);
+    assert.match(html, /If you ordered a preorder glove and need its estimated ship window, email support@anawinofficial\.com with your order number\./, page);
+    assert.doesNotMatch(html, /Preorders are paid in full|How do I pay for a preorder|cart-preorder-disclosure|Estimated to ship:/, page);
   }
 });
