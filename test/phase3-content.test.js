@@ -7,14 +7,13 @@ import { productPath } from '../src/seo.js';
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
 const text = html => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ');
 
-test('related-product cards label every unreleased glove as coming soon', () => {
+test('related-product cards never label the launched preorder gloves as coming soon', () => {
   for (const product of [...localProducts, ...fullSizeProducts]) {
     const html = renderer.route(productPath(product));
     const cards = [...html.matchAll(/<a class="other-glove-card"[^>]*data-product="([^"]+)"[^]*?<\/a>/g)];
     assert.ok(cards.length, product.name);
     for (const [card, id] of cards) {
-      const comingSoon = fullSizeProducts.some(other => other.id === id);
-      assert.equal(card.includes('other-glove-status">Coming soon<'), comingSoon, `${product.name} → ${id}`);
+      assert.equal(card.includes('other-glove-status">Coming soon<'), false, `${product.name} → ${id}`);
     }
   }
 });

@@ -8,16 +8,16 @@ import { productJsonLd, productPath } from '../src/seo.js';
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
 const publicFile = path => new URL(`../public${path}`, import.meta.url);
 
-test('full-size gloves stay out of the purchasable catalog', () => {
+test('full-size gloves are preorders kept out of the local trainer catalog', () => {
   assert.deepEqual(fullSizeProducts.map(product => product.color), ['mint', 'black', 'camel', 'orange']);
   for (const product of fullSizeProducts) {
-    assert.equal(product.comingSoon, true);
+    assert.equal(product.comingSoon, false);
     assert.ok(!localProducts.some(local => local.id === product.id));
     assert.equal(productPath(product), `/product/${product.name.toLowerCase()}`);
   }
 });
 
-test('shared product routes choose the glove type rather than enabling full-size purchases', () => {
+test('shared product routes choose the glove type and full-size pages wait for Shopify before selling', () => {
   for (const product of [...localProducts, ...fullSizeProducts]) {
     const path = productPath(product);
     assert.ok(path.startsWith('/product/'));
@@ -25,9 +25,9 @@ test('shared product routes choose the glove type rather than enabling full-size
     assert.match(html, new RegExp(`<h1>${product.name}</h1>`));
     if (product.line === 'full-size') {
       assert.match(html, /class="pdp full-size-pdp"/);
-      assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Add to cart — Coming soon<\/button>/);
+      assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Unavailable<\/button>/);
       assert.doesNotMatch(html, /data-add=|data-break-in/);
-      assert.equal(productJsonLd(path), null);
+      assert.equal(productJsonLd(path).offers.price, '295.00');
     } else {
       assert.match(html, new RegExp(`data-add="${product.id}"`));
       assert.match(html, /data-break-in/);
@@ -134,7 +134,7 @@ test('the replacement orange palm offers responsive sizes and its full canvas fo
   assert.equal(existsSync(publicFile('/images/full-size/orange-palm-408.webp')), false);
 });
 
-test('full-size pages offer the confirmed throw-hand options and stay in teaser mode', () => {
+test('full-size pages offer the confirmed throw-hand options and stay disabled until Shopify confirms the preorder', () => {
   const expected = {
     mint: ['Right-Hand Throw (worn on left hand)', 'Left-Hand Throw (worn on right hand)'],
     black: ['Right-Hand Throw (worn on left hand)', 'Left-Hand Throw (worn on right hand)'],
@@ -149,7 +149,7 @@ test('full-size pages offer the confirmed throw-hand options and stay in teaser 
     assert.deepEqual(options.map(match => match[2]), expected[product.color], product.color);
     assert.doesNotMatch(fieldset, /checked/);
     assert.match(html, /Throw hand: Choose one · Wrist fit: Regular · No break-in service\./);
-    assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Add to cart — Coming soon<\/button>/);
+    assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Unavailable<\/button>/);
     assert.match(html, /class="pdp-notify"/);
     assert.doesNotMatch(html, /in stock|InStock|units? (left|available)|\b\d+ (RHT|LHT)\b/i);
     const spec = product.specs.find(([label]) => label === 'Throw hand')[1];

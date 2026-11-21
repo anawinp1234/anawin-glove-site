@@ -1,4 +1,4 @@
 export const announcement = {
   enabled: true,
-  message: 'FREE U.S. SHIPPING ON ALL ORDERS'
+  message: 'BLACK FRIDAY: $30 OFF PREORDERS WITH CODE PREORDER30 · FREE U.S. SHIPPING'
 };

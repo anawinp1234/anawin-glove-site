@@ -323,8 +323,8 @@ body{background:var(--paper)}
 .site-header-stack{position:sticky;top:0;z-index:11;transition:transform .22s ease}
 .site-header-stack.is-hidden{transform:translateY(-100%)}
 @media(prefers-reduced-motion:reduce){.site-header-stack{transition:none}}
-.announcement-bar{display:flex;min-height:34px;align-items:center;justify-content:center;padding:7px 16px;background:var(--ink);color:#fff;text-align:center}
-.announcement-bar p{width:100%;min-width:0;margin:0;font-size:12.5px;font-weight:700;line-height:1.4;letter-spacing:.07em;text-transform:uppercase;overflow-wrap:break-word}
+.announcement-bar{display:flex;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;background:var(--ink);color:#fff;text-align:center}
+.announcement-bar p{width:100%;min-width:0;margin:0;font-size:16px;font-weight:700;line-height:1.4;letter-spacing:.07em;text-transform:uppercase;overflow-wrap:break-word}
 .site-header{background:var(--paper);border-bottom-color:var(--line)}
 .site-header nav a,.cart-trigger,.mobile-menu-toggle{font-weight:700}
 .site-header a:hover,.site-header button:hover{color:var(--ink);opacity:.62}
@@ -395,8 +395,8 @@ footer{background:var(--ink);color:#fff;padding-top:40px}
 body:has(.hero) .commerce-notice[role="status"]{position:absolute;top:76px;left:0;right:0;z-index:4}
 body:has(.announcement-bar) .commerce-notice[role="status"]{position:static}
 @media(max-width:760px){
-  .announcement-bar{padding:8px 16px}
-  .announcement-bar p{font-size:10px;line-height:1.45;letter-spacing:.04em}
+  .announcement-bar{padding:11px 16px}
+  .announcement-bar p{font-size:13px;line-height:1.4;letter-spacing:.04em}
   .hero::after{background:linear-gradient(180deg,rgba(0,0,0,.57),rgba(0,0,0,.08) 60%,rgba(0,0,0,.43))}
   .hero h1{font-size:clamp(50px,14.5vw,72px);line-height:.84;letter-spacing:-.075em}
   .hero-cta{bottom:max(22px,env(safe-area-inset-bottom));width:min(260px,calc(100% - 32px))}
@@ -725,9 +725,10 @@ body.newsletter-open{overflow:hidden}
 }
 /* Full-size gloves (coming soon) */
 .full-size-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-.full-size-collection{border-top:1px solid var(--line)}
-.collection.full-size-collection{padding-top:110px}
-.shop-products.full-size-collection{padding-top:56px;padding-bottom:110px}
+/* Full-size gloves lead; the trainer section below them carries the divider. */
+.full-size-collection + :is(.collection,.shop-products){border-top:1px solid var(--line)}
+.full-size-collection + .collection{padding-top:110px}
+.full-size-collection + .shop-products{padding-top:56px;padding-bottom:110px}
 .shop-line-heading{margin:0 0 6px;font-family:var(--font-display);font-size:clamp(30px,3.6vw,52px);font-weight:900;letter-spacing:-.04em;line-height:.9}
 .shop-products .collection-cue{margin:0 0 24px}
 /* Accent text is darkened 15% so every colorway meets 4.5:1 on white and tinted backgrounds (raw mint and orange do not). */
@@ -744,7 +745,7 @@ body.newsletter-open{overflow:hidden}
 .pdp{background:var(--white)}
 .pdp :is(.pdp-main,.pdp-gallery,.gallery-image){background:var(--white)}
 @media(max-width:1100px){.full-size-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.collection.full-size-collection{padding-top:80px}.shop-products.full-size-collection{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
+@media(max-width:760px){.full-size-grid{grid-template-columns:1fr;gap:45px}.full-size-collection + .collection{padding-top:80px}.full-size-collection + .shop-products{padding:40px 16px 80px}.pdp-notify{padding:22px 18px}.pdp-notify .newsletter-controls{flex-direction:column}.pdp-notify .newsletter-controls button{flex-basis:auto}}
 
 /* Full-size launch details share the existing PDP typography and accordions. */
 .full-size-pdp .hand-orientation{margin-bottom:20px}
@@ -774,7 +775,7 @@ body.newsletter-open{overflow:hidden}
 /* Desktop PDP columns scroll together; the shorter one holds once its end is in view (see pdp-scroll.js). */
 @media(min-width:761px){
   .pdp{--pdp-gallery-top:92px}
-  .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:126px}
+  .site-header-stack:has(.announcement-bar) ~ .pdp{--pdp-gallery-top:140px}
   .pdp-main > :is(.pdp-gallery-wrap,.pdp-info){position:sticky;top:var(--pdp-column-top,var(--pdp-gallery-top));align-self:start}
   .pdp-main > .pdp-info{min-height:0}
   .pdp-gallery-wrap .pdp-gallery{aspect-ratio:1;max-height:calc(100svh - var(--pdp-gallery-top) - 16px);grid-template-rows:repeat(2,minmax(0,1fr))}
@@ -899,3 +900,13 @@ body.newsletter-open{overflow:hidden}
 .faq-item h3{margin:0 0 8px;font-size:18px;line-height:1.35}
 .faq-page a{text-decoration:underline;text-underline-offset:3px}
 @media(max-width:760px){.about-next{flex-direction:column;padding:56px 16px}.about-next a{width:100%}}
+/* Preorder: the word "Preorder" and the estimate are always text, never color alone. */
+.full-size-pdp .preorder-status{margin:0 0 24px}
+.preorder-badge{display:inline-block;padding:5px 10px;border:1px solid currentColor;color:color-mix(in srgb,var(--pdp-accent) 70%,#000);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.preorder-ship-estimate{margin:0 0 4px;color:var(--ink);font-size:14px;font-weight:700;line-height:1.45;overflow-wrap:anywhere}
+.preorder-payment-note{margin:0 0 12px;color:var(--ink);font-size:14px;line-height:1.45;overflow-wrap:anywhere}
+.cart-item .cart-preorder-note{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.cart-item .cart-preorder-blocked,.cart-foot .cart-preorder-blocked{color:#8b2929}
+.cart-foot .cart-preorder-disclosure{display:block;text-transform:none;margin:12px 0 0;padding:12px;border:1px solid var(--line);color:var(--ink);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.cart-foot .cart-preorder-disclosure p{margin:0;color:inherit;font-size:12px}
+.cart-foot .cart-preorder-disclosure ul{margin:6px 0;padding-left:18px}

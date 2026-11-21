@@ -1,4 +1,4 @@
-import { fullSizeProducts, localProducts } from './catalog.js';
+import { fullSizeProducts, localProducts, preorderConfigured } from './catalog.js';
 
 export const canonicalOrigin = 'https://anawinofficial.com';
 
@@ -123,9 +123,33 @@ const escapeAttribute = value => String(value).replace(/[&<>"']/g, character => 
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[character]);
 
-export function productJsonLd(path) {
+// Full-size gloves get Product/Offer markup only when the catalog configures them as a preorder.
+// Their build-time offer carries no availability or delivery time: Shopify must confirm the preorder,
+// so availability (https://schema.org/PreOrder, never InStock) is added only by worker/product-offer.js.
+function preorderJsonLd(product, normalizedPath) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: routeMetadata(normalizedPath).description,
+    image: canonicalOrigin + product.images[0].src,
+    brand: { '@type': 'Brand', name: 'ANAWIN' },
+    url: canonicalOrigin + normalizedPath,
+    color: product.tone,
+    offers: {
+      '@type': 'Offer',
+      url: canonicalOrigin + normalizedPath,
+      priceCurrency: product.currencyCode,
+      price: Number(product.price).toFixed(2)
+    }
+  };
+}
+
+export function productJsonLd(path, { fullSize = fullSizeProducts } = {}) {
   const normalizedPath = normalizePath(path);
   if (!normalizedPath.startsWith('/product/') || !routeMetadata(normalizedPath)) return null;
+  const preorder = fullSize.find(item => normalizedPath === productPath(item) && preorderConfigured(item));
+  if (preorder) return preorderJsonLd(preorder, normalizedPath);
   const product = localProducts.find(item => normalizedPath === productPath(item));
   // Coming-soon gloves are not purchasable, so they get no Product offer markup.
   if (!product) return null;

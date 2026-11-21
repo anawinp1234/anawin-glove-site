@@ -1,8 +1,8 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, purchasePrice, savedBreakInOptions } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, preorderState, purchasePrice, savedBreakInOptions } from './catalog.js';
 import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
-import { bindCartImageFallbacks, renderCartRow } from './cart-row.js';
+import { CART_PREORDER_DISCLOSURE_ID, bindCartImageFallbacks, cartPreorderSummary, renderCartPreorderDisclosure, renderCartRow } from './cart-row.js';
 import { breakInEditorField, createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup, cartUpdateAnnouncement, createCartAnnouncer } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
@@ -139,7 +139,13 @@ const reviewData = Object.fromEntries(localProducts.map(product => {
 }));
 
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
-const canCheckout = () => commerce.mode === 'shopify' && checkoutCartIsComplete(cart);
+const cartPreorders = () => cartPreorderSummary(cart.lines.filter(line => !line.isBreakIn).map(line => products.find(product => product.id === line.productId)));
+// A preorder glove whose estimate or availability Shopify no longer confirms keeps checkout closed.
+const canCheckout = () => commerce.mode === 'shopify' && checkoutCartIsComplete(cart) && !cartPreorders().blocked.length;
+const cartProductName = id => {
+  const product = products.find(item => item.id === id);
+  return product ? `${product.name}${preorderState(product).status === 'active' ? ' preorder' : ''}` : 'Glove';
+};
 const checkoutStarted = () => Boolean(cart.uncertainMutation?.split(', ').includes('checkout handoff'));
 
 function cartDrawer() {
@@ -154,8 +160,12 @@ function cartDrawer() {
       line: cart.lines.find(line => line.productId === product.id && !line.isBreakIn),
       service: cart.lines.find(line => line.productId === product.id && line.isBreakIn)
     })).filter(entry => entry.line);
+  const preorderSummary = cartPreorders();
+  const preorderDisclosure = commerce.mode === 'shopify' ? renderCartPreorderDisclosure(preorderSummary, escapeHtml) : '';
+  const describedBy = preorderDisclosure ? ` aria-describedby="${CART_PREORDER_DISCLOSURE_ID}"` : '';
   const checkout = canCheckout()
     ? `<button data-checkout ${cartBusy || checkoutBusy ? 'disabled' : ''}${checkoutBusy ? ' aria-busy="true"' : ''}>${checkoutHandoff.pending ? 'Opening checkout…' : checkoutBusy ? 'Checking cart…' : 'Checkout securely'}</button><p class="checkout-status" role="status" aria-live="polite">${checkoutHandoff.pending ? 'Opening secure checkout…' : checkoutBusy ? 'Checking your cart with Shopify…' : ''}</p>`
+    : preorderSummary.blocked.length && commerce.mode === 'shopify' ? `<button disabled${describedBy}>Checkout unavailable</button>`
     : `<button disabled>${commerce.mode === 'local' ? 'Checkout coming soon' : 'Checkout unavailable'}</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
   const feedbackText = cartError || (cart.incomplete ? 'incomplete' : '');
   const cartFeedback = cartFeedbackMarkup({ error: cartError, incomplete: cart.incomplete, guidance: cartGuidance,
@@ -171,7 +181,7 @@ function cartDrawer() {
       busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml,
       editor: breakInEditor.state, notice: serviceNotice?.lineId && serviceNotice.lineId === line.remoteLineId ? serviceNotice.text : ''
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError, expanded: discountExpanded, announceOnly: discountAnnounceOnly }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError, expanded: discountExpanded, announceOnly: discountAnnounceOnly }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${preorderDisclosure}${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
@@ -463,7 +473,7 @@ async function cartAction(action, opener = null, kind = 'cart', { inlineError = 
       // Only a Shopify-confirmed result is announced; Break-In additions announce through their own notice,
       // and errors, incomplete carts and recovery through the cart alert.
       if (outcome.status === 'ok' && !cart.incomplete && kind !== 'recovery' && kind !== 'break-in') {
-        cartAnnouncer.announce(cartUpdateAnnouncement(before, cart, id => products.find(product => product.id === id)?.name || 'Glove'));
+        cartAnnouncer.announce(cartUpdateAnnouncement(before, cart, cartProductName));
       }
     }
   });
@@ -557,6 +567,8 @@ function addProductFromButton(productId, trigger) {
   const product = products.find(product => product.id === productId);
   const wristFit = document.querySelector('input[name="wrist-fit"]:checked')?.value || 'regular';
   if (product?.line === 'full-size') {
+    // The rendered button is already disabled; this also covers a stale page or sticky control.
+    if (preorderState(product).status === 'blocked') return;
     const selected = name => document.querySelector(`input[name="${name}"]:checked`)?.value;
     const includeBreakIn = Boolean(document.querySelector('[data-full-size-break-in]')?.checked);
     const hand = selected('full-size-throw-hand');
@@ -626,6 +638,8 @@ function focusDiscountEntry() {
 
 function bindCart() {
   bindCartImageFallbacks(document.querySelector('.cart-drawer'));
+  // Screen readers hear the preorder estimates with the checkout button itself.
+  if (document.querySelector(`#${CART_PREORDER_DISCLOSURE_ID}`)) document.querySelector('[data-checkout]')?.setAttribute('aria-describedby', CART_PREORDER_DISCLOSURE_ID);
   document.querySelector('[data-refresh-cart]')?.addEventListener('click', () => cartAction(() => commerce.refreshCart()));
   document.querySelector('[data-recover-cart]')?.addEventListener('click', () => cartAction(() => commerce.recoverCart(), null, 'recovery'));
   document.querySelector('[data-recover-without-service]')?.addEventListener('click', () =>

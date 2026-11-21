@@ -1,0 +1,79 @@
+{%- comment -%}
+  ANAWIN preorder note for Shopify Admin > Settings > Notifications >
+  Customer notifications > Shipping confirmation (Edit code).
+  Install guide: docs/preorder-emails/README.md.
+
+  Uses the same contract as the order confirmation block:
+    - product tag:        preorder
+    - product metafield:  custom.preorder_ship_estimate (single line text)
+  Case A: this shipment contains a preorder glove -> "on its way" note.
+  Case B: this shipment contains no preorder glove, the order is still
+          partially fulfilled and has preorder gloves -> "ships separately"
+          note. No estimate is repeated here; the tracking block in Shopify's
+          default template already covers this shipment.
+  Otherwise this snippet outputs nothing (fails silent).
+{%- endcomment -%}
+{%- assign anawin_shipped_preorder = false -%}
+{%- assign anawin_shipped_break_in = false -%}
+{%- for anawin_fulfillment_line in fulfillment.fulfillment_line_items -%}
+  {%- assign line = anawin_fulfillment_line.line_item -%}
+  {%- if anawin_fulfillment_line.quantity > 0 and line.requires_shipping -%}
+    {%- assign anawin_mf = line.product.metafields.custom.preorder_ship_estimate -%}
+    {%- assign anawin_estimate = anawin_mf.value | default: anawin_mf | default: '' | strip -%}
+    {%- if line.product.tags contains 'preorder' and anawin_estimate != blank -%}
+      {%- assign anawin_shipped_preorder = true -%}
+      {%- for anawin_property in line.properties -%}
+        {%- if anawin_property.first == '_anawin_service' and anawin_property.last == 'break-in' -%}
+          {%- assign anawin_shipped_break_in = true -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- assign anawin_order_has_preorder = false -%}
+{%- for line in line_items -%}
+  {%- if line.quantity > 0 and line.requires_shipping -%}
+    {%- assign anawin_mf = line.product.metafields.custom.preorder_ship_estimate -%}
+    {%- assign anawin_estimate = anawin_mf.value | default: anawin_mf | default: '' | strip -%}
+    {%- if line.product.tags contains 'preorder' and anawin_estimate != blank -%}
+      {%- assign anawin_order_has_preorder = true -%}
+    {%- endif -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- if anawin_shipped_preorder -%}
+<table class="row section anawin-preorder">
+  <tr>
+    <td class="section__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+              <h3>Your preorder is on its way</h3>
+              <p>Thank you for your patience while we prepared your ANAWIN preorder.{% if anawin_shipped_break_in %} Your Break-In Service was completed before shipping.{% endif %}</p>
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+{%- elsif anawin_order_has_preorder and fulfillment_status == 'partial' -%}
+<table class="row section anawin-preorder">
+  <tr>
+    <td class="section__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+              <h3>Preorder</h3>
+              <p>Preorder items in your order are not included in this shipment. They will ship separately, and we’ll email you tracking information when they do.</p>
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+{%- endif -%}

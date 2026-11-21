@@ -8,10 +8,10 @@ async function fixture(config) { const f = shopifyFixture({ fullSize: true, ...c
 const add = (f, selected = options, hand = 'right') => f.commerce.addProduct('full-mint', true, selected, `gid://variant/mi26-${hand}`);
 const parent = cart => cart.lines.find(line => line.productId === 'full-mint' && !line.isBreakIn);
 
-test('each approved full-size display price is explicit and products remain Coming Soon', () => {
-  for (const [model, price] of [['MI26', 285], ['BL50', 285], ['OR17', 285], ['CM24', 285]]) {
+test('each approved full-size display price is explicit and every model is on preorder', () => {
+  for (const [model, price] of [['MI26', 295], ['BL50', 295], ['OR17', 295], ['CM24', 295]]) {
     const product = fullSizeProducts.find(p => p.name === model);
-    assert.equal(product.price, price); assert.equal(product.comingSoon, true);
+    assert.equal(product.price, price); assert.equal(product.comingSoon, false); assert.equal(product.preorder.enabled, true);
   }
 });
 test('full-size options require deliberate choices and Other placement; text is trimmed and limited', () => {
@@ -32,7 +32,7 @@ test('all four models add with and without full-size service', async () => {
     assert.ok(cartCustomizationIsComplete(cart.lines));
   }
 });
-test('every full-size hand variant totals $285 alone and $360 with its linked $75 service', async () => {
+test('every full-size hand variant totals $295 alone and $370 with its linked $75 service', async () => {
   for (const code of ['mi26', 'bl50', 'or17', 'cm24']) {
     for (const hand of code === 'cm24' ? ['right'] : ['right', 'left']) {
       for (const withService of [false, true]) {
@@ -40,7 +40,7 @@ test('every full-size hand variant totals $285 alone and $360 with its linked $7
         const products = await f.commerce.listProducts();
         const product = products.find(item => item.name.toLowerCase() === code);
         const cart = await f.commerce.addProduct(product.id, withService, options, `gid://variant/${code}-${hand}`);
-        assert.equal(cart.subtotal, withService ? 360 : 285);
+        assert.equal(cart.subtotal, withService ? 370 : 295);
         assert.equal(cart.incomplete, false);
         assert.equal(cartCustomizationIsComplete(cart.lines), true);
       }
@@ -56,7 +56,7 @@ test('Shopify glove prices remain authoritative when they differ from the produc
 test('mixed trainer and full-size cart preserves both service schemas and left-hand variant on reload', async () => {
   const f = await fixture(); await f.commerce.addProduct('black', true);
   const cart = await add(f, options, 'left');
-  assert.equal(cart.subtotal, 535); assert.equal(cart.incomplete, false);
+  assert.equal(cart.subtotal, 545); assert.equal(cart.incomplete, false);
   assert.equal(parent(cart).merchandiseId, 'gid://variant/mi26-left');
   assert.equal(parent(cart).throwingHand, 'Left');
   assert.ok(parent(cart).attributes.every(attribute => attribute.key.startsWith('_')));

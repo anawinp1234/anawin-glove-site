@@ -93,3 +93,43 @@ export const breakInSections = Object.freeze([
     'Then go enjoy the game of baseball.'
   ]}
 ]);
+
+// Preorder customer communication (see docs/preorder-emails/README.md). Wording and Shopify
+// contract names come from catalog.js, the single source shared with the product page and cart.
+// These blocks are generic and render only while at least one product is an active preorder.
+export { PREORDER_TAG, PREORDER_METAFIELD as PREORDER_ESTIMATE_METAFIELD, PREORDER_LABEL, PREORDER_ESTIMATE_PREFIX,
+  PREORDER_PAYMENT_NOTE as preorderPaymentNote, preorderEstimateLine } from './catalog.js';
+
+export const preorderShippingSection = Object.freeze({
+  heading: 'Preorders',
+  paragraphs: Object.freeze([
+    'Some gloves may be offered as a Preorder before they are in stock. Preorder items are marked Preorder on the product page and in your cart, together with an “Estimated to ship” timeframe.',
+    'The estimated ship timeframe is our current expectation, not a fixed ship or delivery date. Standard delivery estimates apply once a preorder item ships.',
+    'If you add Break-In Service to a preorder glove, the service is completed before the glove ships.',
+    'If your order also includes in-stock items, they may ship separately from your preorder item.',
+    'We’ll email you tracking information once your preorder ships. If the estimated ship timeframe changes, we’ll email you an update.'
+  ])
+});
+
+export const preorderFaqItems = Object.freeze([
+  Object.freeze({
+    question: 'What does Preorder mean?',
+    paragraphs: Object.freeze([
+      'A Preorder lets you reserve a glove before it is in stock. Preorder items are marked Preorder on the product page and in your cart, with an “Estimated to ship” timeframe for that glove.'
+    ])
+  }),
+  Object.freeze({
+    question: 'When will my preorder ship?',
+    paragraphs: Object.freeze([
+      'Each preorder glove shows its own “Estimated to ship” timeframe on the product page, in your cart, and in your order confirmation email. It is our current estimate, not a fixed ship or delivery date.',
+      'If you add Break-In Service, it is completed before the glove ships. In-stock items in the same order may ship separately.'
+    ])
+  }),
+  Object.freeze({
+    question: 'How will I hear about my preorder?',
+    paragraphs: Object.freeze([
+      'Your order confirmation email lists your preorder and its estimated ship timeframe. We’ll email you tracking information once it ships, and we’ll email you if the estimate changes.',
+      'These are order updates only. They do not sign you up for marketing emails or change your email preferences.'
+    ])
+  })
+]);
