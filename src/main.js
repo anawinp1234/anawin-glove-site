@@ -1,6 +1,6 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, preorderState, purchasePrice, savedBreakInOptions } from './catalog.js';
-import { createStorefrontRenderer, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
+import { createStorefrontRenderer, fullSizeSetupDetails, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { CART_PREORDER_DISCLOSURE_ID, bindCartImageFallbacks, cartPreorderSummary, renderCartPreorderDisclosure, renderCartRow } from './cart-row.js';
 import { breakInEditorField, createBreakInEditor } from './cart-break-in-editor.js';
@@ -838,6 +838,22 @@ function bind() {
     summary.textContent = `Your setup: ${summary.dataset.model} · Throw hand: ${hand || 'Choose one'} · Wrist fit: ${wrist} · ${enabled
       ? `${style} · Thumb closure: ${closure || 'Choose one'} · ${shaping} · ${firmness}${notes ? ' · Shaping notes added' : ''} · +$75 · Adds 2–5 business days`
       : 'No break-in service'}. Total before shipping/tax: ${money(purchasePrice({ price: Number(summary.dataset.price) }, fullSizeService, enabled), summary.dataset.currency)}.`;
+    const details = fullSizeSetupDetails({
+      model: summary.dataset.model, hand, wrist, servicePrice: fullSizeService.price, currency: summary.dataset.currency,
+      total: purchasePrice({ price: Number(summary.dataset.price) }, fullSizeService, enabled),
+      breakIn: enabled ? {
+        placement: otherSelected ? (description?.value.trim() ? `Other: ${description.value.trim()}` : '') : selected('full-size-wearing-style'),
+        closure: selected('full-size-closure-point'), shaping: FULL_SIZE_SHAPING_FIELDS.map(field => [field.label, selected(field.name)]),
+        firmness: selected('full-size-firmness'), notes
+      } : null
+    });
+    const setupList = document.querySelector('[data-full-size-setup-list]');
+    if (setupList) setupList.innerHTML = details.rows;
+    const setupStatus = document.querySelector('[data-full-size-setup-status]');
+    if (setupStatus) setupStatus.textContent = details.status;
+    const setupTotal = document.querySelector('[data-full-size-setup-total]');
+    if (setupTotal) setupTotal.textContent = details.total;
+    document.querySelector('[data-full-size-setup]')?.toggleAttribute('data-ready', details.status === 'All set');
   };
   document.querySelectorAll('[data-full-size-break-in], input[name^="full-size-"], textarea[name^="full-size-"], .full-size-pdp input[name="wrist-fit"]').forEach(input => {
     const update = () => { clearFullSizeFieldErrors(document, input.name); updateFullSizeSetup(); };

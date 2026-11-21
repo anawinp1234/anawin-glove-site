@@ -26,6 +26,21 @@ const formatMoney = (value, currency, minimumFractionDigits) => new Intl.NumberF
 export const money = (value, currency = 'USD') => formatMoney(value, currency, 0);
 export const cartMoney = (value, currency = 'USD') => formatMoney(value, currency, 2);
 export const escapeHtml = value => String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+
+// The full-size "Your setup" dropdown: one row per choice, unanswered choices marked. main.js re-renders it as choices change.
+// breakIn is null without the service, else { placement, closure, shaping: [[label, value]], firmness, notes }.
+export function fullSizeSetupDetails({ model, hand, wrist, breakIn, servicePrice, total, currency = 'USD' }) {
+  const rows = [['Glove', model], ['Throw hand', hand], ['Wrist fit', wrist],
+    ['Break-in', breakIn ? `Full-Service Break-In · +${money(servicePrice, currency)}` : 'None', breakIn ? 'Adds 2–5 business days' : '']];
+  if (breakIn) rows.push(['Finger placement', breakIn.placement], ['Thumb closure', breakIn.closure], ...breakIn.shaping,
+    ['Firmness', breakIn.firmness], ...(breakIn.notes ? [['Notes', 'Added']] : []));
+  const missing = rows.filter(([, value]) => !value).length;
+  return {
+    rows: rows.map(([label, value, note], index) => `<div class="full-size-setup-row${index === 4 ? ' is-service' : ''}"><dt>${escapeHtml(label)}</dt><dd${value ? '' : ' class="is-missing"'}>${escapeHtml(value || 'Choose one')}${note ? `<small>${escapeHtml(note)}</small>` : ''}</dd></div>`).join(''),
+    status: missing ? `${missing} choice${missing === 1 ? '' : 's'} left` : 'All set',
+    total: money(total, currency)
+  };
+}
 // Starts with the visible word so voice-control users can say “Cart”.
 export const cartTriggerLabel = count => `Cart, ${count} ${count === 1 ? 'item' : 'items'}`;
 
@@ -339,7 +354,8 @@ function fullSizePage(product) {
       <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
       ${wristFitChoices()}
       ${fullSizeBreakInDetails(product, preorder.view)}
-      <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
+      ${(({ rows, status, total }) => `<details class="full-size-setup" data-full-size-setup><summary><span class="full-size-setup-heading"><strong>Your setup</strong><small data-full-size-setup-status>${status}</small></span><span class="full-size-setup-total"><strong data-full-size-setup-total>${total}</strong><small>before shipping &amp; tax</small></span><span class="accordion-indicator" aria-hidden="true"></span></summary><dl class="full-size-setup-list" data-full-size-setup-list>${rows}</dl></details>`)(fullSizeSetupDetails({ model: product.title, hand: '', wrist: 'Regular', breakIn: null, servicePrice: fullSizeService.price, total: purchasePrice(product, fullSizeService, false), currency: product.currencyCode }))}
+      <p id="full-size-setup-summary" class="visually-hidden" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
       <p data-full-size-error role="alert" tabindex="-1" hidden></p>
       ${fullSizePurchase(product, purchasable, preorder)}
       ${preorder.view === 'open' || preorder.estimate ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}

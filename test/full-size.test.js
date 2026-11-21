@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
-import { createStorefrontRenderer } from '../src/storefront-render.js';
+import { createStorefrontRenderer, fullSizeSetupDetails } from '../src/storefront-render.js';
 import { productJsonLd, productPath } from '../src/seo.js';
 
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
@@ -183,4 +183,29 @@ test('full-size shaping groups have distinct native radio names, helper text and
   const trainer = renderer.route('/product/br16');
   assert.doesNotMatch(trainer, /full-size-thumb-shape|full-size-pinky-shape|full-size-finger-shape/);
   assert.match(trainer, /name="break-in-level" value="Medium \(65%\)" checked/);
+});
+
+test('the full-size setup is a collapsed dropdown with one row per choice and the total in its summary', () => {
+  const html = renderer.route('/product/mi26');
+  const setup = html.match(/<details class="full-size-setup" data-full-size-setup>[\s\S]*?<\/details>/)[0];
+  assert.match(setup, /<summary><span class="full-size-setup-heading"><strong>Your setup<\/strong><small data-full-size-setup-status>1 choice left<\/small><\/span><span class="full-size-setup-total"><strong data-full-size-setup-total>\$295<\/strong><small>before shipping &amp; tax<\/small><\/span>/);
+  assert.deepEqual([...setup.matchAll(/<dt>([^<]+)<\/dt>/g)].map(match => match[1]), ['Glove', 'Throw hand', 'Wrist fit', 'Break-in']);
+  assert.match(setup, /<dt>Throw hand<\/dt><dd class="is-missing">Choose one<\/dd>/);
+  assert.match(setup, /<dt>Break-in<\/dt><dd>None<\/dd>/);
+  // The screen-reader live region and the button description keep the full sentence.
+  assert.match(html, /<p id="full-size-setup-summary" class="visually-hidden" data-full-size-setup-summary[^>]*role="status" aria-live="polite"[^>]*>Your setup: /);
+
+  const shaping = [['Thumb shape', 'None'], ['Pinky shape', 'Flared'], ['Finger form', 'Rolled']];
+  const ready = fullSizeSetupDetails({ model: 'Glove <b>', hand: 'Right-Hand Throw (worn on left hand)', wrist: 'Tightened', servicePrice: 75, total: 370,
+    breakIn: { placement: 'Traditional — index finger out', closure: 'Ring finger', shaping, firmness: 'Medium', notes: 'deep pocket' } });
+  assert.equal(ready.status, 'All set');
+  assert.equal(ready.total, '$370');
+  assert.match(ready.rows, /<dt>Break-in<\/dt><dd>Full-Service Break-In · \+\$75<small>Adds 2–5 business days<\/small><\/dd>/);
+  assert.match(ready.rows, /<div class="full-size-setup-row is-service"><dt>Finger placement<\/dt>/);
+  assert.match(ready.rows, /<dt>Notes<\/dt><dd>Added<\/dd>/);
+  assert.match(ready.rows, /Glove &lt;b&gt;/, 'values are escaped');
+  const partial = fullSizeSetupDetails({ model: 'Glove', hand: '', wrist: 'Regular', servicePrice: 75, total: 370,
+    breakIn: { placement: '', closure: 'Ring finger', shaping, firmness: '', notes: '' } });
+  assert.equal(partial.status, '3 choices left');
+  assert.doesNotMatch(partial.rows, /Notes/);
 });
