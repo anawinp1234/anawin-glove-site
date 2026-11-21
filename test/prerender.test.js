@@ -282,7 +282,7 @@ test('full-size preorder pages ship breadcrumbs and an availability-free offer, 
     assert.equal(jsonLd(html, 'data-anawin-product')[0].offers.price, '295.00', model);
     assert.doesNotMatch(html, /schema\.org\/(InStock|PreOrder)/, model);
     assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in|Add to cart — Coming soon/, model);
-    assert.match(html, /data-newsletter-form/, model);
+    assert.match(html, /<span class="preorder-badge">Preorder<\/span>[\s\S]*Estimated to ship: December 4-10, 2026/, model);
   }
 });
 
@@ -310,7 +310,7 @@ test('prerendered full-size prices and setup totals are $295 with purchase disab
     assert.match(html, /class="price">\$295<\/p>/);
     assert.match(html, /No break-in service\. Total before shipping\/tax: \$295\./);
     assert.doesNotMatch(html, /\$290|\$365|data-add="/);
-    assert.match(html, /class="add-button" disabled[^>]*>Checking availability…<\/button>/);
+    assert.match(html, /class="add-button" disabled aria-busy="true"[^>]*>Preorder<\/button>/);
   }
   for (const path of Object.keys(seoRoutes)) {
     assert.doesNotMatch(htmlFor(path), /\$290|\$365/);

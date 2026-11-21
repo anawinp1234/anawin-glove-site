@@ -62,7 +62,7 @@ test('production full-size pages sell as preorders only once Shopify confirms th
       assert.doesNotMatch(html, /data-add=|Estimated to ship/);
     }
   }
-  assert.match(renderer([], { commerceLoading: true }).route('/product/mi26'), /class="add-button" disabled[^>]*>Checking availability…<\/button>/);
+  assert.match(renderer([], { commerceLoading: true }).route('/product/mi26'), /class="add-button" disabled aria-busy="true"[^>]*>Preorder<\/button>/);
   for (const path of ['/', '/product/br16']) assert.doesNotMatch(confirmed.route(path), /Estimated to ship/i, path);
 });
 
@@ -132,10 +132,17 @@ test('blocked preorders render a calm unavailable state without Preorder or an e
   assert.doesNotMatch(errored, /data-add=|Estimated to ship/);
 });
 
-test('while Shopify is loading a configured preorder page is never offered as a preorder', () => {
-  const html = pdp(preorderMint({ available: undefined }), { commerceLoading: true });
-  assert.match(html, /<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Checking availability…<\/button>/);
-  assert.doesNotMatch(html, /data-add=|Preorder|Estimated to ship|Coming soon<\/p>/);
+test('while Shopify is loading a configured preorder reads as a preorder but cannot be added yet', () => {
+  const html = pdp(preorderMint({ available: undefined, shopifyPreorderShipEstimate: undefined }), { commerceLoading: true });
+  assert.match(html, /<p class="preorder-status"><span class="preorder-badge">Preorder<\/span><\/p>/);
+  assert.match(html, /Estimated to ship: first week of December 2026/);
+  assert.match(html, /Preorders are paid in full at checkout/);
+  assert.match(html, /<button type="button" class="add-button" disabled aria-busy="true" aria-describedby="full-size-ship-estimate full-size-payment-note full-size-setup-summary">Preorder<\/button>/);
+  assert.doesNotMatch(html, /data-add=|Get notified at launch|Available to add when this glove launches|Coming soon<\/p>|Unavailable/);
+  // Without an approved catalog estimate there is nothing to show yet.
+  const unset = pdp(preorderMint({ available: undefined, preorder: { enabled: true, shipEstimate: null } }), { commerceLoading: true });
+  assert.match(unset, /<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Checking availability…<\/button>/);
+  assert.doesNotMatch(unset, /data-add=|Preorder|Estimated to ship/);
 });
 
 test('cards and related links say Preorder only for a Shopify-confirmed preorder', () => {

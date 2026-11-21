@@ -1,4 +1,4 @@
-import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, PREORDER_LABEL, PREORDER_PAYMENT_NOTE, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, preorderShipLine, preorderState, purchasePrice, throwHandLabels } from './catalog.js';
+import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, PREORDER_LABEL, PREORDER_PAYMENT_NOTE, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, preorderConfigured, preorderShipLine, preorderState, purchasePrice, throwHandLabels } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -283,7 +283,7 @@ function fullSizeBreakInDetails(product, preorderView = null) {
   const group = (name, legend, values, help = '') => `<fieldset><legend>${escapeHtml(legend)}</legend>${help ? `<p id="${name}-help" class="full-size-shaping-help">${escapeHtml(help)}</p>` : ''}${choices(name, values)}${fieldError(name)}</fieldset>`;
   return `<section class="full-size-service" aria-label="Full-Service Break-In">
     <label class="service-option"><input type="checkbox" data-full-size-break-in ${preorderView && preorderView !== 'open' || product.comingSoon === false && (commerceLoading || Boolean(commerceError) || !product.available || service.available === false) ? 'disabled' : ''} aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">Adds 2–5 business days</small></span></label>
-    ${preorderView === 'open' ? '' : '<p class="full-size-service-availability">Available to add when this glove launches.</p>'}
+    ${['open', 'checking'].includes(preorderView) ? '' : '<p class="full-size-service-availability">Available to add when this glove launches.</p>'}
     <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
       ${group('full-size-wearing-style', 'How do you wear your glove?', service.wearingStyles)}
       <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea>${fieldError('full-size-finger-placement')}</div>
@@ -297,17 +297,21 @@ function fullSizeBreakInDetails(product, preorderView = null) {
 }
 
 // Preorder views: 'open' (Shopify confirmed), 'checking' (not yet loaded) or 'unavailable' (fails closed).
+// 'checking' already reads as a preorder with the catalog estimate; only Shopify's confirmation enables the button.
 function fullSizePreorderView(product) {
   const preorder = preorderState(product);
   if (preorder.status === 'inactive') return { view: null };
-  if (commerceLoading) return { view: 'checking' };
+  if (commerceLoading) return preorderConfigured(product) ? { view: 'checking', estimate: product.preorder.shipEstimate.trim() } : { view: 'checking' };
   return !commerceError && preorder.status === 'active' ? { view: 'open', estimate: preorder.estimate } : { view: 'unavailable' };
 }
 
 function fullSizePurchase(product, purchasable, { view, estimate }) {
-  if (view === 'open') return `<p id="full-size-ship-estimate" class="preorder-ship-estimate">${escapeHtml(preorderShipLine(estimate))}</p>
-      <p id="full-size-payment-note" class="preorder-payment-note">${escapeHtml(PREORDER_PAYMENT_NOTE)}</p>
+  const preorderNotes = () => `<p id="full-size-ship-estimate" class="preorder-ship-estimate">${escapeHtml(preorderShipLine(estimate))}</p>
+      <p id="full-size-payment-note" class="preorder-payment-note">${escapeHtml(PREORDER_PAYMENT_NOTE)}</p>`;
+  if (view === 'open') return `${preorderNotes()}
       <button type="button" class="add-button" data-add="${escapeHtml(product.id)}" aria-describedby="full-size-ship-estimate full-size-payment-note full-size-setup-summary">${PREORDER_LABEL}</button>`;
+  if (view === 'checking' && estimate) return `${preorderNotes()}
+      <button type="button" class="add-button" disabled aria-busy="true" aria-describedby="full-size-ship-estimate full-size-payment-note full-size-setup-summary">${PREORDER_LABEL}</button>`;
   if (view === 'checking') return '<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Checking availability…</button>';
   if (view === 'unavailable') return `<p id="full-size-preorder-status" class="purchase-status">${escapeHtml(product.name)} isn’t available to order right now. Sign up below to hear when it is.</p>
       <button type="button" class="add-button" disabled aria-describedby="full-size-preorder-status full-size-setup-summary">Unavailable</button>`;
@@ -317,7 +321,7 @@ function fullSizePurchase(product, purchasable, { view, estimate }) {
 function fullSizePage(product) {
   const preorder = fullSizePreorderView(product);
   const purchasable = preorder.view ? preorder.view === 'open' : product.comingSoon === false && product.available && !commerceLoading && !commerceError;
-  const availabilityLabel = preorder.view === 'open' ? `<p class="preorder-status"><span class="preorder-badge">${PREORDER_LABEL}</span></p>`
+  const availabilityLabel = preorder.view === 'open' || preorder.view === 'checking' && preorder.estimate ? `<p class="preorder-status"><span class="preorder-badge">${PREORDER_LABEL}</span></p>`
     : preorder.view === 'checking' ? ''
       : preorder.view === 'unavailable' ? '<p class="coming-soon-price">Currently unavailable</p>'
         : purchasable ? '' : '<p class="coming-soon-price">Coming soon</p>';
@@ -336,7 +340,7 @@ function fullSizePage(product) {
       <p id="full-size-setup-summary" class="full-size-setup-summary" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}" role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: Choose one · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
       <p data-full-size-error role="alert" tabindex="-1" hidden></p>
       ${fullSizePurchase(product, purchasable, preorder)}
-      ${preorder.view === 'open' ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}
+      ${preorder.view === 'open' || preorder.estimate ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}
       ${productAccordions(product)}
 
       <div class="purchase-trust" aria-label="Store information"><p><a href="/shipping" data-link>Free U.S. shipping</a> <span aria-hidden="true">·</span> <a href="/returns" data-link>30-day returns</a> <span aria-hidden="true">·</span> <a href="/warranty" data-link>1-year limited warranty</a></p></div>
