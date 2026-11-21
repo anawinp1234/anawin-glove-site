@@ -144,11 +144,19 @@ test('full-size pages offer the confirmed throw-hand options and stay disabled u
   for (const product of fullSizeProducts) {
     const html = renderer.route(productPath(product));
     const fieldset = html.match(/<fieldset class="full-size-throw-hand">[\s\S]*?<\/fieldset>/)[0];
-    const options = [...fieldset.matchAll(/<input type="radio" name="full-size-throw-hand" value="([^"]+)"><span><strong>([^<]+)<\/strong>/g)];
+    const options = [...fieldset.matchAll(/<input type="radio" name="full-size-throw-hand" value="([^"]+)"(?: checked)?><span><strong>([^<]+)<\/strong>/g)];
     assert.deepEqual(options.map(match => match[1]), expected[product.color], product.color);
     assert.deepEqual(options.map(match => match[2]), expected[product.color], product.color);
-    assert.doesNotMatch(fieldset, /checked/);
-    assert.match(html, /Throw hand: Choose one · Wrist fit: Regular · No break-in service\./);
+    if (expected[product.color].length === 1) {
+      // CM24 is right-hand throw only, so that hand starts selected everywhere the setup is shown.
+      assert.match(fieldset, /value="Right-Hand Throw \(worn on left hand\)" checked>/);
+      assert.match(html, /Throw hand: Right-Hand Throw \(worn on left hand\) · Wrist fit: Regular · No break-in service\./);
+      assert.match(html, /<dt>Throw hand<\/dt><dd>Right-Hand Throw \(worn on left hand\)<\/dd>/);
+      assert.match(html, /data-full-size-setup-status>All set</);
+    } else {
+      assert.doesNotMatch(fieldset, /checked/);
+      assert.match(html, /Throw hand: Choose one · Wrist fit: Regular · No break-in service\./);
+    }
     assert.match(html, /<button type="button" class="add-button" disabled[^>]*>Unavailable<\/button>/);
     assert.match(html, /class="pdp-notify"/);
     assert.doesNotMatch(html, /in stock|InStock|units? (left|available)|\b\d+ (RHT|LHT)\b/i);
