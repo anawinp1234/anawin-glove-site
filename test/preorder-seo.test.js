@@ -8,36 +8,41 @@ import {
 } from '../worker/product-offer.js';
 
 const ESTIMATE = 'first week of December 2026';
-// Each test file runs in its own process. Active preorders need confirmed full payment at checkout;
-// the shipped catalog keeps PREORDER_CHECKOUT.chargedInFullAtCheckout false.
-PREORDER_CHECKOUT.chargedInFullAtCheckout = true;
-const preorderCatalog = fullSizeProducts.map(product => product.id === 'full-mint'
+const LAUNCH_ESTIMATE = 'December 4-10, 2026';
+// Every full-size model back in Coming Soon, so each test can enable exactly one preorder.
+const comingSoonCatalog = fullSizeProducts.map(product => ({ ...product, comingSoon: true, preorder: { enabled: false, shipEstimate: null } }));
+const preorderCatalog = comingSoonCatalog.map(product => product.id === 'full-mint'
   ? { ...product, comingSoon: false, preorder: { enabled: true, shipEstimate: ESTIMATE } } : product);
 const storefront = (nodes, metafield) => ({ data: { product: { ...(metafield === undefined ? {} : { preorderShipEstimate: metafield === null ? null : { value: metafield } }), variants: { nodes } } } });
-const variant = (amount = '285.0', availableForSale = true, currencyCode = 'USD') => ({ availableForSale, price: { amount, currencyCode } });
+const variant = (amount = '295.0', availableForSale = true, currencyCode = 'USD') => ({ availableForSale, price: { amount, currencyCode } });
 const memoryCache = () => {
   const map = new Map();
   return { map, match: async key => map.get(key.url)?.clone(), put: async (key, value) => { map.set(key.url, value); } };
 };
 const productBlock = html => JSON.parse(/<script type="application\/ld\+json" data-anawin-product[^>]*>([^<]*)<\/script>/.exec(html)[1]);
 
-test('Coming Soon full-size pages keep Product/Offer JSON-LD absent, including the built HTML', () => {
+test('Coming Soon full-size pages keep Product/Offer JSON-LD absent', () => {
+  for (const product of comingSoonCatalog) assert.equal(productJsonLd(productPath(product), { fullSize: comingSoonCatalog }), null);
+  assert.deepEqual(preorderOfferPages(comingSoonCatalog), {});
+});
+
+test('launched preorder pages publish an Offer without build-time availability, including the built HTML', () => {
+  assert.equal(PREORDER_CHECKOUT.chargedInFullAtCheckout, true);
   for (const product of fullSizeProducts) {
     const path = productPath(product);
-    assert.equal(productJsonLd(path), null, path);
-    assert.doesNotMatch(renderSeoHead(path), /data-anawin-product/);
+    assert.equal(productJsonLd(path).offers.price, '295.00', path);
     const built = readFileSync(new URL(`../dist${path}.html`, import.meta.url), 'utf8');
-    assert.doesNotMatch(built, /data-anawin-product|schema\.org\/(InStock|PreOrder)/, path);
-    assert.match(built, /Add to cart — Coming soon/);
+    assert.match(built, /data-anawin-product/, path);
+    assert.doesNotMatch(built, /schema\.org\/(InStock|PreOrder)|Add to cart — Coming soon/, path);
   }
-  assert.deepEqual(preorderOfferPages(), {});
-  assert.equal(OFFER_PAGE.source, '^\\/product\\/(br16|ob16|cl16)$');
+  assert.deepEqual(preorderOfferPages(), { mi26: LAUNCH_ESTIMATE, bl50: LAUNCH_ESTIMATE, cm24: LAUNCH_ESTIMATE, or17: LAUNCH_ESTIMATE });
+  assert.equal(OFFER_PAGE.source, '^\\/product\\/(br16|ob16|cl16|mi26|bl50|cm24|or17)$');
 });
 
 test('a configured preorder gets a Product offer without build-time availability or delivery time', () => {
   const data = productJsonLd('/product/mi26', { fullSize: preorderCatalog });
   assert.equal(data['@type'], 'Product');
-  assert.deepEqual(data.offers, { '@type': 'Offer', url: 'https://anawinofficial.com/product/mi26', priceCurrency: 'USD', price: '285.00' });
+  assert.deepEqual(data.offers, { '@type': 'Offer', url: 'https://anawinofficial.com/product/mi26', priceCurrency: 'USD', price: '295.00' });
   assert.equal(data.image, 'https://anawinofficial.com/images/full-size/mint-back.jpg');
   assert.doesNotMatch(JSON.stringify(data), /InStock|availability|shippingDetails|deliveryTime/);
   assert.equal(productJsonLd('/product/bl50', { fullSize: preorderCatalog }), null);
@@ -53,12 +58,12 @@ test('the prerender refuses to ship a page that claims availability', () => {
 
 test('the Worker publishes PreOrder, never InStock, for a confirmed preorder', () => {
   const pre = { preorderEstimate: ESTIMATE };
-  assert.deepEqual(offerFromStorefront(storefront([variant(), variant()], ESTIMATE), pre), { price: '285.00', currency: 'USD', availability: 'https://schema.org/PreOrder' });
-  assert.equal(offerFromStorefront(storefront([variant(), variant('285.0', false)], ` ${ESTIMATE} `), pre).availability, 'https://schema.org/PreOrder');
-  assert.equal(offerFromStorefront(storefront([variant('285.0', false), variant('285.0', false)], ESTIMATE), pre).availability, 'https://schema.org/OutOfStock');
+  assert.deepEqual(offerFromStorefront(storefront([variant(), variant()], ESTIMATE), pre), { price: '295.00', currency: 'USD', availability: 'https://schema.org/PreOrder' });
+  assert.equal(offerFromStorefront(storefront([variant(), variant('295.0', false)], ` ${ESTIMATE} `), pre).availability, 'https://schema.org/PreOrder');
+  assert.equal(offerFromStorefront(storefront([variant('295.0', false), variant('295.0', false)], ESTIMATE), pre).availability, 'https://schema.org/OutOfStock');
   for (const payload of [
-    storefront([variant()], 'mid-December 2026'), storefront([variant()], null), storefront([variant()]), storefront([variant()], '  '), storefront([]), storefront([variant('285.0'), variant('295.0')]),
-    storefront([variant('285.0', true, 'CAD')]), storefront([variant('0')]), storefront([variant('285.0', 'yes')]),
+    storefront([variant()], 'mid-December 2026'), storefront([variant()], null), storefront([variant()]), storefront([variant()], '  '), storefront([]), storefront([variant('295.0'), variant('305.0')]),
+    storefront([variant('295.0', true, 'CAD')]), storefront([variant('0')]), storefront([variant('295.0', 'yes')]),
     storefront(Array.from({ length: 20 }, () => variant())), { data: { product: null } }, { errors: [{ message: 'x' }] }, null
   ]) assert.equal(offerFromStorefront(payload, pre), null, JSON.stringify(payload));
   // Trainer offers are unchanged.
@@ -66,13 +71,14 @@ test('the Worker publishes PreOrder, never InStock, for a confirmed preorder', (
 });
 
 test('only catalog-configured preorder pages are synced, with the estimate in the cache key', async () => {
-  assert.equal(offerPageFor('/product/mi26'), null);
+  assert.equal(offerPageFor('/product/mi26', comingSoonCatalog), null);
+  assert.deepEqual(offerPageFor('/product/mi26'), { handle: 'mi26', preorderEstimate: LAUNCH_ESTIMATE });
   assert.deepEqual(offerPageFor('/product/mi26', preorderCatalog), { handle: 'mi26', preorderEstimate: ESTIMATE });
   assert.equal(offerPageFor('/product/bl50', preorderCatalog), null);
   assert.deepEqual(offerPageFor('/product/br16'), { handle: 'br16', preorderEstimate: null });
   assert.equal(offerPageFor('/product/mi26/x', preorderCatalog), null);
 
-  const head = renderSeoHead('/product/mi26').replace(/<\/script>[\s\S]*$/, '');
+  const head = renderSeoHead('/product/mi26').replace(/<script type="application\/ld\+json" data-anawin-product[^>]*>[^<]*<\/script>/, '');
   const block = `<script type="application/ld+json" data-anawin-product>${JSON.stringify(productJsonLd('/product/mi26', { fullSize: preorderCatalog }))}</script>`;
   const html = `<html><head>${head}${block}</head><body>MI26</body></html>`;
   const updated = applyOffer(html, offerFromStorefront(storefront([variant(), variant()], ESTIMATE), { preorderEstimate: ESTIMATE })).html;

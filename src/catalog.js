@@ -236,43 +236,43 @@ const fullSizeSpecs = (size, position, web, details, throwHands) => [
   ...details, ['Throw hand', throwHands.map(hand => throwHandLabels[hand]).join(' or ')]
 ];
 
-// `preorder` stays disabled until the owner approves a ship estimate; see docs/preorder-website.md.
+// Preorder ship estimate approved by the owner; it must equal custom.preorder_ship_estimate in Shopify.
 export const fullSizeProducts = Object.freeze([
   {
-    id: 'full-mint', color: 'mint', name: 'MI26', line: 'full-size', comingSoon: true,
-    preorder: { enabled: false, shipEstimate: null },
+    id: 'full-mint', color: 'mint', name: 'MI26', line: 'full-size', comingSoon: false,
+    preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Mint 12″ Japanese Kip Pitcher’s Glove', descriptor: '12″ Japanese Kip Pitcher’s Glove',
-    price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
+    price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'A 12-inch Japanese Kip pitcher’s glove with a closed web and an external index finger hood. The solid panel helps keep your grip out of view on the mound, and the carved design on the outside gives this glove its signature look. If you wear your index finger outside the glove, you can tuck it under the hood.',
     specs: fullSizeSpecs('12', 'Pitcher', 'Closed web with a carved outer design', [['Index finger', 'External finger hood'], ['Wrist lining', 'Fur']], bothThrowHands),
     metaDescription: 'ANAWIN Mint is a 12-inch Japanese Kip pitcher’s glove with a carved closed web and index finger hood. Choose right-hand or left-hand throw.',
     tone: 'Mint / Silver', swatches: ['#3fd6a6', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint')
   },
   {
-    id: 'full-black', color: 'black', name: 'BL50', line: 'full-size', comingSoon: true,
-    preorder: { enabled: false, shipEstimate: null },
+    id: 'full-black', color: 'black', name: 'BL50', line: 'full-size', comingSoon: false,
+    preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Black 12.75″ Japanese Kip Outfield Glove', descriptor: '12.75″ Japanese Kip Outfield Glove',
-    price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
+    price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'A 12.75-inch Japanese Kip glove built for the outfield. It’s the longest model in the ANAWIN Kip Series and pairs that extra length with an open H-web. A carved ANAWIN logo on the thumb adds detail to the all-black design.',
     specs: fullSizeSpecs('12.75', 'Outfield', 'H-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
     metaDescription: 'ANAWIN Black is a 12.75-inch Japanese Kip outfield glove with an H-web and carved thumb logo. Choose right-hand or left-hand throw.',
     tone: 'Black / White / Brown', swatches: ['#1b1c1e', '#ffffff', '#8a5a3a'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black')
   },
   {
-    id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: true,
-    preorder: { enabled: false, shipEstimate: null },
+    id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: false,
+    preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
-    price: 285, currencyCode: 'USD', throwHands: rightHandOnly,
+    price: 295, currencyCode: 'USD', throwHands: rightHandOnly,
     pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. The CM24 is the more compact of the two infield models in the ANAWIN Kip Series. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
     specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Welting', 'Dual welting'], ['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
     metaDescription: 'ANAWIN Camel is an 11.5-inch Japanese Kip infield glove with a Diamond web, sheepskin-lined finger stalls, and a moisture-wicking wrist pad.',
     tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel')
   },
   {
-    id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: true,
-    preorder: { enabled: false, shipEstimate: null },
+    id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: false,
+    preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Orange 11.75″ Japanese Kip Infield Glove', descriptor: '11.75″ Japanese Kip Infield Glove',
-    price: 285, currencyCode: 'USD', throwHands: bothThrowHands,
+    price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
     pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. The OR17 is the longer of the two infield models in the ANAWIN Kip Series, a quarter inch longer than the CM24. The thumb features a carved ANAWIN logo.',
     specs: fullSizeSpecs('11.75', 'Infield', 'Modified T-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
     metaDescription: 'ANAWIN Orange is an 11.75-inch Japanese Kip infield glove with a Modified T-web, a carved thumb logo, and a fur wrist lining. Choose right-hand or left-hand throw.',
@@ -298,8 +298,9 @@ export const preorderCartNote = estimate => `${PREORDER_LABEL} · ${preorderShip
 // Store-level checkout facts the preorder disclosure depends on. The Storefront API cannot read the
 // payment capture mode, so this stays false until the owner confirms in Shopify Admin > Settings >
 // Payments that capture is automatic and no selling plan or deferred payment applies to preorder
-// gloves. While false, no preorder can be sold (preorderState returns 'blocked').
-export const PREORDER_CHECKOUT = { chargedInFullAtCheckout: false };
+// gloves. While false, no preorder can be sold (preorderState returns 'blocked'). Owner confirmed
+// automatic capture with no preorder or deposit app on November 20, 2026.
+export const PREORDER_CHECKOUT = { chargedInFullAtCheckout: true };
 
 // The catalog alone says a model is meant to be sold as a preorder. Shopify must still confirm it.
 export function preorderConfigured(product) {

@@ -13,8 +13,8 @@ import { productPath } from '../src/seo.js';
 const ESTIMATE = 'first week of December 2026';
 const mint = fullSizeProducts.find(product => product.id === 'full-mint');
 const variants = [
-  { id: 'gid://variant/mi26-right', availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Right' }], price: { amount: '285.00', currencyCode: 'USD' } },
-  { id: 'gid://variant/mi26-left', availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Left' }], price: { amount: '285.00', currencyCode: 'USD' } }
+  { id: 'gid://variant/mi26-right', availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Right' }], price: { amount: '295.00', currencyCode: 'USD' } },
+  { id: 'gid://variant/mi26-left', availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Left' }], price: { amount: '295.00', currencyCode: 'USD' } }
 ];
 const preorderMint = (overrides = {}) => ({ ...mint, comingSoon: false, preorder: { enabled: true, shipEstimate: ESTIMATE },
   available: true, variants, merchandiseId: variants[0].id, shopifyPreorderShipEstimate: ESTIMATE, ...overrides });
@@ -22,9 +22,6 @@ const renderer = (products, extra = {}) => createStorefrontRenderer({ products: 
   fullSizeService: { ...fullSizeBreakInService, available: true }, ...extra });
 const pdp = (product, extra) => renderer([product], extra).route(productPath(product));
 
-// Each test file runs in its own process. Active preorders need confirmed full payment at checkout;
-// the shipped catalog keeps PREORDER_CHECKOUT.chargedInFullAtCheckout false.
-PREORDER_CHECKOUT.chargedInFullAtCheckout = true;
 
 test('shared preorder copy matches the cross-agent contract exactly', () => {
   assert.equal(PREORDER_LABEL, 'Preorder');
@@ -33,34 +30,40 @@ test('shared preorder copy matches the cross-agent contract exactly', () => {
   assert.deepEqual({ ...PREORDER_METAFIELD }, { namespace: 'custom', key: 'preorder_ship_estimate' });
 });
 
-test('production catalog keeps every full-size model Coming Soon with preorder disabled', () => {
+const LAUNCH_ESTIMATE = 'December 4-10, 2026';
+
+test('production catalog launches every full-size model as a preorder with one approved estimate', () => {
   assert.equal(fullSizeProducts.length, 4);
+  assert.equal(PREORDER_CHECKOUT.chargedInFullAtCheckout, true);
   for (const product of fullSizeProducts) {
-    assert.equal(product.comingSoon, true, product.name);
-    assert.deepEqual(product.preorder, { enabled: false, shipEstimate: null }, product.name);
-    assert.equal(preorderConfigured(product), false);
-    // Even if Shopify were to report it for sale with an estimate, Coming Soon wins.
-    assert.equal(preorderState({ ...product, available: true, shopifyPreorderShipEstimate: ESTIMATE }).status, 'inactive');
+    assert.equal(product.comingSoon, false, product.name);
+    assert.deepEqual(product.preorder, { enabled: true, shipEstimate: LAUNCH_ESTIMATE }, product.name);
+    assert.equal(preorderConfigured(product), true);
+    assert.deepEqual(preorderState({ ...product, available: true, shopifyPreorderShipEstimate: LAUNCH_ESTIMATE }), { status: 'active', estimate: LAUNCH_ESTIMATE });
+    // Shopify must still confirm the same estimate.
+    assert.equal(preorderState({ ...product, available: true, shopifyPreorderShipEstimate: null }).status, 'blocked');
   }
   for (const product of localProducts) assert.equal(preorderState(product).status, 'inactive', product.name);
 });
 
-test('production full-size pages, cards and links render Coming Soon with no Preorder copy', () => {
-  for (const views of [renderer([]), renderer([], { commerceLoading: true }), renderer(fullSizeProducts.map(product => ({ ...product, available: true, variants })))]) {
+test('production full-size pages sell as preorders only once Shopify confirms them', () => {
+  const confirmed = renderer(fullSizeProducts.map(product => ({ ...product, available: true, variants, shopifyPreorderShipEstimate: LAUNCH_ESTIMATE })));
+  for (const product of fullSizeProducts) {
+    const html = confirmed.route(productPath(product));
+    assert.match(html, /<p class="price">\$295<\/p><p class="preorder-status"><span class="preorder-badge">Preorder<\/span><\/p>/, product.name);
+    assert.match(html, /Estimated to ship: December 4-10, 2026/);
+    assert.match(html, new RegExp(`class="add-button" data-add="${product.id}"[^>]*>Preorder</button>`));
+  }
+  assert.equal((confirmed.route('/shop').match(/>Preorder</g) || []).length, 4);
+  for (const views of [renderer([]), renderer(fullSizeProducts.map(product => ({ ...product, available: true, variants })))]) {
     for (const product of fullSizeProducts) {
       const html = views.route(productPath(product));
-      assert.match(html, /<p class="coming-soon-price">Coming soon<\/p>/, product.name);
-      assert.match(html, /<button type="button" class="add-button" disabled aria-describedby="full-size-setup-summary">Add to cart — Coming soon<\/button>/);
-      assert.doesNotMatch(html, /data-add=|Preorder|preorder|Estimated to ship/i);
-      assert.match(html, /Get notified at launch/);
+      assert.match(html, /class="add-button" disabled[^>]*>Unavailable<\/button>/, product.name);
+      assert.doesNotMatch(html, /data-add=|Estimated to ship/);
     }
-    for (const path of ['/', '/shop', '/product/br16']) {
-      const html = views.route(path);
-      assert.doesNotMatch(html, /Preorder|Estimated to ship/i, path);
-    }
-    assert.equal((views.route('/shop').match(/class="coming-soon-label">Coming soon</g) || []).length, 4);
-    assert.match(views.route('/shop'), /4 full-size gloves · Coming soon/);
   }
+  assert.match(renderer([], { commerceLoading: true }).route('/product/mi26'), /class="add-button" disabled[^>]*>Checking availability…<\/button>/);
+  for (const path of ['/', '/product/br16']) assert.doesNotMatch(confirmed.route(path), /Estimated to ship/i, path);
 });
 
 test('preorder is active only with every condition met, and fails closed otherwise', () => {
@@ -95,7 +98,7 @@ test('preorder is active only with every condition met, and fails closed otherwi
 
 test('an active preorder PDP shows the status, Preorder button and estimate beside the purchase controls', () => {
   const html = pdp(preorderMint());
-  assert.match(html, /<p class="price">\$285<\/p><p class="preorder-status"><span class="preorder-badge">Preorder<\/span><\/p>/);
+  assert.match(html, /<p class="price">\$295<\/p><p class="preorder-status"><span class="preorder-badge">Preorder<\/span><\/p>/);
   assert.match(html, /<p data-full-size-error role="alert" tabindex="-1" hidden><\/p>\s*<p id="full-size-ship-estimate" class="preorder-ship-estimate">Estimated to ship: first week of December 2026<\/p>\s*<p id="full-size-payment-note" class="preorder-payment-note">Preorders are paid in full at checkout, the same as in-stock items.<\/p>\s*<button type="button" class="add-button" data-add="full-mint" aria-describedby="full-size-ship-estimate full-size-payment-note full-size-setup-summary">Preorder<\/button>/);
   assert.doesNotMatch(html, /coming-soon-price|Add to cart|Get notified at launch|when this glove launches/);
   assert.doesNotMatch(html, /in stock|ships now|ready to ship|only \d+ left|hurry|limited time|countdown/i);
@@ -104,7 +107,7 @@ test('an active preorder PDP shows the status, Preorder button and estimate besi
   assert.match(html, /name="full-size-throw-hand" value="Left-Hand Throw \(worn on right hand\)"/);
   assert.match(html, /name="wrist-fit" value="regular" checked/);
   assert.match(html, /<input type="checkbox" data-full-size-break-in  aria-controls="full-size-break-in-options"/);
-  assert.match(html, /data-full-size-setup-summary data-price="285"/);
+  assert.match(html, /data-full-size-setup-summary data-price="295"/);
   assert.equal((html.match(/Estimated to ship:/g) || []).length, 1);
 });
 
@@ -165,13 +168,13 @@ const row = (product, cartLine) => renderCartRow({ product, line: cartLine, serv
 const trainer = { ...localProducts.find(product => product.id === 'blue'), available: true };
 
 test('cart rows mark only the preorder glove, derived from product data rather than line attributes', () => {
-  const preorderLine = { ...line('glove-1', 'full-mint', 285), throwingHand: 'Right' };
+  const preorderLine = { ...line('glove-1', 'full-mint', 295), throwingHand: 'Right' };
   const html = row(preorderMint(), preorderLine);
   assert.match(html, /<h3>MI26<\/h3><p>Mint \/ Silver<\/p><p class="cart-preorder-note">Preorder · Estimated to ship: first week of December 2026<\/p><p>Throwing Hand: Right<\/p>/);
   assert.deepEqual(preorderLine.attributes, [], 'no attribute was added to the glove line');
   assert.doesNotMatch(row(trainer, line('glove-2', 'blue', 155)), /cart-preorder|Preorder|Estimated to ship/);
-  assert.doesNotMatch(row({ ...mint, available: true }, line('glove-3', 'full-mint', 285)), /cart-preorder|Preorder/);
-  const blocked = row(preorderMint({ shopifyPreorderShipEstimate: 'mid-December 2026' }), line('glove-4', 'full-mint', 285));
+  assert.doesNotMatch(row({ ...mint, comingSoon: true, preorder: { enabled: false, shipEstimate: null }, available: true }, line('glove-3', 'full-mint', 295)), /cart-preorder|Preorder/);
+  const blocked = row(preorderMint({ shopifyPreorderShipEstimate: 'mid-December 2026' }), line('glove-4', 'full-mint', 295));
   assert.match(blocked, /<p class="cart-preorder-note cart-preorder-blocked">Not available to order right now\. Remove it to continue to checkout\.<\/p>/);
   assert.doesNotMatch(blocked, /Estimated to ship/);
 });

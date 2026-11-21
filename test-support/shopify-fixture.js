@@ -1,5 +1,8 @@
 import { createShopifyCommerce } from '../src/commerce.js';
-import { FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT } from '../src/catalog.js';
+import { FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, fullSizeProducts } from '../src/catalog.js';
+
+// By default each full-size glove carries the catalog's approved estimate, as production must.
+const launchMetafields = Object.fromEntries(fullSizeProducts.map(product => [product.name.toLowerCase(), product.preorder.shipEstimate]));
 const assert = { match(value, pattern) { if (!pattern.test(value)) throw new Error(`Fixture query mismatch: ${pattern}`); } };
 class MemoryStorage {
   constructor(initial = {}) { this.values = new Map(Object.entries(initial)); }
@@ -14,7 +17,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
   discountScenario = null, discountWarnings = [], serviceState = 'available', serviceHandle = 'break-in', timeoutMs,
   recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, checkoutHost = 'store.myshopify.com',
-  cartAttributesMode = 'replace', metafields = {} } = {}) {
+  cartAttributesMode = 'replace', metafields = launchMetafields } = {}) {
   // Cart-level attributes. Shopify does not document whether cartAttributesUpdate replaces or merges, so both are modelled.
   let cartAttributes = [];
   const config = {
@@ -22,7 +25,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16', ...(fullSize ? { 'full-mint': 'mi26', 'full-black': 'bl50', 'full-orange': 'or17', 'full-camel': 'cm24' } : {}) }, breakInHandle: serviceHandle, timeoutMs
   };
   const variants = {
-    mi26: ['gid://variant/mi26-right', prices.mi26 || '285.00'], bl50: ['gid://variant/bl50-right', prices.bl50 || '285.00'], or17: ['gid://variant/or17-right', prices.or17 || '285.00'], cm24: ['gid://variant/cm24-right', prices.cm24 || '285.00'],
+    mi26: ['gid://variant/mi26-right', prices.mi26 || '295.00'], bl50: ['gid://variant/bl50-right', prices.bl50 || '295.00'], or17: ['gid://variant/or17-right', prices.or17 || '295.00'], cm24: ['gid://variant/cm24-right', prices.cm24 || '295.00'],
     'full-size-glove-break-in-service': [FULL_SIZE_SERVICE_VARIANT, '75.00'],
     br16: ['gid://variant/br16', prices.br16 || '155.00'], ob16: ['gid://variant/ob16', prices.ob16 || '155.00'],
     cl16: ['gid://variant/cl16', prices.cl16 || '155.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']

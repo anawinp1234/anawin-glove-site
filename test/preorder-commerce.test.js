@@ -8,10 +8,6 @@ const ESTIMATE = 'first week of December 2026';
 const options = { type: 'full-size', wearingStyle: 'Traditional — index finger out', closure: 'Ring finger', thumbShape: 'Straight', pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '' };
 const mint = fullSizeProducts.find(product => product.id === 'full-mint');
 
-// Each test file runs in its own process. Active preorders need confirmed full payment at checkout;
-// the shipped catalog keeps PREORDER_CHECKOUT.chargedInFullAtCheckout false.
-PREORDER_CHECKOUT.chargedInFullAtCheckout = true;
-
 // Each test file runs in its own process; the catalog entry is restored after every test.
 async function withMintPreorder(config, run) {
   const original = { comingSoon: mint.comingSoon, preorder: mint.preorder };
@@ -19,9 +15,9 @@ async function withMintPreorder(config, run) {
   try { return await run(); } finally { Object.assign(mint, original); }
 }
 
-// The shared fixture, with the product query answering an optional custom.preorder_ship_estimate.
+// The shared fixture without its launch metafields, answering only the custom.preorder_ship_estimate given here.
 function commerceWithMetafield(metafields = {}) {
-  const fixture = shopifyFixture({ fullSize: true });
+  const fixture = shopifyFixture({ fullSize: true, metafields: {} });
   const fetchImpl = async (url, init) => {
     const response = await fixture.fetchImpl(url, init);
     const { query, variables } = JSON.parse(init.body);
@@ -45,13 +41,14 @@ test('the product query optionally reads custom.preorder_ship_estimate', async (
   assert.equal(byId['full-black'].shopifyPreorderShipEstimate, null, 'unset or unexposed metafield');
   assert.equal(byId['full-orange'].shopifyPreorderShipEstimate, null, 'field absent from the response');
   assert.equal(Object.hasOwn(byId.black, 'shopifyPreorderShipEstimate'), false, 'trainers are unchanged');
-  // Production catalog: still Coming Soon, regardless of what Shopify returns.
-  for (const product of products) assert.equal(preorderState(product).status, 'inactive', product.id);
+  // Production catalog: no launched preorder sells unless Shopify returns its exact estimate.
+  for (const product of products) assert.equal(preorderState(product).status, product.line === 'full-size' ? 'blocked' : 'inactive', product.id);
+  assert.equal(PREORDER_CHECKOUT.chargedInFullAtCheckout, true);
 });
 
 test('a confirmed preorder adds to the cart with exactly the same glove line attributes', async () => {
   const baseline = await (async () => {
-    const { commerce } = commerceWithMetafield();
+    const { commerce } = shopifyFixture({ fullSize: true });
     await commerce.listProducts(); await commerce.getFullSizeBreakInService();
     return commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right');
   })();

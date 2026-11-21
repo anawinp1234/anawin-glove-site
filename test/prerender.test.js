@@ -38,14 +38,14 @@ test('prerendered shipping copy covers seven destinations while cart totals rema
   assert.match(shipping, /<meta name="description" content="ANAWIN ships to the United States, Canada, Australia, Japan, South Korea, Mexico, and the Philippines\. International shipping rates are calculated at checkout\./);
   assert.match(shipping, /Standard Shipping — FREE/);
   assert.match(shipping, /International shipping rates and available services are calculated at checkout based on destination and shipping method\./);
-  assert.doesNotMatch(shipping, /\$\d+|Express Shipping —/);
+  assert.doesNotMatch(shipping.replace(/<aside class="announcement-bar"[\s\S]*?<\/aside>/, ''), /\$\d+|Express Shipping —/);
   for (const product of localProducts) {
     const html = htmlFor(productPath(product));
     assert.match(html, /International shipping available to Canada, Australia, Japan, South Korea, Mexico, and the Philippines\./);
     assert.match(html, /International rates are calculated at checkout\./);
     assert.match(html, /Free U\.S\. standard shipping\./);
   }
-  assert.match(htmlFor('/'), /FREE U\.S\. SHIPPING ON ALL ORDERS<\/p>/);
+  assert.match(htmlFor('/'), /BLACK FRIDAY: \$30 OFF PREORDERS WITH CODE PREORDER30 · FREE U\.S\. SHIPPING<\/p>/);
   const bundles = readdirSync(join(root, 'dist/assets')).filter(name => /^index-.*\.js$/.test(name));
   assert.equal(bundles.length, 1);
   const bundle = read(`dist/assets/${bundles[0]}`);
@@ -275,13 +275,13 @@ test('the 404 page links lost visitors to every glove and home', () => {
   assert.match(html, /<main[^>]*class="not-found">[\s\S]*<a href="\/" data-link>Return home/);
 });
 
-test('full-size coming-soon pages have breadcrumbs but no Product offer or purchase controls', () => {
+test('full-size preorder pages ship breadcrumbs and an availability-free offer, with purchase left to Shopify', () => {
   for (const model of ['mi26', 'bl50', 'cm24', 'or17']) {
     const html = htmlFor(`/product/${model}`);
     assert.match(html, /data-anawin-breadcrumbs/, model);
-    assert.doesNotMatch(html, /data-anawin-product|"@type":"(?:Product|Offer)"/, model);
-    assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in/, model);
-    assert.match(html, /Coming soon/, model);
+    assert.equal(jsonLd(html, 'data-anawin-product')[0].offers.price, '295.00', model);
+    assert.doesNotMatch(html, /schema\.org\/(InStock|PreOrder)/, model);
+    assert.doesNotMatch(html, /data-add=|data-sticky-add|data-break-in|Add to cart — Coming soon/, model);
     assert.match(html, /data-newsletter-form/, model);
   }
 });
@@ -304,13 +304,13 @@ test('full-size product routes replace both legacy URL formats throughout built 
   }
 });
 
-test('prerendered full-size prices and setup totals are $285 without publishing purchasable offers', () => {
+test('prerendered full-size prices and setup totals are $295 with purchase disabled until Shopify loads', () => {
   for (const product of fullSizeProducts) {
     const html = htmlFor(productPath(product));
-    assert.match(html, /class="price">\$285<\/p>/);
-    assert.match(html, /No break-in service\. Total before shipping\/tax: \$285\./);
-    assert.doesNotMatch(html, /\$290|\$365|data-anawin-product|data-add="/);
-    assert.match(html, /Add to cart — Coming soon/);
+    assert.match(html, /class="price">\$295<\/p>/);
+    assert.match(html, /No break-in service\. Total before shipping\/tax: \$295\./);
+    assert.doesNotMatch(html, /\$290|\$365|data-add="/);
+    assert.match(html, /class="add-button" disabled[^>]*>Checking availability…<\/button>/);
   }
   for (const path of Object.keys(seoRoutes)) {
     assert.doesNotMatch(htmlFor(path), /\$290|\$365/);

@@ -1,5 +1,7 @@
 # Full-size preorder: launch readiness (integration review)
 
+> **Launch update, November 20, 2026 (branch `pre-order-launch`).** The owner approved the launch. All four models are now `comingSoon: false` with preorder enabled and the estimate `December 4-10, 2026` (gloves arrive December 3). The price is $295 ($370 with the $75 service). `PREORDER_CHECKOUT.chargedInFullAtCheckout` is `true`: the owner confirmed automatic capture and no preorder or deposit app. The announcement bar promotes PREORDER30 ($30 off each full-size glove; never the break-in service). The Shopify Admin tasks at the end of this document still apply, and the metafield value must match the estimate exactly, ASCII hyphen included.
+
 Status: November 18, 2026. Combined, uncommitted work from the website, commerce and email branches plus the integration corrections below. Every full-size model stays Coming Soon. No Shopify setting, price, product, discount, template or customer record was changed, and no email was sent.
 
 ## What "verified" means here

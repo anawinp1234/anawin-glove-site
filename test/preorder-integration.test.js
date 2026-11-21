@@ -9,8 +9,6 @@ import {
 import { checkoutCartIsComplete } from '../src/checkout-safety.js';
 import { cartDiscountSummary } from '../src/cart-discounts.js';
 
-// Each test file runs in its own process; the shipped catalog keeps this false.
-PREORDER_CHECKOUT.chargedInFullAtCheckout = true;
 const ESTIMATE = 'first week of December 2026';
 const options = { type: 'full-size', wearingStyle: 'Traditional — index finger out', closure: 'Ring finger', thumbShape: 'Straight',
   pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '' };
@@ -39,7 +37,8 @@ const checkout = async f => {
 
 test('mixed trainer and preorder cart: one order snapshot, unchanged line identity and service pairing', async () => {
   const baseline = await (async () => {
-    const f = await fixture();
+    // The shipped launch catalog with Shopify's matching estimates.
+    const f = await fixture({ metafields: undefined });
     await f.commerce.addProduct('black', true, TRAINER_BREAK_IN);
     await f.commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right', 'tightened');
     await f.commerce.addProduct('full-mint', true, firm, 'gid://variant/mi26-left');
@@ -94,7 +93,7 @@ test('PREORDER30 and WRECKER100 together survive the snapshot write and checkout
       const gloves = (f?.lines || []).filter(line => line.merchandise.product.handle === 'mi26').reduce((sum, line) => sum + line.quantity, 0);
       const allocation = (amount, code) => ({ discountedAmount: { amount: String(amount), currencyCode: 'USD' }, targetType: 'LINE_ITEM', sourceDiscountApplication: { code } });
       const state = { discountCodes: codes.map(code => ({ code, applicable: true })), discountAllocations: {}, discountedPrices: {} };
-      if (keys.includes('preorder30')) { state.discountAllocations.mi26 = [allocation(30 * gloves, 'PREORDER30')]; state.discountedPrices.mi26 = '255.00'; }
+      if (keys.includes('preorder30')) { state.discountAllocations.mi26 = [allocation(30 * gloves, 'PREORDER30')]; state.discountedPrices.mi26 = '265.00'; }
       if (keys.includes('wrecker100')) { state.discountAllocations['full-size-glove-break-in-service'] = [allocation(75, 'WRECKER100')]; state.discountedPrices['full-size-glove-break-in-service'] = String((75 * gloves - 75) / gloves); }
       return state;
     };

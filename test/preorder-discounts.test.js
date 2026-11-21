@@ -28,7 +28,7 @@ function preorderScenario(getLines, { wreckerIdentified = true } = {}) {
     const wrecker = keys.includes('wrecker100') && wreckerIdentified && quantity(SERVICE) > 0;
     if (preorder) {
       for (const handle of FULL_SIZE.filter(quantity)) {
-        discountedPrices[handle] = '255.00';
+        discountedPrices[handle] = '265.00';
         discountAllocations[handle] = [allocation(30 * quantity(handle), 'PREORDER30')];
       }
     }
@@ -93,15 +93,15 @@ test('PREORDER30 takes $30 off each full-size glove and never reduces the $75 se
   const { fixture } = await twoGlovesTwoServices();
   const cart = await fixture.commerce.applyDiscountCode('PREORDER30');
   assert.deepEqual(glove(cart).allDiscountAllocations, [{ amount: { amount: 60, currencyCode: 'USD' }, targetType: 'LINE_ITEM', code: 'PREORDER30' }]);
-  assert.equal(glove(cart).lineTotal.amount, 510);
+  assert.equal(glove(cart).lineTotal.amount, 530);
   assert.deepEqual(service(cart).allDiscountAllocations, []);
   assert.equal(service(cart).lineTotal.amount, 150);
   const summary = cartDiscountSummary(cart);
-  assert.equal(summary.original.amount, 720);
-  assert.equal(summary.final.amount, 660);
+  assert.equal(summary.original.amount, 740);
+  assert.equal(summary.final.amount, 680);
   assert.deepEqual(summary.discounts, [{ code: 'PREORDER30', amount: { amount: 60, currencyCode: 'USD' } }]);
   assert.deepEqual(entryDisplayAmounts(glove(cart), service(cart)), {
-    original: { amount: 720, currencyCode: 'USD' }, discounted: { amount: 660, currencyCode: 'USD' } });
+    original: { amount: 740, currencyCode: 'USD' }, discounted: { amount: 680, currencyCode: 'USD' } });
   assert.equal(checkoutCartIsComplete(cart), true);
 });
 
@@ -113,12 +113,12 @@ test('PREORDER30 + WRECKER100 on 2 gloves + 2 services: $60 off gloves, exactly 
   assert.deepEqual(service(cart).allDiscountAllocations.map(item => [item.code, item.amount.amount]), [['WRECKER100', 75]]);
   assert.equal(service(cart).lineTotal.amount, 75);
   const summary = cartDiscountSummary(cart);
-  assert.equal(summary.final.amount, 720 - 60 - 75);
+  assert.equal(summary.final.amount, 740 - 60 - 75);
   assert.deepEqual(summary.discounts.map(item => [item.code, item.amount.amount]), [['PREORDER30', 60], ['WRECKER100', 75]]);
   const html = renderCartDiscounts(cart, 'shopify', money, escapeHtml);
   assert.match(html, /Discount \(PREORDER30\)<\/span><span>−\$60\.00/);
   assert.match(html, /Discount \(WRECKER100\)<\/span><span>−\$75\.00/);
-  assert.match(html, /Total before shipping\/tax<\/span><strong>\$585\.00/);
+  assert.match(html, /Total before shipping\/tax<\/span><strong>\$605\.00/);
   assert.doesNotMatch(html, /Other discounts/, 'no duplicated or unattributed discount rows');
   // Line structure, parent links, quantities and service customization survive both applies.
   assert.deepEqual(shape(cart), shape(before));
@@ -160,7 +160,7 @@ test('mixed cart: PREORDER30 reduces only the full-size glove line', async () =>
   const cart = await fixture.commerce.applyDiscountCode('PREORDER30');
   const discounted = cart.lines.filter(line => line.allDiscountAllocations.length);
   assert.deepEqual(discounted.map(line => [line.productId, line.isBreakIn, line.allDiscountAllocations[0].amount.amount]), [['full-black', false, 30]]);
-  assert.equal(cartDiscountSummary(cart).final.amount, 155 + 20 + 285 + 75 - 30);
+  assert.equal(cartDiscountSummary(cart).final.amount, 155 + 20 + 295 + 75 - 30);
   assert.equal(checkoutCartIsComplete(cart), true);
 });
 

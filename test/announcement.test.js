@@ -10,11 +10,11 @@ const renderer = config => createStorefrontRenderer({
   announcement: config
 });
 
-test('the free-shipping announcement appears above the header when enabled', () => {
+test('the Black Friday announcement appears above the header when enabled', () => {
   const html = renderer(announcement).header();
-  assert.equal(announcement.message, 'FREE U.S. SHIPPING ON ALL ORDERS');
+  assert.equal(announcement.message, 'BLACK FRIDAY: $30 OFF PREORDERS WITH CODE PREORDER30 · FREE U.S. SHIPPING');
   assert.ok(html.startsWith('<a class="skip-link" href="#main-content" data-skip-link>Skip to content</a><div class="site-header-stack"><aside class="announcement-bar"'));
-  assert.match(html, /<aside class="announcement-bar" aria-label="Store announcement"><p>FREE U\.S\. SHIPPING ON ALL ORDERS<\/p><\/aside>/);
+  assert.match(html, /<aside class="announcement-bar" aria-label="Store announcement"><p>BLACK FRIDAY: \$30 OFF PREORDERS WITH CODE PREORDER30 · FREE U\.S\. SHIPPING<\/p><\/aside>/);
   assert.ok(html.indexOf(announcement.message) < html.indexOf('<header class="site-header">'));
   assert.equal(announcement.enabled, true);
 });
