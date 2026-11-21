@@ -7,7 +7,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/check-build-config.mjs && node scripts/check-source-imports.mjs && vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "npm run build && node --test"
+    "test": "npm run build && node --test",
+    "test:browser:cart": "node scripts/browser/cart-break-in-browser.mjs"
   },
   "devDependencies": {
     "vite": "^7.1.5",
