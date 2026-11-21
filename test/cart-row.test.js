@@ -153,3 +153,11 @@ test('Break-In add buttons name the glove and price, starting with their visible
   assert.match(markup(1), /data-add-service="line-1" aria-label="Add Break-in service to BR16, \+\$20"/);
   assert.match(markup(2), /data-add-service="line-1" aria-label="Add break-in to 1 BR16, \+\$20"/);
 });
+
+test('cart rows carry the glove colorway accent for break-in button hover', () => {
+  const html = accent => renderCartRow({ product: { ...product, accentColor: accent }, line: glove(1, 155), service: null,
+    mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
+  assert.match(html('#2560ae'), /<article class="cart-item" data-product="blue" style="--cart-accent:#2560ae">/);
+  assert.match(html('"><x'), /style="--cart-accent:&quot;&gt;&lt;x"/);
+  assert.match(html(undefined), /<article class="cart-item" data-product="blue">/);
+});
