@@ -24,8 +24,13 @@ availability, cart state, and checkout links. Cloudflare serves slashless URLs
 from the generated `.html` files and returns the 404 page for unknown routes.
 
 Structured data lives in `src/seo.js`. Product pages carry Product and
-BreadcrumbList JSON-LD; each offer states free U.S. shipping with 1–3 business
-days of handling and 3–7 days of transit. The homepage carries Organization
+BreadcrumbList JSON-LD. Trainer offers state free U.S. shipping with 1–3
+business days of handling and 3–7 days of transit. Full-size preorder offers
+reference the shared free U.S. standard `ShippingService`
+(`https://anawinofficial.com/shipping#us-standard-shipping`) by `@id` and state
+no handling, transit, or availability at build time. That service is defined
+once, under Organization on `/shipping`, with no delivery times and no
+international rates. The homepage carries Organization
 (with the 30-day U.S. free-return policy) and WebSite data. These values
 restate the Shipping and Returns pages, so update `src/seo.js` whenever either
 policy changes. Availability and inventory are deliberately omitted because

@@ -140,7 +140,10 @@ function preorderJsonLd(product, normalizedPath) {
       '@type': 'Offer',
       url: canonicalOrigin + normalizedPath,
       priceCurrency: product.currencyCode,
-      price: Number(product.price).toFixed(2)
+      price: Number(product.price).toFixed(2),
+      // Points at the shared policy on /shipping instead of restating it: preorder handling and
+      // transit times are not published, so this offer must not claim any.
+      shippingDetails: { '@type': 'OfferShippingDetails', hasShippingService: { '@id': usShippingServiceId } }
     }
   };
 }
@@ -177,10 +180,32 @@ export function productJsonLd(path, { fullSize = fullSizeProducts } = {}) {
 }
 
 // Mirrors the published Shipping and Returns policies; keep them in sync if either policy changes.
+// Standard U.S. shipping is free for every glove, preorders and break-in orders included. Other
+// countries are quoted at checkout, so no international rate is published here.
+const usDestination = Object.freeze({ '@type': 'DefinedRegion', addressCountry: 'US' });
+const usStandardShippingRate = Object.freeze({ '@type': 'MonetaryAmount', value: 0, currency: 'USD' });
+export const usShippingServiceId = `${canonicalOrigin}/shipping#us-standard-shipping`;
+
+// Published once, on /shipping, and referenced by @id from preorder offers. It carries no handling
+// or transit time because those differ between in-stock trainers and preorders.
+const usShippingService = Object.freeze({
+  '@type': 'ShippingService',
+  '@id': usShippingServiceId,
+  name: 'Free U.S. standard shipping',
+  description: 'Free standard shipping on all orders to the United States.',
+  fulfillmentType: 'FulfillmentTypeDelivery',
+  shippingConditions: {
+    '@type': 'ShippingConditions',
+    shippingDestination: usDestination,
+    shippingRate: usStandardShippingRate
+  }
+});
+
+// In-stock trainers ship within these times.
 const usShippingDetails = Object.freeze({
   '@type': 'OfferShippingDetails',
-  shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' },
-  shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+  shippingRate: usStandardShippingRate,
+  shippingDestination: usDestination,
   deliveryTime: {
     '@type': 'ShippingDeliveryTime',
     handlingTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' },
@@ -198,20 +223,24 @@ const usReturnPolicy = Object.freeze({
   merchantReturnLink: `${canonicalOrigin}/returns`
 });
 
+const organization = Object.freeze({
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': `${canonicalOrigin}/#organization`,
+  name: 'ANAWIN',
+  url: `${canonicalOrigin}/`,
+  logo: `${canonicalOrigin}/images/anawin-mark.png`,
+  email: 'support@anawinofficial.com',
+  sameAs: ['https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial']
+});
+
 export function siteJsonLd(path) {
-  if (normalizePath(path) !== '/') return null;
+  const normalizedPath = normalizePath(path);
+  // The shipping policy page is the single home of the shared ShippingService (Google's recommended placement).
+  if (normalizedPath === '/shipping') return { ...organization, hasShippingService: usShippingService };
+  if (normalizedPath !== '/') return null;
   return [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'Organization',
-      '@id': `${canonicalOrigin}/#organization`,
-      name: 'ANAWIN',
-      url: `${canonicalOrigin}/`,
-      logo: `${canonicalOrigin}/images/anawin-mark.png`,
-      email: 'support@anawinofficial.com',
-      sameAs: ['https://www.instagram.com/anawinofficial', 'https://www.tiktok.com/@anawinofficial'],
-      hasMerchantReturnPolicy: usReturnPolicy
-    },
+    { ...organization, hasMerchantReturnPolicy: usReturnPolicy },
     {
       '@context': 'https://schema.org',
       '@type': 'WebSite',
