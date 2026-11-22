@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fullSizeProducts, localProducts } from '../src/catalog.js';
-import { canonicalOrigin, productPath, seoRoutes } from '../src/seo.js';
+import { canonicalOrigin, productPath, seoRoutes, usShippingServiceId } from '../src/seo.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = path => readFileSync(join(root, path), 'utf8');
@@ -128,7 +128,7 @@ test('non-product routes have no Product JSON-LD and 404 is noindex', () => {
   for (const path of Object.keys(seoRoutes).filter(value => !/^\/(?:product|full-size)\//.test(value))) {
     const html = htmlFor(path);
     assert.doesNotMatch(html, /data-anawin-product|data-anawin-breadcrumbs|"@type":"(?:Product|Offer)"/, path);
-    if (path !== '/') assert.doesNotMatch(html, /application\/ld\+json/, path);
+    if (path !== '/' && path !== '/shipping') assert.doesNotMatch(html, /application\/ld\+json/, path);
   }
   const html = read('dist/404.html');
   assert.match(html, /<meta name="robots" content="noindex"/);
@@ -315,4 +315,82 @@ test('prerendered full-size prices and setup totals are $295 with purchase disab
   for (const path of Object.keys(seoRoutes)) {
     assert.doesNotMatch(htmlFor(path), /\$290|\$365/);
   }
+});
+
+const allJsonLd = html => matches(html, /<script type="application\/ld\+json"[^>]*>(.*?)<\/script>/g).map(match => JSON.parse(match[1]));
+const flattenNodes = value => Array.isArray(value) ? value.flatMap(flattenNodes)
+  : value && typeof value === 'object' ? [value, ...Object.values(value).flatMap(flattenNodes)] : [];
+const usShippingService = {
+  '@type': 'ShippingService',
+  '@id': 'https://anawinofficial.com/shipping#us-standard-shipping',
+  name: 'Free U.S. standard shipping',
+  description: 'Free standard shipping on all orders to the United States.',
+  fulfillmentType: 'FulfillmentTypeDelivery',
+  shippingConditions: {
+    '@type': 'ShippingConditions',
+    shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+    shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' }
+  }
+};
+
+test('the shipping policy page publishes the one shared U.S. ShippingService under the ANAWIN organization', () => {
+  const html = htmlFor('/shipping');
+  const [organization, ...extra] = jsonLd(html, 'data-anawin-site');
+  assert.equal(extra.length, 0);
+  assert.equal(allJsonLd(html).length, 1);
+  assert.equal(organization['@type'], 'Organization');
+  assert.equal(organization['@id'], `${canonicalOrigin}/#organization`);
+  const [home] = jsonLd(htmlFor('/'), 'data-anawin-site')[0];
+  // Same identity as the homepage node, so the two merge rather than conflict.
+  for (const key of ['name', 'url', 'logo', 'email', 'sameAs']) assert.deepEqual(organization[key], home[key], key);
+  assert.deepEqual(organization.hasShippingService, usShippingService);
+  assert.equal(organization.hasMerchantReturnPolicy, undefined);
+  // No delivery times and no international rates on the shared policy.
+  assert.doesNotMatch(JSON.stringify(organization), /handlingTime|transitTime|deliveryTime|"addressCountry":"(?!US")/);
+  assert.match(html, /Standard Shipping — FREE/);
+});
+
+test('raw HTML for all seven gloves has one Product and Offer with the expected URL, USD price, and shipping', () => {
+  const trainerShipping = {
+    '@type': 'OfferShippingDetails',
+    shippingRate: { '@type': 'MonetaryAmount', value: 0, currency: 'USD' },
+    shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+    deliveryTime: {
+      '@type': 'ShippingDeliveryTime',
+      handlingTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' },
+      transitTime: { '@type': 'QuantitativeValue', minValue: 3, maxValue: 7, unitCode: 'DAY' }
+    }
+  };
+  const products = [...localProducts.map(product => [product, '155.00', trainerShipping]),
+    ...fullSizeProducts.map(product => [product, '295.00', { '@type': 'OfferShippingDetails', hasShippingService: { '@id': usShippingServiceId } }])];
+  assert.equal(products.length, 7);
+  for (const [product, price, shippingDetails] of products) {
+    const path = productPath(product);
+    const html = htmlFor(path);
+    const nodes = flattenNodes(allJsonLd(html));
+    assert.equal(nodes.filter(node => node['@type'] === 'Product').length, 1, path);
+    assert.equal(nodes.filter(node => node['@type'] === 'Offer').length, 1, path);
+    const [data] = jsonLd(html, 'data-anawin-product');
+    assert.equal(data.url, canonicalOrigin + path, path);
+    assert.ok(html.includes(`<link rel="canonical" href="${canonicalOrigin + path}" />`), path);
+    assert.equal(data.offers.url, canonicalOrigin + path, path);
+    assert.equal(data.offers.priceCurrency, 'USD', path);
+    assert.equal(data.offers.price, price, path);
+    assert.deepEqual(data.offers.shippingDetails, shippingDetails, path);
+    assert.equal(data.offers.availability, undefined, path);
+    // Product pages reference the policy but never redefine it.
+    assert.equal(nodes.filter(node => node['@type'] === 'ShippingService' || node['@type'] === 'Organization').length, 0, path);
+  }
+});
+
+test('the shared ShippingService id is defined exactly once across the built site', () => {
+  const definitions = [];
+  for (const path of [...Object.keys(seoRoutes), '/404']) {
+    const html = path === '/404' ? read('dist/404.html') : htmlFor(path);
+    for (const node of flattenNodes(allJsonLd(html))) {
+      if (node['@type'] === 'ShippingService' || node['@type'] === 'Organization' && node.hasShippingService) definitions.push([path, node['@type']]);
+      if (node['@id'] === usShippingServiceId && node['@type']) assert.equal(path, '/shipping', `${path} redefines ${usShippingServiceId}`);
+    }
+  }
+  assert.deepEqual(definitions, [['/shipping', 'Organization'], ['/shipping', 'ShippingService']]);
 });

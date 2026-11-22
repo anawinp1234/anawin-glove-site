@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fullSizeProducts, PREORDER_CHECKOUT } from '../src/catalog.js';
-import { productJsonLd, productPath, renderSeoHead } from '../src/seo.js';
+import { productJsonLd, productPath, renderSeoHead, siteJsonLd, usShippingServiceId } from '../src/seo.js';
 import {
   OFFER_PAGE, applyOffer, fetchOffer, offerFromStorefront, offerPageFor, preorderOfferPages, serveProductPage
 } from '../worker/product-offer.js';
@@ -42,13 +42,31 @@ test('launched preorder pages publish an Offer without build-time availability, 
 test('a configured preorder gets a Product offer without build-time availability or delivery time', () => {
   const data = productJsonLd('/product/mi26', { fullSize: preorderCatalog });
   assert.equal(data['@type'], 'Product');
-  assert.deepEqual(data.offers, { '@type': 'Offer', url: 'https://anawinofficial.com/product/mi26', priceCurrency: 'USD', price: '295.00' });
+  assert.deepEqual(data.offers, {
+    '@type': 'Offer', url: 'https://anawinofficial.com/product/mi26', priceCurrency: 'USD', price: '295.00',
+    shippingDetails: { '@type': 'OfferShippingDetails', hasShippingService: { '@id': 'https://anawinofficial.com/shipping#us-standard-shipping' } }
+  });
   assert.equal(data.image, 'https://anawinofficial.com/images/full-size/mint-back.jpg');
-  assert.doesNotMatch(JSON.stringify(data), /InStock|availability|shippingDetails|deliveryTime/);
+  assert.doesNotMatch(JSON.stringify(data), /InStock|PreOrder|availability|deliveryTime|handlingTime|transitTime/);
   assert.equal(productJsonLd('/product/bl50', { fullSize: preorderCatalog }), null);
   const missing = preorderCatalog.map(product => product.id === 'full-mint' ? { ...product, preorder: { enabled: true, shipEstimate: ' ' } } : product);
   assert.equal(productJsonLd('/product/mi26', { fullSize: missing }), null);
   assert.equal(productJsonLd('/product/br16', { fullSize: preorderCatalog }).offers.price, '155.00', 'trainers unchanged');
+});
+
+test('every launched preorder offer references the shared U.S. shipping policy and claims no timing', () => {
+  assert.equal(usShippingServiceId, 'https://anawinofficial.com/shipping#us-standard-shipping');
+  assert.equal(siteJsonLd('/shipping').hasShippingService['@id'], usShippingServiceId, 'the reference resolves on /shipping');
+  for (const product of fullSizeProducts) {
+    const path = productPath(product);
+    const { offers } = productJsonLd(path);
+    // Google's documented cross-page form: only hasShippingService, with only @id.
+    assert.deepEqual(offers.shippingDetails, { '@type': 'OfferShippingDetails', hasShippingService: { '@id': usShippingServiceId } }, path);
+    assert.deepEqual(Object.keys(offers).sort(), ['@type', 'price', 'priceCurrency', 'shippingDetails', 'url'], path);
+    const built = productBlock(readFileSync(new URL(`../dist${path}.html`, import.meta.url), 'utf8'));
+    assert.deepEqual(built.offers, offers, `${path} built HTML`);
+    assert.doesNotMatch(JSON.stringify(built), /availability|availabilityStarts|deliveryTime|handlingTime|transitTime|shippingRate|"2026/, path);
+  }
 });
 
 test('the prerender refuses to ship a page that claims availability', () => {
