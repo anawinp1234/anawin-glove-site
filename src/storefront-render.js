@@ -1,4 +1,4 @@
-import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, PREORDER_BREAK_IN_NOTE, PREORDER_BREAK_IN_TIMING, PREORDER_LABEL, PREORDER_PAYMENT_NOTE, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, preorderConfigured, preorderShipLine, preorderState, purchasePrice, throwHandLabels } from './catalog.js';
+import { BREAK_IN_LEVELS, FULL_SIZE_SHAPING_FIELDS, GLOVE_WEARING_STYLES, PREORDER_BREAK_IN_NOTE, PREORDER_BREAK_IN_TIMING, PREORDER_LABEL, PREORDER_PAYMENT_NOTE, WRIST_FITS, fullSizeBreakInService, fullSizeProducts, preorderConfigured, preorderShipLine, preorderState, purchasePrice, throwHandLabels, gloveModelCode } from './catalog.js';
 import { announcement as defaultAnnouncement } from './announcement.js';
 import { communityItems } from './community.js';
 import { customerReviews, productReviewSummary } from './reviews.js';
@@ -105,7 +105,7 @@ function productImage(src, alt, sizes, loading, card = false, gallery = null) {
   };
   const widths = [480, ...(card ? [768] : []), 960, fullWidth];
   const srcset = widths.map(width => `${optimized(width)} ${width}w`).join(', ');
-  // Phase 4 part 2: BR16's P3 lead photo is also offered as 4:4:4 AVIF with the same ICC profile.
+  // Phase 4 part 2: BR-16's P3 lead photo is also offered as 4:4:4 AVIF with the same ICC profile.
   // It is numerically at least as similar to the source as the approved q95 WebP (which stays as the
   // fallback), but has not been approved on a colour-managed device. A failed decode falls back to WebP.
   const avifSrcset = p3Gallery ? widths.map(width => `${optimized(width, 'avif')} ${width}w`).join(', ') : '';
@@ -136,7 +136,7 @@ function wordmark(sizes, loading = 'eager') {
 }
 export function createStorefrontRenderer({ products, breakInService, fullSizeService = fullSizeBreakInService, commerceLoading = false, commerceError = '', commerceRetry = false, cartCount = () => 0, announcement = defaultAnnouncement, reviews = customerReviews, reviewData = null }) {
 const galleryLoading = i => ({ index: i });
-const reviewSummary = product => reviewData?.[product.name.toLowerCase()] || productReviewSummary(reviews, product.name.toLowerCase());
+const reviewSummary = product => reviewData?.[gloveModelCode(product.name).toLowerCase()] || productReviewSummary(reviews, gloveModelCode(product.name).toLowerCase());
 function headerInfoMenus() {
   return `<details class="header-info"><summary>Help</summary><div class="header-info-links"><a href="/faq" data-link>FAQ</a><a href="/shipping" data-link>Shipping</a><a href="/returns" data-link>Returns &amp; Refunds</a><a href="/warranty" data-link>Warranty</a></div></details>
     <details class="header-info"><summary>Care</summary><div class="header-info-links"><a href="/care" data-link>Glove Care</a><a href="/break-in" data-link>Break-In Guide</a></div></details>`;
@@ -177,7 +177,7 @@ function productCard(product, index, eagerFirst) {
   const availability = product.available ? '' : '<span class="sold-out">Sold out</span>';
   return `<article class="product-card reveal" data-product="${escapeHtml(product.id)}" style="--delay:${index * 80}ms;--card-accent:${escapeHtml(product.accentColor || '#111111')}">
     <a href="${productPath(product)}" data-link class="product-image" aria-label="View ${escapeHtml(product.name)}: ${escapeHtml(product.tone)} glove">${productImage(product.images[0], `${product.tone} ANAWIN glove`, cardImageSizes, eagerFirst && index === 0 ? 'eager' : 'lazy', true)}<span class="view-product">View ${arrow()}</span></a>
-    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p><div data-review-slot="${escapeHtml(product.name.toLowerCase())}"${reviewSummary(product).status === 'loading' ? ' class="review-slot-loading"' : ''}>${productCardRatingMarkup(product)}</div>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
+    <div class="product-meta"><div><h3><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a></h3><p>${escapeHtml(product.tone)}</p><div data-review-slot="${escapeHtml(gloveModelCode(product.name).toLowerCase())}"${reviewSummary(product).status === 'loading' ? ' class="review-slot-loading"' : ''}>${productCardRatingMarkup(product)}</div>${availability}</div><strong>${money(product.price, product.currencyCode)}</strong></div>
   </article>`;
 }
 
@@ -232,7 +232,7 @@ function reviewEntry(review, product) {
 
 function productReviewsSection(product) {
   const summary = reviewSummary(product);
-  const start = `<section class="pdp-reviews" data-review-product="${escapeHtml(product.name.toLowerCase())}" aria-labelledby="customer-reviews-heading"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h2 id="customer-reviews-heading">CUSTOMER REVIEWS</h2>`;
+  const start = `<section class="pdp-reviews" data-review-product="${escapeHtml(gloveModelCode(product.name).toLowerCase())}" aria-labelledby="customer-reviews-heading"><p class="eyebrow">ANAWIN / ${escapeHtml(product.name)}</p><h2 id="customer-reviews-heading">CUSTOMER REVIEWS</h2>`;
   const writeUrl = validProductReviewLink(summary.writeReviewUrl, shopifyProductId(product.shopifyProductGid));
   const action = writeUrl ? `<a class="review-write-link" href="${escapeHtml(writeUrl)}" target="_blank" rel="noopener noreferrer">WRITE A REVIEW</a>` : '';
   if (summary.status === 'loading') return `${start}<div class="pdp-reviews-empty"><p>Loading customer reviews…</p>${action}</div></section>`;
@@ -305,7 +305,7 @@ function fullSizeBreakInDetails(product, preorderView = null, showsEstimate = fa
   return `<section class="full-size-service" aria-label="Full-Service Break-In">
     <label class="service-option"><input type="checkbox" data-full-size-break-in ${preorderView && preorderView !== 'open' || product.comingSoon === false && (commerceLoading || Boolean(commerceError) || !product.available || service.available === false) ? 'disabled' : ''} aria-controls="full-size-break-in-options" aria-expanded="false" aria-describedby="full-size-break-in-description full-size-break-in-timing"><span class="service-content"><span class="service-heading"><strong>${escapeHtml(service.name)}</strong><b>+${money(service.price, service.currencyCode)}</b></span><small id="full-size-break-in-description">${escapeHtml(service.copy)}</small><small class="service-timing" id="full-size-break-in-timing">${showsEstimate ? escapeHtml(PREORDER_BREAK_IN_NOTE) : 'Adds 2–5 business days'}</small></span></label>
     ${['open', 'checking'].includes(preorderView) ? '' : '<p class="full-size-service-availability">Available to add when this glove launches.</p>'}
-    <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.title)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
+    <section id="full-size-break-in-options" class="break-in-customization" data-full-size-customization hidden aria-labelledby="full-size-service-heading"><h2 id="full-size-service-heading">Customize Your Break-In</h2><p class="full-size-selected-glove">${escapeHtml(product.name)} · <span data-full-size-selected-hand>Choose throw hand above</span></p>
       ${group('full-size-wearing-style', 'How do you wear your glove?', service.wearingStyles)}
       <div class="break-in-text-field" data-full-size-other-placement hidden><label for="full-size-finger-placement">Describe your finger placement (required)</label><textarea id="full-size-finger-placement" name="full-size-finger-placement" rows="3" maxlength="2000"></textarea>${fieldError('full-size-finger-placement')}</div>
       ${group('full-size-closure-point', 'Where should the thumb meet when the glove closes?', service.closurePoints, 'Recommend for me lets the ANAWIN team choose the closure.')}
@@ -340,7 +340,7 @@ function fullSizePurchase(product, purchasable, { view, estimate }) {
 }
 
 function fullSizePage(product) {
-  // A model sold in one throw hand (CM24) starts with that hand chosen.
+  // A model sold in one throw hand (CM-24) starts with that hand chosen.
   const onlyHand = product.throwHands.length === 1 ? throwHandLabels[product.throwHands[0]] : '';
   const preorder = fullSizePreorderView(product);
   const purchasable = preorder.view ? preorder.view === 'open' : product.comingSoon === false && product.available && !commerceLoading && !commerceError;
@@ -360,8 +360,8 @@ function fullSizePage(product) {
       <fieldset class="full-size-throw-hand"><legend>Throw hand</legend>${product.throwHands.map(hand => `<label class="break-in-choice"><input type="radio" name="full-size-throw-hand" value="${escapeHtml(throwHandLabels[hand])}"${onlyHand ? ' checked' : ''}><span><strong>${escapeHtml(throwHandLabels[hand])}</strong></span></label>`).join('')}<p id="full-size-throw-hand-error" class="full-size-field-error" data-full-size-field-error="full-size-throw-hand" role="alert" hidden></p></fieldset>
       ${wristFitChoices()}
       ${fullSizeBreakInDetails(product, preorder.view, Boolean(preorder.estimate))}
-      ${(({ rows, status, total }) => `<details class="full-size-setup" data-full-size-setup><summary><span class="full-size-setup-heading"><strong>Your setup</strong><small data-full-size-setup-status>${status}</small></span><span class="full-size-setup-total"><strong data-full-size-setup-total>${total}</strong><small>before shipping &amp; tax</small></span><span class="accordion-indicator" aria-hidden="true"></span></summary><dl class="full-size-setup-list" data-full-size-setup-list>${rows}</dl></details>`)(fullSizeSetupDetails({ model: product.title, hand: onlyHand, wrist: 'Regular', breakIn: null, servicePrice: fullSizeService.price, total: purchasePrice(product, fullSizeService, false), currency: product.currencyCode, preorder: Boolean(preorder.estimate) }))}
-      <p id="full-size-setup-summary" class="visually-hidden" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.title)}"${preorder.estimate ? ' data-preorder' : ''} role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.title)} · Throw hand: ${escapeHtml(onlyHand || 'Choose one')} · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
+      ${(({ rows, status, total }) => `<details class="full-size-setup" data-full-size-setup><summary><span class="full-size-setup-heading"><strong>Your setup</strong><small data-full-size-setup-status>${status}</small></span><span class="full-size-setup-total"><strong data-full-size-setup-total>${total}</strong><small>before shipping &amp; tax</small></span><span class="accordion-indicator" aria-hidden="true"></span></summary><dl class="full-size-setup-list" data-full-size-setup-list>${rows}</dl></details>`)(fullSizeSetupDetails({ model: product.name, hand: onlyHand, wrist: 'Regular', breakIn: null, servicePrice: fullSizeService.price, total: purchasePrice(product, fullSizeService, false), currency: product.currencyCode, preorder: Boolean(preorder.estimate) }))}
+      <p id="full-size-setup-summary" class="visually-hidden" data-full-size-setup-summary data-price="${product.price}" data-currency="${escapeHtml(product.currencyCode)}" data-model="${escapeHtml(product.name)}"${preorder.estimate ? ' data-preorder' : ''} role="status" aria-live="polite" aria-atomic="true">Your setup: ${escapeHtml(product.name)} · Throw hand: ${escapeHtml(onlyHand || 'Choose one')} · Wrist fit: Regular · No break-in service. Total before shipping/tax: ${money(purchasePrice(product, fullSizeService, false), product.currencyCode)}.</p>
       <p data-full-size-error role="alert" tabindex="-1" hidden></p>
       ${fullSizePurchase(product, purchasable, preorder)}
       ${preorder.view === 'open' || preorder.estimate ? '' : `<section class="pdp-notify" aria-labelledby="notify-heading"><h2 id="notify-heading">Get notified at launch</h2><p>Be the first to hear when the full-size ${escapeHtml(product.name)} glove is available.</p>${newsletterFormMarkup(`notify-${product.color}`)}</section>`}
@@ -443,13 +443,13 @@ function about() {
 const supportEmail = '<a href="mailto:support@anawinofficial.com">support@anawinofficial.com</a>';
 const faqGroups = () => [
   ['Sizing & fit', [
-    ['What size are the trainer gloves?', `<p>The BR16, OB16, and CL16 are all 10.25-inch defensive training gloves. They come in one size.</p>`],
+    ['What size are the trainer gloves?', `<p>The BR-16, OB-16, and CL-16 are all 10.25-inch defensive training gloves. They come in one size.</p>`],
     ['What sizes are the full-size gloves?', `<p>The Kip Series includes four Japanese Kip leather gloves${fullSizeProducts.every(product => product.comingSoon) ? ', all coming soon' : ''}:</p><ul>${fullSizeProducts.map(product => `<li><a href="${productPath(product)}" data-link>${escapeHtml(product.name)}</a>: ${escapeHtml(product.specs.find(([label]) => label === 'Size')[1])}, ${escapeHtml(product.specs.find(([label]) => label === 'Position')[1].toLowerCase())}</li>`).join('')}</ul>`],
     ['What is wrist fit?', `<p>Every glove ships with a regular wrist strap, about a 7–7.5 inch opening. If you have smaller or narrower hands, you can choose Tightened when you order, and our team will tighten the strap to about a 6.5–7 inch opening. Wrist fit is free.</p>`]
   ]],
   ['Throwing hand', [
     ['Which throwing hand should I choose?', `<p>Choose the hand you throw with. The glove is worn on your other hand. A right-hand throw glove is worn on the left hand, and a left-hand throw glove is worn on the right hand.</p>`],
-    ['Do you make left-hand throw gloves?', `<p>The BR16, OB16, and CL16 trainers are right-hand throw only. In the Kip Series, the MI26, BL50, and OR17 come in right-hand and left-hand throw. The CM24 is right-hand throw only.</p>`]
+    ['Do you make left-hand throw gloves?', `<p>The BR-16, OB-16, and CL-16 trainers are right-hand throw only. In the Kip Series, the MI-26, BL-50, and OR-17 come in right-hand and left-hand throw. The CM-24 is right-hand throw only.</p>`]
   ]],
   ['Trainer gloves', [
     ['What is a trainer glove for?', `<p>A trainer glove is smaller than a game glove, so you have to field the ball cleanly and get it out quickly. Our 10.25-inch trainers are made for defensive work: cleaner transfers, more precise fielding mechanics, and better control.</p>`],

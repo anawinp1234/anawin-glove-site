@@ -171,7 +171,7 @@ test('the cart row shows the wrist fit and offers the other one', () => {
   const escapeHtml = value => String(value).replace(/[&<>'"]/g, character =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
   const row = (attributes, quantity = 1, mode = 'shopify') => renderCartRow({
-    product: { id: 'blue', name: 'OB16', tone: 'Blue', images: ['/images/blue1.PNG'] },
+    product: { id: 'blue', name: 'OB-16', tone: 'Blue', images: ['/images/blue1.PNG'] },
     line: { remoteLineId: 'glove-1', quantity, attributes, lineTotal: { amount: 155 * quantity, currencyCode: 'USD' }, instructions: { canUpdateQuantity: true } },
     service: null, mode, serviceProduct: { price: 20, currencyCode: 'USD', available: true }, busy: false, incomplete: false,
     money: amount => `$${amount}`, escapeHtml });
@@ -182,5 +182,5 @@ test('the cart row shows the wrist fit and offers the other one', () => {
 
 test('a wrist change is announced', () => {
   const line = fit => ({ productId: 'black', quantity: 1, attributes: withWristFit([], fit) });
-  assert.equal(cartUpdateAnnouncement({ lines: [line('regular')] }, { lines: [line('tightened')] }, () => 'BR16'), 'BR16 wrist fit updated.');
+  assert.equal(cartUpdateAnnouncement({ lines: [line('regular')] }, { lines: [line('tightened')] }, () => 'BR-16'), 'BR-16 wrist fit updated.');
 });

@@ -59,7 +59,7 @@ test('mixed trainer and preorder cart: one order snapshot, unchanged line identi
     const { result, urls } = await checkout(f);
     assert.equal(result.status, 'navigating');
     assert.equal(urls.length, 1);
-    assert.deepEqual(f.cartAttributes, [{ key: PREORDER_ORDER_ATTRIBUTE, value: `BL50: ${ESTIMATE}; MI26: ${ESTIMATE}` }]);
+    assert.deepEqual(f.cartAttributes, [{ key: PREORDER_ORDER_ATTRIBUTE, value: `BL-50: ${ESTIMATE}; MI-26: ${ESTIMATE}` }]);
     const after = await f.restore().getCart();
     assert.deepEqual(gloveAttributes(after), baseline, 'the attribute write leaves every line untouched');
     assert.equal(after.lines.filter(line => line.isBreakIn).length, 3);
@@ -81,7 +81,7 @@ test('multiple quantities keep services paired and the snapshot stays one entry 
     assert.ok(checkoutCartIsComplete(cart));
     assert.equal(preorderOrderAttributeValue(cart.lines, id => byId(id)), '', 'raw catalog entries lack Shopify confirmation');
     assert.equal((await checkout(f)).result.status, 'navigating');
-    assert.deepEqual(f.cartAttributes, [{ key: PREORDER_ORDER_ATTRIBUTE, value: `MI26: ${ESTIMATE}` }]);
+    assert.deepEqual(f.cartAttributes, [{ key: PREORDER_ORDER_ATTRIBUTE, value: `MI-26: ${ESTIMATE}` }]);
   });
 });
 
@@ -109,7 +109,7 @@ test('PREORDER30 and WRECKER100 together survive the snapshot write and checkout
     assert.equal((await checkout(f)).result.status, 'navigating');
     const after = await f.restore().getCart();
     assert.deepEqual(after.discountCodes.map(item => item.code), ['PREORDER30', 'WRECKER100'], 'codes are kept');
-    assert.equal(attribute(after), `MI26: ${ESTIMATE}`);
+    assert.equal(attribute(after), `MI-26: ${ESTIMATE}`);
     assert.equal(after.incomplete, true, 'the handed-off cart stays frozen for checkout (existing behavior)');
     assert.deepEqual(after.lines.map(line => [line.isBreakIn, line.quantity]), [[false, 2], [true, 2]], 'pairing and quantities unchanged');
   });
@@ -120,7 +120,7 @@ for (const mode of ['replace', 'merge']) {
     await withPreorders(['full-mint'], async () => {
       const f = await fixture({ cartAttributesMode: mode });
       await f.commerce.addProduct('black', false);
-      f.setCartAttributes([{ key: 'gift-note', value: 'Happy birthday' }, { key: PREORDER_ORDER_ATTRIBUTE, value: `MI26: ${ESTIMATE}` }]);
+      f.setCartAttributes([{ key: 'gift-note', value: 'Happy birthday' }, { key: PREORDER_ORDER_ATTRIBUTE, value: `MI-26: ${ESTIMATE}` }]);
       assert.equal((await checkout(f)).result.status, 'navigating');
       const left = f.cartAttributes.find(item => item.key === PREORDER_ORDER_ATTRIBUTE);
       assert.ok(!left || left.value === '', 'no preorder claim remains on a trainer-only order');
@@ -175,7 +175,7 @@ test('a failed or uncertain snapshot write blocks checkout, then the cart recove
     const restored = f.restore(); await restored.listProducts();
     const urls2 = [];
     assert.equal((await restored.checkout(await restored.getCart(), {}, url => urls2.push(url))).status, 'navigating');
-    assert.equal(attribute(await restored.getCart()), `MI26: ${ESTIMATE}`);
+    assert.equal(attribute(await restored.getCart()), `MI-26: ${ESTIMATE}`);
   });
 });
 
@@ -188,7 +188,7 @@ test('cart reload restores preorder lines and the snapshot is rewritten from cur
     assert.equal(cart.lines.length, 2);
     assert.ok(checkoutCartIsComplete(cart));
     assert.equal((await reloaded.checkout(cart, {}, () => {})).status, 'navigating');
-    assert.equal(attribute(await reloaded.getCart()), `MI26: ${ESTIMATE}`);
+    assert.equal(attribute(await reloaded.getCart()), `MI-26: ${ESTIMATE}`);
   });
 });
 

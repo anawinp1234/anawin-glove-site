@@ -149,7 +149,7 @@ test('mixed active and blocked preorder models: each page follows its own Shopif
   assert.ok(processingSection(view.route('/shipping')).includes(preorderProcessingNote));
   assert.match(view.route('/faq'), /How do I pay for a preorder\?/);
   const disclosure = renderCartPreorderDisclosure(cartPreorderSummary([mint, { ...black, shopifyPreorderShipEstimate: null }]), escapeHtml);
-  assert.match(disclosure, /BL50 isn’t available to order right now/);
+  assert.match(disclosure, /BL-50 isn’t available to order right now/);
 });
 
 test('two distinct Shopify-confirmed estimates stay attached to their own gloves', () => {
@@ -160,14 +160,14 @@ test('two distinct Shopify-confirmed estimates stay attached to their own gloves
   assert.match(view.route(productPath(later)), /Estimated to ship: January 8-14, 2027/);
   assert.doesNotMatch(view.route(productPath(later)), /December 4-10/);
   const disclosure = renderCartPreorderDisclosure(cartPreorderSummary([mint, later, localProducts[0]]), escapeHtml);
-  assert.match(disclosure, /<li>MI26: Preorder · Estimated to ship: December 4-10, 2026<\/li><li>BL50: Preorder · Estimated to ship: January 8-14, 2027<\/li>/);
+  assert.match(disclosure, /<li>MI-26: Preorder · Estimated to ship: December 4-10, 2026<\/li><li>BL-50: Preorder · Estimated to ship: January 8-14, 2027<\/li>/);
   const lines = [{ productId: mint.id }, { productId: later.id }];
-  assert.equal(preorderOrderAttributeValue(lines, id => [mint, later].find(product => product.id === id)), 'BL50: January 8-14, 2027; MI26: December 4-10, 2026');
+  assert.equal(preorderOrderAttributeValue(lines, id => [mint, later].find(product => product.id === id)), 'BL-50: January 8-14, 2027; MI-26: December 4-10, 2026');
   assert.doesNotMatch(text(view.route('/shipping') + view.route('/faq')), /December|January|2026|2027/);
 });
 
 test('the full-size setup summary adds preorder break-in timing only once break-in is selected', () => {
-  const base = { model: 'MI26', hand: 'Right-Hand Throw', wrist: 'Regular', servicePrice: 75, total: 295 };
+  const base = { model: 'MI-26', hand: 'Right-Hand Throw', wrist: 'Regular', servicePrice: 75, total: 295 };
   const breakIn = { placement: 'Traditional — index finger in', closure: 'Pinky', shaping: [['Thumb', 'None']], firmness: 'Medium', notes: '' };
   assert.doesNotMatch(fullSizeSetupDetails({ ...base, preorder: true, breakIn: null }).rows, /business days/);
   assert.ok(fullSizeSetupDetails({ ...base, preorder: true, breakIn }).rows.includes(`<small>${PREORDER_BREAK_IN_TIMING}</small>`));

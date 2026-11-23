@@ -66,10 +66,10 @@ test('sitemap lists each canonical public URL once', () => {
 
 test('full-size titles lead with the model and old color routes have no canonical metadata', () => {
   const expected = [
-    ['mi26', 'mint', 'MI26 Mint 12″ Japanese Kip Pitcher’s Glove | ANAWIN'],
-    ['bl50', 'black', 'BL50 Black 12.75″ Japanese Kip Outfield Glove | ANAWIN'],
-    ['cm24', 'camel', 'CM24 Camel 11.5″ Japanese Kip Infield Glove | ANAWIN'],
-    ['or17', 'orange', 'OR17 Orange 11.75″ Japanese Kip Infield Glove | ANAWIN']
+    ['mi26', 'mint', 'MI-26 Mint 12″ Japanese Kip Pitcher’s Glove | ANAWIN'],
+    ['bl50', 'black', 'BL-50 Black 12.75″ Japanese Kip Outfield Glove | ANAWIN'],
+    ['cm24', 'camel', 'CM-24 Camel 11.5″ Japanese Kip Infield Glove | ANAWIN'],
+    ['or17', 'orange', 'OR-17 Orange 11.75″ Japanese Kip Infield Glove | ANAWIN']
   ];
   for (const [model, color, title] of expected) {
     const product = fullSizeProducts.find(item => item.color === color);

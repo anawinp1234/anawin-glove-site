@@ -6,7 +6,7 @@ import { localProducts, breakInService } from '../src/catalog.js';
 import { createStorefrontRenderer } from '../src/storefront-render.js';
 import { zoomImageSources } from '../src/zoom-image.js';
 
-// Phase 4 part 2: AVIF is offered only for the two lead photos (homepage hero, BR16 gallery photo 1).
+// Phase 4 part 2: AVIF is offered only for the two lead photos (homepage hero, BR-16 gallery photo 1).
 const renderer = createStorefrontRenderer({ products: localProducts, breakInService });
 const read = path => readFile(new URL(`../public${path}`, import.meta.url));
 const heroWidths = [480, 640, 800, 960, 1200, 1350];
@@ -60,7 +60,7 @@ test('homepage hero offers AVIF first with the same widths and sizes as its unch
   assert.match(hero, /loading="eager" fetchpriority="high"/);
 });
 
-test('only the BR16 gallery lead photo gains an AVIF source; held photos, cards and other models do not', () => {
+test('only the BR-16 gallery lead photo gains an AVIF source; held photos, cards and other models do not', () => {
   const photos = [...renderer.route('/product/br16').matchAll(/<button class="gallery-image"[^]*?<\/button>/g)].map(match => match[0]);
   const avif = 'srcset="/images/optimized/black1-p3-480.avif 480w, /images/optimized/black1-p3-960.avif 960w, /images/optimized/black1-zoom-1045.avif 1045w" sizes="(max-width: 760px) 90vw, 30vw"';
   assert.ok(photos[0].includes(`<picture><source type="image/avif" ${avif}><source type="image/webp" srcset="/images/optimized/black1-p3-480.webp 480w`));
@@ -87,7 +87,7 @@ for (const width of heroWidths) {
 }
 
 for (const [name, width, height] of br16Avif) {
-  test(`BR16 ${name} AVIF carries the exact source Display P3 ICC at unchanged dimensions`, async () => {
+  test(`BR-16 ${name} AVIF carries the exact source Display P3 ICC at unchanged dimensions`, async () => {
     const avif = avifProperties(await read(`/images/optimized/${name}.avif`));
     assert.deepEqual(avif.icc, await sourceICC());
     assert.deepEqual(avif.size, [width, height]);

@@ -47,7 +47,10 @@ export function renderCartRow({ product, line, service, mode, serviceProduct, bu
     ? money(serviceTotal.amount, serviceTotal.currencyCode) : money(serviceProduct.price, serviceProduct.currencyCode);
   const serviceOriginal = serviceAmounts && serviceAmounts.original.amount > serviceAmounts.discounted.amount + 0.01
     ? `<s>${money(serviceAmounts.original.amount, serviceAmounts.original.currencyCode)}</s> ` : '';
-  const servicePreference = key => service?.attributes?.find(attribute => attribute.key === key)?.value;
+  const servicePreference = key => {
+    const value = service?.attributes?.find(attribute => attribute.key === key)?.value;
+    return value && key === 'Glove Model' ? product.name : value;
+  };
   const trainerPreferenceMarkup = service && servicePreference('Break-In Level') && servicePreference('Glove Wearing Style')
     ? `<div class="cart-service-preferences"><p>Break-In Level: ${escapeHtml(servicePreference('Break-In Level'))}</p><p>Glove Wearing Style: ${escapeHtml(servicePreference('Glove Wearing Style'))}</p></div>` : '';
   const fullSize = product.line === 'full-size';

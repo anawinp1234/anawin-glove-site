@@ -21,7 +21,7 @@ function chunks(buffer, kind) {
   return result;
 }
 
-test('BR16 gallery selects only color-correct variants with unchanged responsive descriptors', () => {
+test('BR-16 gallery selects only color-correct variants with unchanged responsive descriptors', () => {
   const first = gallery('br16')[0];
   assert.match(first, /srcset="\/images\/optimized\/black1-p3-480.webp 480w, \/images\/optimized\/black1-p3-960.webp 960w, \/images\/optimized\/black1-zoom-1045.webp 1045w"/);
   assert.match(first, /sizes="\(max-width: 760px\) 90vw, 30vw"/);
@@ -50,7 +50,7 @@ test('all other gallery photographs keep their sources, order, labels and loadin
   }
 });
 
-test('BR16 cards and recommendations retain their sources and zoom keeps its full-resolution source', () => {
+test('BR-16 cards and recommendations retain their sources and zoom keeps its full-resolution source', () => {
   const shop = renderer.route('/shop');
   assert.ok(shop.includes('/images/optimized/black1-480.webp 480w, /images/optimized/black1-768.webp 768w, /images/optimized/black1-960.webp 960w, /images/optimized/black1-1045.webp 1045w'));
   assert.ok(!shop.includes('black1-p3-'));
@@ -63,7 +63,7 @@ test('BR16 cards and recommendations retain their sources and zoom keeps its ful
 });
 
 for (const width of [480, 960]) {
-  test(`BR16 ${width}px WebP contains the original valid Display P3 ICC and correct decoded dimensions`, async () => {
+  test(`BR-16 ${width}px WebP contains the original valid Display P3 ICC and correct decoded dimensions`, async () => {
     const png = chunks(await readFile(new URL('../public/images/black1.PNG', import.meta.url)), 'png');
     const iccp = png.get('iCCP');
     const sourceICC = inflateSync(iccp.subarray(iccp.indexOf(0) + 2));

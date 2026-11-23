@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { breakInService, fullSizeProducts, localProducts } from '../src/catalog.js';
+import { breakInService, fullSizeProducts, gloveModelCode, localProducts } from '../src/catalog.js';
 import { createStorefrontRenderer, fullSizeSetupDetails } from '../src/storefront-render.js';
 import { productJsonLd, productPath } from '../src/seo.js';
 
@@ -13,7 +13,7 @@ test('full-size gloves are preorders kept out of the local trainer catalog', () 
   for (const product of fullSizeProducts) {
     assert.equal(product.comingSoon, false);
     assert.ok(!localProducts.some(local => local.id === product.id));
-    assert.equal(productPath(product), `/product/${product.name.toLowerCase()}`);
+    assert.equal(productPath(product), `/product/${gloveModelCode(product.name).toLowerCase()}`);
   }
 });
 
@@ -110,7 +110,7 @@ function webpChunks(buffer) {
   return chunks;
 }
 
-// The replacement OR17 sources use standard RGB without an embedded ICC profile.
+// The replacement OR-17 sources use standard RGB without an embedded ICC profile.
 for (const [angle, side] of [['back', 1195], ['palm', 1322], ['side', 1206], ['finger-side', 1438]]) {
   test(`orange ${angle} JPEG and responsive WebPs preserve source color metadata and dimensions`, () => {
     const jpeg = jpegMetadata(readFileSync(publicFile(`/images/full-size/orange-${angle}.jpg`)));
@@ -148,7 +148,7 @@ test('full-size pages offer the confirmed throw-hand options and stay disabled u
     assert.deepEqual(options.map(match => match[1]), expected[product.color], product.color);
     assert.deepEqual(options.map(match => match[2]), expected[product.color], product.color);
     if (expected[product.color].length === 1) {
-      // CM24 is right-hand throw only, so that hand starts selected everywhere the setup is shown.
+      // CM-24 is right-hand throw only, so that hand starts selected everywhere the setup is shown.
       assert.match(fieldset, /value="Right-Hand Throw \(worn on left hand\)" checked>/);
       assert.match(html, /Throw hand: Right-Hand Throw \(worn on left hand\) · Wrist fit: Regular · No break-in service\./);
       assert.match(html, /<dt>Throw hand<\/dt><dd>Right-Hand Throw \(worn on left hand\)<\/dd>/);

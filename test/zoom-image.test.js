@@ -15,7 +15,7 @@ function imageFixture(outcomes = []) {
   return { image, requests };
 }
 
-for (const [model, color] of [['BR16', 'black'], ['OB16', 'blue'], ['CL16', 'brown']]) {
+for (const [model, color] of [['BR-16', 'black'], ['OB-16', 'blue'], ['CL-16', 'brown']]) {
   for (let view = 1; view <= 4; view++) {
     const original = `/images/${color}${view}.PNG`;
     const optimized = `/images/optimized/${color}${view}-${color === 'black' && view === 1 ? 'zoom-1045' : '1254'}.webp`;
@@ -38,7 +38,7 @@ for (const [model, color] of [['BR16', 'black'], ['OB16', 'blue'], ['CL16', 'bro
   }
 }
 
-test('BR16 view 1 uses the corrected P3 asset, never the rejected or thumbnail variants', () => {
+test('BR-16 view 1 uses the corrected P3 asset, never the rejected or thumbnail variants', () => {
   assert.equal(zoomImageSource('/images/black1.PNG'), '/images/optimized/black1-zoom-1045.webp');
   assert.notEqual(zoomImageSource('/images/black1.PNG'), '/images/optimized/black1-1045.webp');
   assert.doesNotMatch(zoomImageSource('/images/black1.PNG'), /-(480|768|960)\.webp$/);
