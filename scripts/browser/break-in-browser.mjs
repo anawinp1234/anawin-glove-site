@@ -94,8 +94,8 @@ try {
     await until(`document.querySelector('[data-checkout]') && !document.querySelector('[data-checkout]').disabled`);
     assert.equal(await evaluate(`document.querySelectorAll('.cart-item').length`),1);
     const cartAx = await call('Accessibility.getFullAXTree');
-    assert.ok(cartAx.nodes.some(node => node.role?.value === 'group' && node.name?.value === 'MI26 break-in instructions'));
-    for (const text of ['Glove Model: MI26', 'Throwing Hand: Left']) {
+    assert.ok(cartAx.nodes.some(node => node.role?.value === 'group' && node.name?.value === 'MI-26 break-in instructions'));
+    for (const text of ['Glove Model: MI-26', 'Throwing Hand: Left']) {
       assert.ok((await evaluate(`document.querySelector('.cart-service-preferences').textContent`)).includes(text));
     }
     assert.ok((await evaluate(`document.querySelector('.cart-body').textContent`)).includes('custom finger placement'));

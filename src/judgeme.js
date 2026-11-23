@@ -1,3 +1,5 @@
+import { gloveModelCode } from './catalog.js';
+
 const WIDGET_ORIGIN = 'https://cdn.judge.me';
 export const JUDGEME_SHOP_DOMAIN = 'ignvv0-zh.myshopify.com';
 
@@ -120,13 +122,13 @@ export function createJudgeMeService({ publicToken, fetchImpl = fetch, timeoutMs
     const entries = products.map(product => ({ product, id: shopifyProductId(product.shopifyProductGid) })).filter(entry => entry.id);
     if (!entries.length) return { status: 'unavailable', products: {} };
     const badges = await Promise.all(entries.map(async ({ product, id }) => {
-      try { return [product.name.toLowerCase(), parseJudgeMeBadge(await request('preview_badge', id), id, parseHtml) || { status: 'unavailable' }]; }
-      catch { return [product.name.toLowerCase(), { status: 'unavailable' }]; }
+      try { return [gloveModelCode(product.name).toLowerCase(), parseJudgeMeBadge(await request('preview_badge', id), id, parseHtml) || { status: 'unavailable' }]; }
+      catch { return [gloveModelCode(product.name).toLowerCase(), { status: 'unavailable' }]; }
     }));
     const result = Object.fromEntries(badges);
     const active = entries.find(entry => entry.id === widgetProductId);
-    if (active && result[active.product.name.toLowerCase()].status === 'ready') {
-      const handle = active.product.name.toLowerCase();
+    if (active && result[gloveModelCode(active.product.name).toLowerCase()].status === 'ready') {
+      const handle = gloveModelCode(active.product.name).toLowerCase();
       const summary = result[handle];
       try {
         const widget = parseJudgeMeWidget(await request('product_review', active.id), active.id, summary.count, handle, parseHtml);

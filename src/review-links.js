@@ -1,3 +1,5 @@
+import { gloveModelCode } from './catalog.js';
+
 // Public product-specific links copied from Judge.me Admin > Settings > Request reviews > Links, QR codes and point of sale review collection.
 export const JUDGEME_PRODUCT_REVIEW_LINKS = Object.freeze({
   br16: 'https://judge.me/product_reviews/5e5871f8-7401-458b-8b6d-4dc9ff3e37f4/new?id=10332428697848&source=shareable-link',
@@ -22,7 +24,7 @@ export function validProductReviewLink(value, productId = null) {
 
 export function productReviewLinks(products = [], configuredLinks = JUDGEME_PRODUCT_REVIEW_LINKS) {
   return Object.fromEntries(['br16', 'ob16', 'cl16'].map(model => {
-    const product = products.find(item => item.name.toLowerCase() === model);
+    const product = products.find(item => gloveModelCode(item.name).toLowerCase() === model);
     const productId = shopifyProductId(product?.shopifyProductGid);
     return [model, productId ? validProductReviewLink(configuredLinks[model], productId) : null];
   }));

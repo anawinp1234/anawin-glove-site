@@ -49,7 +49,7 @@ test('every trainer offers accessible break-in choices above Add to Cart', () =>
 });
 
 test("mobile purchase bar matches each page's Add to cart color and confirmed product price", () => {
-  // The same accent as the in-page mobile Add to cart (--pdp-accent); BR16 is red, not its black swatch.
+  // The same accent as the in-page mobile Add to cart (--pdp-accent); BR-16 is red, not its black swatch.
   const accents = { black: '#d3423e', blue: '#2560ae', brown: '#9a622d' };
   for (const product of localProducts) {
     const confirmed = { ...product, price: 163 };
@@ -58,7 +58,7 @@ test("mobile purchase bar matches each page's Add to cart color and confirmed pr
     assert.equal(stickyPurchaseAccent(product), product.accentColor);
     assert.match(html, new RegExp(`data-sticky-purchase hidden style="--sticky-accent:${accents[product.id]}"`));
     assert.match(html, /data-sticky-price aria-label="Selected price">\$163/);
-    assert.match(html, /data-sticky-add aria-label="Add to cart (BR16|OB16|CL16)" >Add to cart/);
+    assert.match(html, /data-sticky-add aria-label="Add to cart (BR-16|OB-16|CL-16)" >Add to cart/);
   }
 });
 
@@ -66,13 +66,13 @@ test('mobile purchase bar mirrors loading, error, and sold-out purchase states',
   const product = localProducts[1];
   const loading = renderProduct(product, { commerceLoading: true });
   assert.match(loading, /data-sticky-price aria-label="Selected price">Checking price…/);
-  assert.match(loading, /data-sticky-add aria-label="Checking availability… OB16" disabled/);
+  assert.match(loading, /data-sticky-add aria-label="Checking availability… OB-16" disabled/);
   const error = renderProduct(product, { commerceError: 'Shopify failed' });
   assert.match(error, /data-sticky-price aria-label="Selected price">Price unavailable/);
-  assert.match(error, /data-sticky-add aria-label="Unavailable OB16" disabled/);
+  assert.match(error, /data-sticky-add aria-label="Unavailable OB-16" disabled/);
   const soldOut = { ...product, available: false };
   const sold = createStorefrontRenderer({ products: [soldOut], breakInService }).route(productPath(soldOut));
-  assert.match(sold, /data-sticky-add aria-label="Sold out OB16" disabled/);
+  assert.match(sold, /data-sticky-add aria-label="Sold out OB-16" disabled/);
 });
 
 test('a failed Shopify product lookup offers a keyboard-accessible retry', () => {

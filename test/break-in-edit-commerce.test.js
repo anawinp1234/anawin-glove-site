@@ -187,7 +187,7 @@ test('a full-size glove can get break-in in the cart with its model and throw ha
     const service = childOf(after, glove);
     assert.equal(service.merchandiseId, FULL_SIZE_SERVICE_VARIANT);
     assert.equal(service.unitPrice.amount, 75);
-    assert.equal(attribute(service, 'Glove Model'), 'MI26');
+    assert.equal(attribute(service, 'Glove Model'), 'MI-26');
     assert.equal(attribute(service, 'Throwing Hand'), hand === 'left' ? 'Left' : 'Right');
     assert.equal(attribute(glove, FULL_SIZE_CONFIGURATION_KEY), fullSizeConfiguration(FULL));
     assert.equal(checkoutCartIsComplete(after), true, hand);
@@ -217,7 +217,7 @@ test('editing full-size break-in rewrites the instructions and their saved confi
   assert.equal(attribute(service, 'Firmness'), 'Firm');
   assert.equal(attribute(service, 'Notes'), 'Keep the pocket deep');
   assert.equal(attribute(service, 'Throwing Hand'), 'Left');
-  assert.equal(attribute(service, 'Glove Model'), 'MI26');
+  assert.equal(attribute(service, 'Glove Model'), 'MI-26');
   assert.equal(after.subtotal, before.subtotal);
   assert.equal(checkoutCartIsComplete(after), true);
   assert.deepEqual(unsafeOps(fixture.storage), []);

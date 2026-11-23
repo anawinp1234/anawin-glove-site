@@ -5,7 +5,7 @@ import { access } from 'node:fs/promises';
 import { bindCartImageFallbacks, renderCartRow } from '../src/cart-row.js';
 import { localProducts } from '../src/catalog.js';
 
-const product = { id: 'blue', name: 'OB16', tone: 'Baby Blue / Royal / Navy', images: ['/images/blue1.PNG'] };
+const product = { id: 'blue', name: 'OB-16', tone: 'Baby Blue / Royal / Navy', images: ['/images/blue1.PNG'] };
 const serviceProduct = { price: 20, currencyCode: 'USD', available: true };
 const money = (amount, currency) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2
@@ -28,17 +28,17 @@ test('cart row places Shopify entry totals in the right price rail', () => {
   ]) {
     const html = render(line, child);
     assert.match(html, new RegExp(`<div class="cart-item-side">${child ? '<div class="cart-entry-price">' : ''}<strong class="cart-line-price">\\${expected}</strong>`));
-    assert.match(html, /<div class="cart-item-info"><h3>OB16<\/h3><p>Baby Blue \/ Royal \/ Navy<\/p>/);
+    assert.match(html, /<div class="cart-item-info"><h3>OB-16<\/h3><p>Baby Blue \/ Royal \/ Navy<\/p>/);
   }
 });
 
-test('serviced MI26 labels the combined total and identifies the service as included', () => {
-  const html = renderCartRow({ product: { ...product, id: 'full-mint', name: 'MI26', line: 'full-size' },
+test('serviced MI-26 labels the combined total and identifies the service as included', () => {
+  const html = renderCartRow({ product: { ...product, id: 'full-mint', name: 'MI-26', line: 'full-size' },
     line: glove(1, 295), service: service(1, 75), mode: 'shopify',
     serviceProduct: { price: 75, currencyCode: 'USD' }, busy: false, incomplete: false, money, escapeHtml });
   assert.match(html, /cart-line-price">\$370<\/strong><small class="cart-entry-total-label">Glove \+ service total<\/small>/);
   assert.match(html, /Break-in service · \$75 \(included\)/);
-  assert.match(html, /role="group" aria-label="MI26 break-in instructions"><h4>Break-in instructions<\/h4>/);
+  assert.match(html, /role="group" aria-label="MI-26 break-in instructions"><h4>Break-in instructions<\/h4>/);
   assert.doesNotMatch(html, /\$440/);
   assert.doesNotMatch(render(glove(1, 155)), /Glove \+ service total|\(included\)/);
 });
@@ -63,8 +63,8 @@ test('quantity controls are labeled and disabled for pending or unresolved cart 
     const line = glove(10, 1550);
     const html = renderCartRow({ product, line, service: null, mode: 'shopify', serviceProduct,
       busy, incomplete, money, escapeHtml });
-    assert.match(html, /aria-label="Decrease OB16 quantity"[^>]*disabled/);
-    assert.match(html, /aria-label="Increase OB16 quantity"[^>]*disabled/);
+    assert.match(html, /aria-label="Decrease OB-16 quantity"[^>]*disabled/);
+    assert.match(html, /aria-label="Increase OB-16 quantity"[^>]*disabled/);
     assert.match(html, /<span>10<\/span>/);
   }
 });
@@ -87,9 +87,9 @@ test('cart row shows escaped Shopify service preferences only while service is p
 });
 
 for (const [model, original, optimized] of [
-  ['BR16', '/images/black1.PNG', '/images/optimized/black1-480.webp'],
-  ['OB16', '/images/blue1.PNG', '/images/optimized/blue1-480.webp'],
-  ['CL16', '/images/brown1.PNG', '/images/optimized/brown1-480.webp']
+  ['BR-16', '/images/black1.PNG', '/images/optimized/black1-480.webp'],
+  ['OB-16', '/images/blue1.PNG', '/images/optimized/blue1-480.webp'],
+  ['CL-16', '/images/brown1.PNG', '/images/optimized/brown1-480.webp']
 ]) {
   for (const serviced of [false, true]) {
     test(`${model} ${serviced ? 'serviced' : 'unserviced'} cart entry uses its matching thumbnail and original fallback`, async () => {
@@ -111,15 +111,15 @@ for (const [model, original, optimized] of [
 test('an unmapped cart photo retains its original URL instead of guessing a thumbnail', () => {
   const html = renderCartRow({ product: { ...product, images: ['/images/new-photo.png'] }, line: glove(1, 155),
     mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
-  assert.match(html, /<img src="\/images\/new-photo.png" alt="OB16 glove in Baby Blue \/ Royal \/ Navy">/);
+  assert.match(html, /<img src="\/images\/new-photo.png" alt="OB-16 glove in Baby Blue \/ Royal \/ Navy">/);
   assert.doesNotMatch(html, /data-cart-image-fallback/);
 });
 
 test('cart thumbnail alternative text and original image URLs are escaped', () => {
-  const html = renderCartRow({ product: { ...product, name: 'OB16 "Special"', tone: 'Blue & Navy', images: ['/images/a"b.png'] },
+  const html = renderCartRow({ product: { ...product, name: 'OB-16 "Special"', tone: 'Blue & Navy', images: ['/images/a"b.png'] },
     line: glove(1, 155), mode: 'shopify', serviceProduct, busy: false, incomplete: false, money, escapeHtml });
   assert.match(html, /src="\/images\/a&quot;b.png"/);
-  assert.match(html, /alt="OB16 &quot;Special&quot; glove in Blue &amp; Navy"/);
+  assert.match(html, /alt="OB-16 &quot;Special&quot; glove in Blue &amp; Navy"/);
 });
 
 test('a failed optimized thumbnail retries the original only once', () => {
@@ -145,13 +145,13 @@ test('local cart lines without a Shopify line id do not read a missing service n
 });
 
 test('Break-In add buttons name the glove and price, starting with their visible text', () => {
-  const product = { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] };
+  const product = { id: 'black', name: 'BR-16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] };
   const money = amount => `$${amount}`;
   const escapeHtml = value => String(value);
   const markup = quantity => renderCartRow({ product, line: { remoteLineId: 'line-1', productId: 'black', quantity, attributes: [], instructions: { canUpdateQuantity: true } },
     service: null, mode: 'shopify', serviceProduct: { price: 20, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
-  assert.match(markup(1), /data-add-service="line-1" aria-label="Add Break-in service to BR16, \+\$20"/);
-  assert.match(markup(2), /data-add-service="line-1" aria-label="Add break-in to 1 BR16, \+\$20"/);
+  assert.match(markup(1), /data-add-service="line-1" aria-label="Add Break-in service to BR-16, \+\$20"/);
+  assert.match(markup(2), /data-add-service="line-1" aria-label="Add break-in to 1 BR-16, \+\$20"/);
 });
 
 test('cart rows carry the glove colorway accent for break-in button hover', () => {

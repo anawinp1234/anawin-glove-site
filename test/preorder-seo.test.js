@@ -98,7 +98,7 @@ test('only catalog-configured preorder pages are synced, with the estimate in th
 
   const head = renderSeoHead('/product/mi26').replace(/<script type="application\/ld\+json" data-anawin-product[^>]*>[^<]*<\/script>/, '');
   const block = `<script type="application/ld+json" data-anawin-product>${JSON.stringify(productJsonLd('/product/mi26', { fullSize: preorderCatalog }))}</script>`;
-  const html = `<html><head>${head}${block}</head><body>MI26</body></html>`;
+  const html = `<html><head>${head}${block}</head><body>MI-26</body></html>`;
   const updated = applyOffer(html, offerFromStorefront(storefront([variant(), variant()], ESTIMATE), { preorderEstimate: ESTIMATE })).html;
   assert.equal(productBlock(updated).offers.availability, 'https://schema.org/PreOrder');
 

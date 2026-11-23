@@ -22,7 +22,7 @@ test('Each PDP marks its current model and directly links the other two', () => 
     const html = renderer.route(productPath(product));
     const switcher = html.match(/<nav class="model-switcher"[^]*?<\/nav>/)?.[0];
     assert.ok(switcher, product.name);
-    assert.deepEqual([...switcher.matchAll(/data-product="[^"]+">(CL16|OB16|BR16)/g)].map(match => match[1]), ['CL16', 'OB16', 'BR16']);
+    assert.deepEqual([...switcher.matchAll(/data-product="[^"]+">(CL-16|OB-16|BR-16)/g)].map(match => match[1]), ['CL-16', 'OB-16', 'BR-16']);
     assert.deepEqual([...switcher.matchAll(/data-product="([^"]+)"/g)].map(match => match[1]), ['brown', 'blue', 'black']);
     assert.match(switcher, new RegExp(`<span class="model-switcher-current" aria-current="page" data-product="${product.id}">${product.name} <small>Current</small></span>`));
     assert.equal((switcher.match(/aria-current="page"/g) || []).length, 1);
@@ -31,6 +31,6 @@ test('Each PDP marks its current model and directly links the other two', () => 
     }
     const others = html.match(/<section class="other-gloves"[^]*?<\/section>/)?.[0];
     assert.ok(others, product.name);
-    assert.deepEqual([...others.matchAll(/class="other-glove-meta"><strong>(OB16|CL16|BR16)<\/strong>/g)].map(match => match[1]), localProducts.filter(other => other.id !== product.id).map(other => other.name));
+    assert.deepEqual([...others.matchAll(/class="other-glove-meta"><strong>(OB-16|CL-16|BR-16)<\/strong>/g)].map(match => match[1]), localProducts.filter(other => other.id !== product.id).map(other => other.name));
   }
 });

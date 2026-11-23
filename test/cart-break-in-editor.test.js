@@ -10,7 +10,7 @@ const money = (amount, currency) => new Intl.NumberFormat('en-US', {
 }).format(amount);
 const escapeHtml = value => String(value).replace(/[&<>'"]/g, character =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
-const product = { id: 'black', name: 'BR16', tone: 'Black / Tan', images: ['/images/black1.PNG'] };
+const product = { id: 'black', name: 'BR-16', tone: 'Black / Tan', images: ['/images/black1.PNG'] };
 const serviceProduct = { price: 20, currencyCode: 'USD', available: true };
 const GAME_READY_TIP = { level: 'Game Ready (90%)', wearingStyle: 'Two in the Pinky (TIP)' };
 const FIRM_TRADITIONAL = { level: 'Firm (40%)', wearingStyle: 'Traditional' };
@@ -53,7 +53,7 @@ test('cart editor shows every firmness and wearing style, defaults Medium / Trad
   assert.match(html, /<button type="submit" class="cart-service-confirm" data-confirm-service="glove-1" >Add break-in \+\$24\.5<\/button>/);
   assert.match(html, /<button type="button" class="cart-service-cancel" data-cancel-service="glove-1" >Cancel<\/button>/);
   assert.match(html, /aria-labelledby="cart-service-editor-heading"/);
-  assert.match(html, /Customize break-in for BR16/);
+  assert.match(html, /Customize break-in for BR-16/);
 });
 
 test('cart editor reflects nondefault choices and names the one glove of a multi-quantity line', () => {
@@ -67,7 +67,7 @@ test('cart editor reflects nondefault choices and names the one glove of a multi
   assert.match(html, /value="Game Ready \(90%\)" checked/);
   assert.match(html, /value="Two in the Pinky \(TIP\)" checked/);
   assert.doesNotMatch(html, /value="Medium \(65%\)" checked/);
-  assert.match(html, /Customize break-in for 1 of 3 BR16 gloves/);
+  assert.match(html, /Customize break-in for 1 of 3 BR-16 gloves/);
 });
 
 test('cart row replaces only the chosen line add button with the editor and shows confirmed customization', () => {
@@ -329,11 +329,11 @@ test('unverified or unavailable service pricing is never shown as a $20 fallback
 test('editor escapes product names, line IDs and error text', () => {
   const editor = createBreakInEditor();
   editor.open('x"><img src=x onerror=alert(1)>', 'black');
-  const html = renderBreakInEditor({ product: { ...product, name: '<b>BR16</b>' },
+  const html = renderBreakInEditor({ product: { ...product, name: '<b>BR-16</b>' },
     line: { remoteLineId: 'x"><img src=x onerror=alert(1)>', quantity: 1 },
     editor: { ...editor.state, error: '<script>bad()</script>' }, serviceProduct, busy: false, incomplete: false, money, escapeHtml });
-  assert.doesNotMatch(html, /<img|<script>|<b>BR16/);
-  assert.match(html, /&lt;b&gt;BR16&lt;\/b&gt;/);
+  assert.doesNotMatch(html, /<img|<script>|<b>BR-16/);
+  assert.match(html, /&lt;b&gt;BR-16&lt;\/b&gt;/);
   assert.match(html, /&lt;script&gt;bad\(\)&lt;\/script&gt;/);
 });
 
@@ -353,7 +353,7 @@ test('quantity changes keep nondefault trainer choices on glove and service line
 
 const FULL = { type: 'full-size', wearingStyle: 'Traditional — index finger out', placement: '', closure: 'Ring finger',
   thumbShape: 'Straight', pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '' };
-const fullProduct = { id: 'full-mint', name: 'MI26', tone: 'Mint', line: 'full-size', images: ['/images/mi26.png'] };
+const fullProduct = { id: 'full-mint', name: 'MI-26', tone: 'Mint', line: 'full-size', images: ['/images/mi26.png'] };
 const runEdit = (fixture, lineId, method = 'editBreakIn') => async options => {
   try { return { status: 'ok', cart: await fixture.commerce[method](lineId, options) }; }
   catch (error) { return { status: 'error', message: error.message }; }
@@ -384,7 +384,7 @@ test('editing starts from the saved choices, saves through Shopify, and confirms
   const editor = createBreakInEditor();
   editor.open(line.remoteLineId, 'black', { mode: 'edit', initial: GAME_READY_TIP });
   const html = renderBreakInEditor({ product, line, editor: editor.state, serviceProduct, busy: false, incomplete: false, money, escapeHtml });
-  assert.match(html, /Edit break-in for 1 of 2 BR16 gloves/);
+  assert.match(html, /Edit break-in for 1 of 2 BR-16 gloves/);
   assert.match(html, /value="Game Ready \(90%\)" checked/);
   assert.match(html, /value="Two in the Pinky \(TIP\)" checked/);
   assert.match(html, />Save changes<\/button>/);
@@ -461,7 +461,7 @@ test('serviced rows offer Edit and Remove; full-size rows without service offer 
   const service = { quantity: 1, attributes: serviceAttributes(GAME_READY_TIP), instructions: { canRemove: true }, lineTotal: { amount: 20, currencyCode: 'USD' } };
   const row = (extra = {}) => renderCartRow({ product, line: line('glove-1'), service, mode: 'shopify', serviceProduct,
     busy: false, incomplete: false, money, escapeHtml, ...extra });
-  assert.match(row(), /data-edit-service="glove-1" aria-label="Edit break-in for BR16" >Edit break-in<\/button>/);
+  assert.match(row(), /data-edit-service="glove-1" aria-label="Edit break-in for BR-16" >Edit break-in<\/button>/);
   assert.match(row(), /data-remove-service="glove-1"/);
   assert.match(row({ incomplete: true }), /data-edit-service="glove-1"[^>]*disabled/);
   assert.match(renderCartRow({ product, line: line('glove-1', 2), service: { ...service, quantity: 2 }, mode: 'shopify', serviceProduct,
@@ -473,7 +473,7 @@ test('serviced rows offer Edit and Remove; full-size rows without service offer 
   assert.doesNotMatch(editing, /data-edit-service|data-remove-service|cart-service-preferences/);
   const full = renderCartRow({ product: { ...fullProduct, images: ['/images/mi26.png'] }, line: line('full-1'), service: null, mode: 'shopify',
     serviceProduct: { price: 75, currencyCode: 'USD', available: true }, busy: false, incomplete: false, money, escapeHtml });
-  assert.match(full, /data-add-service="full-1" aria-label="Add full-size break-in to MI26, \+\$75"[^>]*>Add full-size break-in \+\$75<\/button>/);
+  assert.match(full, /data-add-service="full-1" aria-label="Add full-size break-in to MI-26, \+\$75"[^>]*>Add full-size break-in \+\$75<\/button>/);
   assert.doesNotMatch(full, /glove page/);
   const unavailable = renderCartRow({ product: fullProduct, line: line('full-1'), service: null, mode: 'shopify',
     serviceProduct: { price: 75, currencyCode: 'USD', available: false }, busy: false, incomplete: false, money, escapeHtml });

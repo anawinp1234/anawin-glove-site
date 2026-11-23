@@ -1,5 +1,5 @@
 import './style.css';
-import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, PREORDER_BREAK_IN_TIMING, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, preorderState, purchasePrice, savedBreakInOptions } from './catalog.js';
+import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, PREORDER_BREAK_IN_TIMING, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, preorderState, purchasePrice, savedBreakInOptions, gloveModelCode } from './catalog.js';
 import { createStorefrontRenderer, fullSizeSetupDetails, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
 import { createCommerce, commerceErrorMessage } from './commerce.js';
 import { CART_PREORDER_DISCLOSURE_ID, bindCartImageFallbacks, cartPreorderSummary, renderCartPreorderDisclosure, renderCartRow } from './cart-row.js';
@@ -134,7 +134,7 @@ const judgeMePublicToken = import.meta.env.VITE_JUDGEME_PUBLIC_TOKEN || '';
 let judgeMeReviewLinks = productReviewLinks(products);
 const reviewService = createJudgeMeService({ publicToken: judgeMePublicToken });
 const reviewData = Object.fromEntries(localProducts.map(product => {
-  const handle = product.name.toLowerCase();
+  const handle = gloveModelCode(product.name).toLowerCase();
   return [handle, { status: judgeMePublicToken && commerce.mode === 'shopify' ? 'loading' : 'unavailable', writeReviewUrl: judgeMeReviewLinks[handle] }];
 }));
 
@@ -261,14 +261,14 @@ function render(scrollTop = window.scrollY) {
 function refreshReviewMarkup() {
   const views = createStorefrontRenderer({ products, breakInService, reviewData });
   for (const slot of document.querySelectorAll('[data-review-slot]')) {
-    const product = products.find(item => item.name.toLowerCase() === slot.dataset.reviewSlot);
+    const product = products.find(item => gloveModelCode(item.name).toLowerCase() === slot.dataset.reviewSlot);
     if (!product) continue;
     slot.innerHTML = views.productCardRatingMarkup(product);
     slot.classList.toggle('review-slot-loading', reviewData[slot.dataset.reviewSlot]?.status === 'loading');
   }
   const section = document.querySelector('[data-review-product]');
   if (section) {
-    const product = products.find(item => item.name.toLowerCase() === section.dataset.reviewProduct);
+    const product = products.find(item => gloveModelCode(item.name).toLowerCase() === section.dataset.reviewProduct);
     if (product) section.outerHTML = views.productReviewsSection(product);
   }
 }
@@ -279,7 +279,7 @@ function loadReviews() {
   if (!products.some(product => shopifyProductId(product.shopifyProductGid))) return;
   void reviewService.load(products, widgetId).then(result => {
     for (const product of products) {
-      const handle = product.name.toLowerCase();
+      const handle = gloveModelCode(product.name).toLowerCase();
       const next = result.products[handle] || { status: 'unavailable' };
       if (reviewData[handle]?.status === 'ready' && next.status === 'unavailable') continue;
       if (reviewData[handle]?.hasWidget && !next.hasWidget && next.status === 'ready') continue;
@@ -288,7 +288,7 @@ function loadReviews() {
     refreshReviewMarkup();
   }).catch(() => {
     for (const product of products) {
-      const handle = product.name.toLowerCase();
+      const handle = gloveModelCode(product.name).toLowerCase();
       reviewData[handle] = { status: 'unavailable', writeReviewUrl: judgeMeReviewLinks[handle] };
     }
     refreshReviewMarkup();
@@ -992,7 +992,7 @@ async function loadCommerce() {
     products = await commerce.listProducts();
     judgeMeReviewLinks = productReviewLinks(products);
     for (const product of products) {
-      const handle = product.name.toLowerCase();
+      const handle = gloveModelCode(product.name).toLowerCase();
       reviewData[handle] = { ...reviewData[handle], writeReviewUrl: judgeMeReviewLinks[handle] };
     }
     loadReviews();
@@ -1020,7 +1020,7 @@ async function loadCommerce() {
   }
   catch (error) {
     commerceError = commerceErrorMessage(error);
-    for (const product of products) reviewData[product.name.toLowerCase()] = { status: 'unavailable' };
+    for (const product of products) reviewData[gloveModelCode(product.name).toLowerCase()] = { status: 'unavailable' };
     commerceLoading = false;
     render();
     if (cartIsOpen) openCart();
