@@ -59,19 +59,19 @@ test('repeated clicks during a pending cart action run only one mutation', async
 
 const glove = (productId, quantity, extra = {}) => ({ productId, quantity, isBreakIn: false, ...extra });
 const service = (productId, quantity) => ({ productId, quantity, isBreakIn: true });
-const names = { black: 'BR-16', blue: 'OB-16' };
+const names = { black: 'BR16', blue: 'OB16' };
 const announce = (before, after) => cartUpdateAnnouncement({ lines: before }, { lines: after }, id => names[id]);
 
 test('confirmed cart changes produce one concise sentence', () => {
-  assert.equal(announce([], [glove('black', 1), service('black', 1)]), 'BR-16 with Break-in service added to cart.');
-  assert.equal(announce([glove('black', 1)], [glove('black', 2)]), 'BR-16 quantity 2.');
+  assert.equal(announce([], [glove('black', 1), service('black', 1)]), 'BR16 with Break-in service added to cart.');
+  assert.equal(announce([glove('black', 1)], [glove('black', 2)]), 'BR16 quantity 2.');
   // A paired service that moves with its glove is not announced separately.
-  assert.equal(announce([glove('black', 1), service('black', 1)], [glove('black', 2), service('black', 2)]), 'BR-16 quantity 2.');
-  assert.equal(announce([glove('black', 1), service('black', 1)], [glove('black', 1)]), 'Break-in service removed from BR-16.');
+  assert.equal(announce([glove('black', 1), service('black', 1)], [glove('black', 2), service('black', 2)]), 'BR16 quantity 2.');
+  assert.equal(announce([glove('black', 1), service('black', 1)], [glove('black', 1)]), 'Break-in service removed from BR16.');
   // Shopify splits a serviced pair when service is removed from one glove.
-  assert.equal(announce([glove('black', 2), service('black', 2)], [glove('black', 1), glove('black', 1), service('black', 1)]), 'Break-in service removed from 1 BR-16.');
-  assert.equal(announce([glove('black', 1), glove('blue', 1)], [glove('blue', 1)]), 'BR-16 removed from cart.');
-  assert.equal(announce([glove('black', 1), service('black', 1)], []), 'BR-16 removed from cart. Your cart is empty.');
+  assert.equal(announce([glove('black', 2), service('black', 2)], [glove('black', 1), glove('black', 1), service('black', 1)]), 'Break-in service removed from 1 BR16.');
+  assert.equal(announce([glove('black', 1), glove('blue', 1)], [glove('blue', 1)]), 'BR16 removed from cart.');
+  assert.equal(announce([glove('black', 1), service('black', 1)], []), 'BR16 removed from cart. Your cart is empty.');
   assert.equal(announce([glove('black', 1)], [glove('black', 1)]), '', 'a no-op refresh says nothing');
 });
 
@@ -97,7 +97,7 @@ test('one polite status region survives drawer re-renders and announces only the
   const drawer = () => { const element = documentRef.createElement('aside'); documentRef.body.appendChild(element); return element; };
   const first = drawer();
   announcer.attach(first);
-  announcer.announce('BR-16 quantity 2.');
+  announcer.announce('BR16 quantity 2.');
   // The drawer is replaced before the text lands; the same node moves into the new drawer.
   const second = drawer();
   first.parent = null;
@@ -109,15 +109,15 @@ test('one polite status region survives drawer re-renders and announces only the
   assert.equal(region.parent, second);
   assert.deepEqual([region.attributes.role, region.attributes['aria-live'], region.attributes['aria-atomic'], region.className],
     ['status', 'polite', 'true', 'visually-hidden']);
-  assert.equal(region.textContent, 'BR-16 quantity 2.');
+  assert.equal(region.textContent, 'BR16 quantity 2.');
 
   // Rapid updates: a newer sentence replaces a pending one; text is cleared first so a repeat is re-announced.
-  announcer.announce('BR-16 quantity 3.');
+  announcer.announce('BR16 quantity 3.');
   assert.equal(region.textContent, '');
-  announcer.announce('BR-16 quantity 4.');
+  announcer.announce('BR16 quantity 4.');
   assert.equal(timers.size, 1);
   timers.flush();
-  assert.equal(region.textContent, 'BR-16 quantity 4.');
+  assert.equal(region.textContent, 'BR16 quantity 4.');
   announcer.announce('');
   assert.equal(region.textContent, '', 'starting a new update clears stale text');
   assert.equal(timers.size, 0);
@@ -137,10 +137,10 @@ test('the cart announces only confirmed results and marks its item list busy dur
 });
 
 test('a cart error alerts once; re-renders show it without re-announcing, and routine guidance is a status', () => {
-  const first = cartFeedbackMarkup({ error: 'No more CL-16 available right now. Your cart still has 15.', mode: 'shopify' }, escapeHtml);
-  assert.match(first, /<p class="cart-error" role="alert">No more CL-16 available right now\. Your cart still has 15\.<\/p>/);
-  const again = cartFeedbackMarkup({ error: 'No more CL-16 available right now. Your cart still has 15.', mode: 'shopify', announce: false }, escapeHtml);
-  assert.match(again, /<p class="cart-error">No more CL-16/);
+  const first = cartFeedbackMarkup({ error: 'No more CL16 available right now. Your cart still has 15.', mode: 'shopify' }, escapeHtml);
+  assert.match(first, /<p class="cart-error" role="alert">No more CL16 available right now\. Your cart still has 15\.<\/p>/);
+  const again = cartFeedbackMarkup({ error: 'No more CL16 available right now. Your cart still has 15.', mode: 'shopify', announce: false }, escapeHtml);
+  assert.match(again, /<p class="cart-error">No more CL16/);
   assert.doesNotMatch(again, /role="alert"/);
   const guidance = cartFeedbackMarkup({ guidance: 'Review the items in your new cart before checkout.', mode: 'shopify' }, escapeHtml);
   assert.equal(guidance, '<div class="cart-feedback"><p class="cart-guidance" role="status">Review the items in your new cart before checkout.</p></div>');
@@ -161,16 +161,16 @@ test('moving the status region into a new drawer never replays text it already d
     return element;
   };
   announcer.attach(drawer());
-  announcer.announce('BR-16 quantity 2.');
+  announcer.announce('BR16 quantity 2.');
   timers.flush();
-  assert.equal(region.textContent, 'BR-16 quantity 2.');
+  assert.equal(region.textContent, 'BR16 quantity 2.');
   announcer.attach(drawer());
   assert.equal(region.textContent, '', 'delivered text is cleared before the move');
   // A pending announcement survives the move and still lands once.
-  announcer.announce('BR-16 quantity 3.');
+  announcer.announce('BR16 quantity 3.');
   announcer.attach(drawer());
   timers.flush();
-  assert.equal(region.textContent, 'BR-16 quantity 3.');
+  assert.equal(region.textContent, 'BR16 quantity 3.');
 });
 
 test('a cart frozen for checkout explains why it can’t change and offers a new cart', () => {

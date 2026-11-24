@@ -29,7 +29,7 @@ const percentage = [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', percentage: 10 
 const totals = value => renderCartDiscounts(value, 'shopify', money, escapeHtml);
 const entry = value => renderDiscountEntry({ id: 'gid://cart/1', ...value }, {}, escapeHtml);
 const row = (line, child = null) => renderCartRow({
-  product: { id: 'black', name: 'BR-16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] },
+  product: { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] },
   line, service: child, mode: 'shopify', serviceProduct: { price: 20, currencyCode: 'USD', available: true },
   busy: false, incomplete: false, money, escapeHtml
 });

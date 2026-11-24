@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { cartCustomizationIsComplete, fullSizeProducts, gloveModelCode, normalizeFullSizeOptions, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, optionsFromAttributes, serviceAttributes, FULL_SIZE_SERVICE_VARIANT, fullSizeConfiguration, FULL_SIZE_CONFIGURATION_KEY } from '../src/catalog.js';
+import { cartCustomizationIsComplete, fullSizeProducts, normalizeFullSizeOptions, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, optionsFromAttributes, serviceAttributes, FULL_SIZE_SERVICE_VARIANT, fullSizeConfiguration, FULL_SIZE_CONFIGURATION_KEY } from '../src/catalog.js';
 import { checkoutCartIsComplete, createCheckoutVerifier, redirectToVerifiedCheckout } from '../src/checkout-safety.js';
 const options = { type: 'full-size', wearingStyle: 'Traditional — index finger out', closure: 'Ring finger', thumbShape: 'Straight', pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '  slight thumb flare  ' };
 async function fixture(config) { const f = shopifyFixture({ fullSize: true, ...config }); await f.commerce.listProducts(); return f; }
@@ -9,7 +9,7 @@ const add = (f, selected = options, hand = 'right') => f.commerce.addProduct('fu
 const parent = cart => cart.lines.find(line => line.productId === 'full-mint' && !line.isBreakIn);
 
 test('each approved full-size display price is explicit and every model is on preorder', () => {
-  for (const [model, price] of [['MI-26', 295], ['BL-50', 295], ['OR-17', 295], ['CM-24', 295]]) {
+  for (const [model, price] of [['MI26', 295], ['BL50', 295], ['OR17', 295], ['CM24', 295]]) {
     const product = fullSizeProducts.find(p => p.name === model);
     assert.equal(product.price, price); assert.equal(product.comingSoon, false); assert.equal(product.preorder.enabled, true);
   }
@@ -38,7 +38,7 @@ test('every full-size hand variant totals $295 alone and $370 with its linked $7
       for (const withService of [false, true]) {
         const f = await fixture();
         const products = await f.commerce.listProducts();
-        const product = products.find(item => gloveModelCode(item.name).toLowerCase() === code);
+        const product = products.find(item => item.name.toLowerCase() === code);
         const cart = await f.commerce.addProduct(product.id, withService, options, `gid://variant/${code}-${hand}`);
         assert.equal(cart.subtotal, withService ? 370 : 295);
         assert.equal(cart.incomplete, false);
@@ -368,7 +368,7 @@ test('every supported full-size selection serializes literally onto only its ser
     }
     assert.ok(glove.attributes.every(attribute => attribute.key.startsWith('_')));
     for (const line of [child]) {
-      assert.equal(line.attributes.find(item => item.key === 'Glove Model').value, 'MI-26');
+      assert.equal(line.attributes.find(item => item.key === 'Glove Model').value, 'MI26');
       assert.equal(line.attributes.find(item => item.key === 'Throwing Hand').value, 'Left');
     }
     assert.deepEqual((await f.restore().getCart()).lines, cart.lines);
@@ -401,7 +401,7 @@ test('service-only layout binds choices to a private identity and the purchased 
   for (const change of [
     c => c.lines.find(line => line.isBreakIn).attributes.find(a => a.key === 'Thumb Shape').value = 'None',
     c => c.lines.find(line => line.isBreakIn).attributes.find(a => a.key === 'Throwing Hand').value = 'Right',
-    c => c.lines.find(line => line.isBreakIn).attributes.find(a => a.key === 'Glove Model').value = 'BL-50',
+    c => c.lines.find(line => line.isBreakIn).attributes.find(a => a.key === 'Glove Model').value = 'BL50',
     c => parent(c).throwingHand = 'Right',
     c => parent(c).attributes = parent(c).attributes.filter(a => a.key !== FULL_SIZE_CONFIGURATION_KEY),
     c => parent(c).attributes.push({ key: FULL_SIZE_CONFIGURATION_KEY, value: fullSizeConfiguration(options) }),

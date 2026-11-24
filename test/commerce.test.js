@@ -843,7 +843,7 @@ test('all three available gloves remain purchasable with the normal $20 Break-In
   const fixture = shopifyFixture();
   const products = await fixture.commerce.listProducts();
   assert.deepEqual(products.map(product => [product.name, product.price, product.available]), [
-    ['CL-16', 155, true], ['OB-16', 155, true], ['BR-16', 155, true]
+    ['CL16', 155, true], ['OB16', 155, true], ['BR16', 155, true]
   ]);
   assert.equal((await fixture.commerce.getBreakInService()).price, 20);
   await fixture.commerce.addProduct('black', true);
@@ -1167,14 +1167,14 @@ test('currency mismatch leaves the combined price unavailable and blocks checkou
   assert.equal(cart.subtotal, 175);
 });
 
-test('one serviced and one unserviced BR-16 have separate parent cart-line identities', async () => {
+test('one serviced and one unserviced BR16 have separate parent cart-line identities', async () => {
   const { cart, servicedId, unservicedId } = await mixedCartFixture();
   assert.notEqual(servicedId, unservicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 1, service: 1 });
   assert.equal(cart.subtotal, 330);
 });
 
-test('adding unserviced then serviced BR-16 keeps distinct Shopify parent attributes', async () => {
+test('adding unserviced then serviced BR16 keeps distinct Shopify parent attributes', async () => {
   const { commerce, restore, requests } = shopifyFixture();
   await commerce.listProducts();
   await commerce.addProduct('black', false);
@@ -1188,7 +1188,7 @@ test('adding unserviced then serviced BR-16 keeps distinct Shopify parent attrib
   assert.equal((await restore().getCart()).incomplete, false);
 });
 
-test('adding serviced then unserviced BR-16 keeps distinct Shopify parent attributes', async () => {
+test('adding serviced then unserviced BR16 keeps distinct Shopify parent attributes', async () => {
   const { commerce, restore } = shopifyFixture();
   await commerce.listProducts();
   await commerce.addProduct('black', true);
@@ -1220,7 +1220,7 @@ test('repeated serviced additions combine with matching nested child quantity', 
   assert.equal(cart.subtotal, 350);
 });
 
-test('incrementing the serviced BR-16 changes only its parent and nested child', async () => {
+test('incrementing the serviced BR16 changes only its parent and nested child', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture({ autoSyncChild: false });
   const cart = await commerce.setLineQuantity(servicedId, 2);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 2, unserviced: 1, service: 2 });
@@ -1228,7 +1228,7 @@ test('incrementing the serviced BR-16 changes only its parent and nested child',
   assert.deepEqual(requests.filter(item => item.query.includes('UpdateLines')).map(item => item.variables.lines[0].id), [servicedId, 'line-2']);
 });
 
-test('incrementing the unserviced BR-16 never updates Break-in Service', async () => {
+test('incrementing the unserviced BR16 never updates Break-in Service', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.setLineQuantity(unservicedId, 2);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 2, service: 1 });
@@ -1236,7 +1236,7 @@ test('incrementing the unserviced BR-16 never updates Break-in Service', async (
   assert.deepEqual(requests.filter(item => item.query.includes('UpdateLines')).map(item => item.variables.lines[0].id), [unservicedId]);
 });
 
-test('decrementing the serviced BR-16 synchronizes only its nested child', async () => {
+test('decrementing the serviced BR16 synchronizes only its nested child', async () => {
   const { commerce, servicedId, unservicedId } = await mixedCartFixture({ autoSyncChild: false });
   await commerce.setLineQuantity(servicedId, 2);
   const cart = await commerce.setLineQuantity(servicedId, 1);
@@ -1244,7 +1244,7 @@ test('decrementing the serviced BR-16 synchronizes only its nested child', async
   assert.equal(cart.subtotal, 330);
 });
 
-test('decrementing the unserviced BR-16 leaves the serviced line unchanged', async () => {
+test('decrementing the unserviced BR16 leaves the serviced line unchanged', async () => {
   const { commerce, servicedId, unservicedId } = await mixedCartFixture();
   await commerce.setLineQuantity(unservicedId, 2);
   const cart = await commerce.setLineQuantity(unservicedId, 1);
@@ -1252,7 +1252,7 @@ test('decrementing the unserviced BR-16 leaves the serviced line unchanged', asy
   assert.equal(cart.subtotal, 330);
 });
 
-test('removing the serviced parent cascades its child and retains unserviced BR-16', async () => {
+test('removing the serviced parent cascades its child and retains unserviced BR16', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.removeLine(servicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 0, unserviced: 1, service: 0 });
@@ -1260,7 +1260,7 @@ test('removing the serviced parent cascades its child and retains unserviced BR-
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, [servicedId]);
 });
 
-test('removing the unserviced parent retains serviced BR-16 and its child', async () => {
+test('removing the unserviced parent retains serviced BR16 and its child', async () => {
   const { commerce, requests, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await commerce.removeLine(unservicedId);
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 0, service: 1 });
@@ -1268,7 +1268,7 @@ test('removing the unserviced parent retains serviced BR-16 and its child', asyn
   assert.deepEqual(requests.find(item => item.query.includes('RemoveLines')).variables.lineIds, [unservicedId]);
 });
 
-test('restoring a mixed BR-16 cart preserves both parent IDs and child mapping', async () => {
+test('restoring a mixed BR16 cart preserves both parent IDs and child mapping', async () => {
   const { restore, servicedId, unservicedId } = await mixedCartFixture();
   const cart = await restore().getCart();
   assert.deepEqual(mixedQuantities(cart, servicedId, unservicedId), { serviced: 1, unserviced: 1, service: 1 });
@@ -1333,7 +1333,7 @@ test('adding service to two existing gloves changes only one glove', async () =>
       attributes: serviceAttributes(), parent: { lineId: after.lines.find(line => line.serviceConfiguration === 'break-in').remoteLineId } }]);
 });
 
-test('adding service targets only the chosen unserviced BR-16 parent', async () => {
+test('adding service targets only the chosen unserviced BR16 parent', async () => {
   const { commerce, servicedId, unservicedId, requests } = await mixedCartFixture();
   const after = await commerce.addBreakIn(unservicedId);
   const children = after.lines.filter(line => line.isBreakIn);
@@ -1346,7 +1346,7 @@ test('adding service targets only the chosen unserviced BR-16 parent', async () 
   assert.equal(after.lines.some(line => line.remoteLineId === servicedId || line.remoteLineId === unservicedId), true);
 });
 
-test('removing service targets only the chosen serviced BR-16 parent', async () => {
+test('removing service targets only the chosen serviced BR16 parent', async () => {
   const { commerce, servicedId, unservicedId } = await mixedCartFixture();
   const after = await commerce.removeBreakIn(servicedId);
   assert.equal(after.subtotal, 310);
@@ -1848,7 +1848,7 @@ test('stock limit: a definitive Shopify rejection keeps the verified cart usable
   cart = await fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3);
   for (let attempt = 0; attempt < 2; attempt++) {
     await assert.rejects(fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 4),
-      error => error.code === 'stock-limit' && error.message === 'No more CL-16 available right now. Your cart still has 3.');
+      error => error.code === 'stock-limit' && error.message === 'No more CL16 available right now. Your cart still has 3.');
     const safety = stockSafety(fixture);
     assert.notEqual(safety.unsafeId, safety.id, 'no unresolved mutation is recorded');
     assert.notEqual(safety.pendingCartId, safety.id);
@@ -1857,8 +1857,8 @@ test('stock limit: a definitive Shopify rejection keeps the verified cart usable
     assert.equal(gloveLine(cart, 'brown').quantity, 3);
     assert.equal(checkoutCartIsComplete(cart), true);
   }
-  assert.equal(commerceErrorMessage({ code: 'stock-limit', message: 'No more CL-16 available right now. Your cart still has 3.' }, 'cart'),
-    'No more CL-16 available right now. Your cart still has 3.');
+  assert.equal(commerceErrorMessage({ code: 'stock-limit', message: 'No more CL16 available right now. Your cart still has 3.' }, 'cart'),
+    'No more CL16 available right now. Your cart still has 3.');
   // The same cart keeps working afterwards.
   cart = await fixture.commerce.addProduct('black', false);
   assert.equal(gloveLine(cart, 'black').quantity, 1);
@@ -1945,7 +1945,7 @@ test('cross-tab: a stock rejection never lifts another tab’s unresolved change
   const { fixture, cart } = await stockLimitedCart();
   const otherTab = fixture.restore();
   await otherTab.listProducts();
-  // Tab A asks for one more CL-16; Shopify holds it at 2 and the response is delayed in flight.
+  // Tab A asks for one more CL16; Shopify holds it at 2 and the response is delayed in flight.
   const reached = fixture.delayNextMutationResponse();
   const rejecting = fixture.commerce.setLineQuantity(gloveLine(cart, 'brown').remoteLineId, 3).catch(error => error);
   await reached;

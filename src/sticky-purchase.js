@@ -1,4 +1,4 @@
-// Same color as the page's own mobile Add to cart button (--pdp-accent), including BR-16's red.
+// Same color as the page's own mobile Add to cart button (--pdp-accent), including BR16's red.
 export function stickyPurchaseAccent(product) {
   return product.accentColor;
 }

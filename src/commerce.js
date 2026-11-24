@@ -1,4 +1,4 @@
-import { fullSizeProducts, fullSizeBreakInService, preorderState, preorderOrderAttributeValue, PREORDER_ORDER_ATTRIBUTE, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf, gloveModelCode } from './catalog.js';
+import { fullSizeProducts, fullSizeBreakInService, preorderState, preorderOrderAttributeValue, PREORDER_ORDER_ATTRIBUTE, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
 import { codeKey, discountCodeList } from './cart-discounts.js';
 import { createCheckoutVerifier, verifiedCheckoutUrl } from './checkout-safety.js';
 
@@ -144,7 +144,7 @@ export function validateShopifyConfig(env = {}) {
   const domain = (env.VITE_SHOPIFY_STORE_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const accessToken = env.VITE_SHOPIFY_STOREFRONT_TOKEN || '';
   const apiVersion = env.VITE_SHOPIFY_API_VERSION || '2026-07';
-  const handles = { ...productHandleMap(env), ...Object.fromEntries(fullSizeProducts.filter(product => env[`VITE_SHOPIFY_${gloveModelCode(product.name)}_HANDLE`]).map(product => [product.id, env[`VITE_SHOPIFY_${gloveModelCode(product.name)}_HANDLE`]])) };
+  const handles = { ...productHandleMap(env), ...Object.fromEntries(fullSizeProducts.filter(product => env[`VITE_SHOPIFY_${product.name}_HANDLE`]).map(product => [product.id, env[`VITE_SHOPIFY_${product.name}_HANDLE`]])) };
   const breakInHandle = env.VITE_SHOPIFY_BREAK_IN_HANDLE || '';
   const missingHandles = Object.entries(handles).filter(([, value]) => !value).map(([key]) => key);
 

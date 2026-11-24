@@ -5,9 +5,9 @@ import { createLocalCommerce } from '../src/commerce.js';
 import { createJudgeMeService, judgeMeWidgetUrl, parseJudgeMeBadge, parseJudgeMeReviews, parseJudgeMeWidget, shopifyProductId } from '../src/judgeme.js';
 
 const products = [
-  { name: 'BR-16', shopifyProductGid: 'gid://shopify/Product/111' },
-  { name: 'OB-16', shopifyProductGid: 'gid://shopify/Product/222' },
-  { name: 'CL-16', shopifyProductGid: 'gid://shopify/Product/333' }
+  { name: 'BR16', shopifyProductGid: 'gid://shopify/Product/111' },
+  { name: 'OB16', shopifyProductGid: 'gid://shopify/Product/222' },
+  { name: 'CL16', shopifyProductGid: 'gid://shopify/Product/333' }
 ];
 const badgePayload = (id, average, count) => ({ product_external_id: Number(id), badge: `<div class="jdgm-prev-badge" data-average-rating="${average}" data-number-of-reviews="${count}"></div>` });
 const parseBadgeHtml = html => {
@@ -48,7 +48,7 @@ test('missing token, network failure, and malformed badge responses stay unavail
   assert.equal((await malformed.load(products)).products.br16.status, 'unavailable');
 });
 
-test('live response shape preserves BR-16, OB-16, and CL-16 rating isolation and dedupes requests', async () => {
+test('live response shape preserves BR16, OB16, and CL16 rating isolation and dedupes requests', async () => {
   const requests = [];
   const service = createJudgeMeService({ publicToken: 'test-public', parseHtml: parseBadgeHtml, fetchImpl: async url => {
     requests.push(url);
