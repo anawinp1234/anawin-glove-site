@@ -1,7 +1,3 @@
-export function gloveModelCode(name) {
-  return name.replace(/^([A-Z]{2})-(\d+)$/, '$1$2');
-}
-
 export const breakInService = Object.freeze({
   id: 'break-in-service',
   name: 'Break-in service',
@@ -137,14 +133,12 @@ export function cartCustomizationIsComplete(lines = []) {
       const child = attached[0];
       if (child.serviceType !== 'full-size' || child.merchandiseId !== FULL_SIZE_SERVICE_VARIANT || child.productId !== parent.productId || child.quantity !== parent.quantity) return false;
       if ([...FULL_SIZE_ATTRIBUTE_KEYS, 'Glove Model', 'Throwing Hand'].some(key => (child.attributes || []).filter(attribute => attribute.key === key).length > 1)) return false;
-      const model = fullSizeProducts.find(product => product.id === parent.productId)?.name;
-      const matchesModel = line => model && [model, gloveModelCode(model)].includes(value(line, 'Glove Model'));
       const configuration = value(parent, FULL_SIZE_CONFIGURATION_KEY);
       if (configuration !== null) {
         if ([...FULL_SIZE_ATTRIBUTE_KEYS, 'Glove Model', 'Throwing Hand'].some(key => (parent.attributes || []).some(attribute => attribute.key === key))) return false;
         if (!['Right', 'Left'].includes(parent.throwingHand) ||
           value(child, 'Throwing Hand') !== parent.throwingHand ||
-          !matchesModel(child)) return false;
+          value(child, 'Glove Model') !== fullSizeProducts.find(product => product.id === parent.productId)?.name) return false;
         try {
           const selected = normalizeFullSizeOptions(optionsFromAttributes(child.attributes, 'full-size'));
           const expected = serviceAttributes(selected);
@@ -155,10 +149,10 @@ export function cartCustomizationIsComplete(lines = []) {
       }
       // Previously saved carts retain their original layout; reading them never
       // rewrites attributes or alters a previously purchased order.
-      if (!matchesModel(parent) ||
+      if (value(parent, 'Glove Model') !== fullSizeProducts.find(product => product.id === parent.productId)?.name ||
         !['Right', 'Left'].includes(value(parent, 'Throwing Hand')) ||
         parent.throwingHand && parent.throwingHand !== value(parent, 'Throwing Hand') ||
-        !matchesModel(child) || value(child, 'Throwing Hand') !== value(parent, 'Throwing Hand')) return false;
+        value(child, 'Glove Model') !== value(parent, 'Glove Model') || value(child, 'Throwing Hand') !== value(parent, 'Throwing Hand')) return false;
       try {
         const selected = normalizeFullSizeOptions(optionsFromAttributes(parent.attributes));
         const expected = serviceAttributes(selected);
@@ -182,9 +176,9 @@ export function purchasePrice(product, service, includeService) {
 }
 
 export const localProducts = Object.freeze([
-  { id: 'brown', name: 'CL-16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Brown / Dark Brown / Red', swatches: ['#b97941', '#62452e', '#b24523'], accentColor: '#9a622d', accentBackground: '#f8f3eb', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/brown${n}.PNG`) },
-  { id: 'blue', name: 'OB-16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Baby Blue / Royal / Navy', swatches: ['#b7dce9', '#1956ac', '#202c40'], accentColor: '#2560ae', accentBackground: '#eef6fa', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/blue${n}.PNG`) },
-  { id: 'black', name: 'BR-16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Black / Red / Gray', swatches: ['#202326', '#d3423e', '#a7a9a8'], accentColor: '#d3423e', accentBackground: '#f8f1f0', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/black${n}.PNG`) }
+  { id: 'brown', name: 'CL16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Brown / Dark Brown / Red', swatches: ['#b97941', '#62452e', '#b24523'], accentColor: '#9a622d', accentBackground: '#f8f3eb', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/brown${n}.PNG`) },
+  { id: 'blue', name: 'OB16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Baby Blue / Royal / Navy', swatches: ['#b7dce9', '#1956ac', '#202c40'], accentColor: '#2560ae', accentBackground: '#eef6fa', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/blue${n}.PNG`) },
+  { id: 'black', name: 'BR16', descriptor: '10.25" Trainer · US Steerhide', pitch: 'Designed to make defensive reps more demanding without sacrificing the feel, control, and response of a traditional glove.', tone: 'Black / Red / Gray', swatches: ['#202326', '#d3423e', '#a7a9a8'], accentColor: '#d3423e', accentBackground: '#f8f1f0', price: 155, currencyCode: 'USD', available: true, throwingHand: 'Right', wornOnHand: 'Left', images: [1, 2, 3, 4].map(n => `/images/black${n}.PNG`) }
 ]);
 
 export function productHandleMap(env = {}) {
@@ -245,7 +239,7 @@ const fullSizeSpecs = (size, position, web, details, throwHands) => [
 // Preorder ship estimate approved by the owner; it must equal custom.preorder_ship_estimate in Shopify.
 export const fullSizeProducts = Object.freeze([
   {
-    id: 'full-mint', color: 'mint', name: 'MI-26', line: 'full-size', comingSoon: false,
+    id: 'full-mint', color: 'mint', name: 'MI26', line: 'full-size', comingSoon: false,
     preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Mint 12″ Japanese Kip Pitcher’s Glove', descriptor: '12″ Japanese Kip Pitcher’s Glove',
     price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
@@ -255,7 +249,7 @@ export const fullSizeProducts = Object.freeze([
     tone: 'Mint / Silver', swatches: ['#3fd6a6', '#a9adb0'], accentColor: '#16946d', accentBackground: '#eefaf5', images: fullSizePhotos('mint', 'Mint')
   },
   {
-    id: 'full-black', color: 'black', name: 'BL-50', line: 'full-size', comingSoon: false,
+    id: 'full-black', color: 'black', name: 'BL50', line: 'full-size', comingSoon: false,
     preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Black 12.75″ Japanese Kip Outfield Glove', descriptor: '12.75″ Japanese Kip Outfield Glove',
     price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
@@ -265,21 +259,21 @@ export const fullSizeProducts = Object.freeze([
     tone: 'Black / White / Brown', swatches: ['#1b1c1e', '#ffffff', '#8a5a3a'], accentColor: '#7a4b2e', accentBackground: '#f5f2ef', images: fullSizePhotos('black', 'Black')
   },
   {
-    id: 'full-camel', color: 'camel', name: 'CM-24', line: 'full-size', comingSoon: false,
+    id: 'full-camel', color: 'camel', name: 'CM24', line: 'full-size', comingSoon: false,
     preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Camel 11.5″ Japanese Kip Infield Glove', descriptor: '11.5″ Japanese Kip Infield Glove',
     price: 295, currencyCode: 'USD', throwHands: rightHandOnly,
-    pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. The CM-24 is the more compact of the two infield models in the ANAWIN Kip Series. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
+    pitch: 'An 11.5-inch Japanese Kip infield glove with a Diamond web. The CM24 is the more compact of the two infield models in the ANAWIN Kip Series. Inside, every finger stall is lined with sheepskin, and a moisture-wicking pad sits at the wrist.',
     specs: fullSizeSpecs('11.5', 'Infield', 'Diamond web', [['Welting', 'Dual welting'], ['Finger stall lining', 'Sheepskin in all finger stalls'], ['Wrist', 'Moisture-wicking pad']], rightHandOnly),
     metaDescription: 'ANAWIN Camel is an 11.5-inch Japanese Kip infield glove with a Diamond web, sheepskin-lined finger stalls, and a moisture-wicking wrist pad.',
     tone: 'Camel / Red / Black', swatches: ['#e6d6b8', '#c8322b', '#1d1d1d'], accentColor: '#b0322b', accentBackground: '#faf6ef', images: fullSizePhotos('camel', 'Camel')
   },
   {
-    id: 'full-orange', color: 'orange', name: 'OR-17', line: 'full-size', comingSoon: false,
+    id: 'full-orange', color: 'orange', name: 'OR17', line: 'full-size', comingSoon: false,
     preorder: { enabled: true, shipEstimate: 'December 4-10, 2026' },
     title: 'Orange 11.75″ Japanese Kip Infield Glove', descriptor: '11.75″ Japanese Kip Infield Glove',
     price: 295, currencyCode: 'USD', throwHands: bothThrowHands,
-    pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. The OR-17 is the longer of the two infield models in the ANAWIN Kip Series, a quarter inch longer than the CM-24. The thumb features a carved ANAWIN logo.',
+    pitch: 'An 11.75-inch Japanese Kip infield glove with a Modified T-web. The OR17 is the longer of the two infield models in the ANAWIN Kip Series, a quarter inch longer than the CM24. The thumb features a carved ANAWIN logo.',
     specs: fullSizeSpecs('11.75', 'Infield', 'Modified T-web', [['Thumb detail', 'Carved ANAWIN logo'], ['Wrist lining', 'Fur']], bothThrowHands),
     metaDescription: 'ANAWIN Orange is an 11.75-inch Japanese Kip infield glove with a Modified T-web, a carved thumb logo, and a fur wrist lining. Choose right-hand or left-hand throw.',
     tone: 'Orange / Gold / Chestnut Brown', swatches: ['#e8732a', '#b9973f', '#70452f'], accentColor: '#c85a17', accentBackground: '#fdf3ec', images: fullSizePhotos('orange', 'Orange')
@@ -337,7 +331,7 @@ export function preorderState(product) {
 }
 
 // One stable cart attribute value for the active preorder gloves in a cart, e.g.
-// "BL-50: first week of December 2026; MI-26: first week of December 2026". '' when there are none.
+// "BL50: first week of December 2026; MI26: first week of December 2026". '' when there are none.
 export function preorderOrderAttributeValue(lines, productById) {
   const entries = new Map();
   for (const line of lines || []) {

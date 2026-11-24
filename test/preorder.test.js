@@ -122,7 +122,7 @@ test('blocked preorders render a calm unavailable state without Preorder or an e
   ]) {
     const html = pdp(preorderMint(overrides));
     assert.match(html, /<p class="coming-soon-price">Currently unavailable<\/p>/);
-    assert.match(html, /<p id="full-size-preorder-status" class="purchase-status">MI-26 isn’t available to order right now\. Sign up below to hear when it is\.<\/p>\s*<button type="button" class="add-button" disabled aria-describedby="full-size-preorder-status full-size-setup-summary">Unavailable<\/button>/);
+    assert.match(html, /<p id="full-size-preorder-status" class="purchase-status">MI26 isn’t available to order right now\. Sign up below to hear when it is\.<\/p>\s*<button type="button" class="add-button" disabled aria-describedby="full-size-preorder-status full-size-setup-summary">Unavailable<\/button>/);
     assert.match(html, /<input type="checkbox" data-full-size-break-in disabled/);
     assert.match(html, /Get notified at launch/);
     assert.doesNotMatch(html, /data-add=|Preorder|Estimated to ship|preorder-ship-estimate/);
@@ -151,7 +151,7 @@ test('cards and related links say Preorder only for a Shopify-confirmed preorder
   assert.match(shop, /data-product="full-mint"[\s\S]*?class="coming-soon-label">Preorder</);
   assert.equal((shop.match(/class="coming-soon-label">Coming soon</g) || []).length, 3);
   assert.match(shop, /<p class="collection-cue">4 full-size gloves<\/p>/);
-  assert.match(views.route('/product/ob16'), /<strong>MI-26<\/strong>[^]*?<small class="other-glove-status">Preorder<\/small>/);
+  assert.match(views.route('/product/ob16'), /<strong>MI26<\/strong>[^]*?<small class="other-glove-status">Preorder<\/small>/);
   const blocked = renderer([preorderMint({ available: false })]).route('/shop');
   assert.doesNotMatch(blocked, /Preorder/);
   // While Shopify loads, the launched catalog's cards already read Preorder (they are links, not purchase controls).
@@ -181,7 +181,7 @@ const trainer = { ...localProducts.find(product => product.id === 'blue'), avail
 test('cart rows mark only the preorder glove, derived from product data rather than line attributes', () => {
   const preorderLine = { ...line('glove-1', 'full-mint', 295), throwingHand: 'Right' };
   const html = row(preorderMint(), preorderLine);
-  assert.match(html, /<h3>MI-26<\/h3><p>Mint \/ Silver<\/p><p class="cart-preorder-note">Preorder · Estimated to ship: first week of December 2026<\/p><p>Throwing Hand: Right<\/p>/);
+  assert.match(html, /<h3>MI26<\/h3><p>Mint \/ Silver<\/p><p class="cart-preorder-note">Preorder · Estimated to ship: first week of December 2026<\/p><p>Throwing Hand: Right<\/p>/);
   assert.deepEqual(preorderLine.attributes, [], 'no attribute was added to the glove line');
   assert.doesNotMatch(row(trainer, line('glove-2', 'blue', 155)), /cart-preorder|Preorder|Estimated to ship/);
   assert.doesNotMatch(row({ ...mint, comingSoon: true, preorder: { enabled: false, shipEstimate: null }, available: true }, line('glove-3', 'full-mint', 295)), /cart-preorder|Preorder/);
@@ -196,15 +196,15 @@ test('the cart disclosure lists each preorder and its estimate before checkout',
   assert.equal(renderCartPreorderDisclosure(cartPreorderSummary([trainer]), escapeHtml), '');
   assert.equal(renderCartPreorderDisclosure(cartPreorderSummary([]), escapeHtml), '');
   const mixed = renderCartPreorderDisclosure(cartPreorderSummary([trainer, preorderMint(), preorderMint(), undefined]), escapeHtml);
-  assert.equal(mixed, '<div class="cart-preorder-disclosure" id="cart-preorder-disclosure"><p><strong>Your cart includes a preorder.</strong></p><ul><li>MI-26: Preorder · Estimated to ship: first week of December 2026</li></ul><p>Other items in your cart are not preorders.</p><p>Preorders are paid in full at checkout, the same as in-stock items.</p></div>');
+  assert.equal(mixed, '<div class="cart-preorder-disclosure" id="cart-preorder-disclosure"><p><strong>Your cart includes a preorder.</strong></p><ul><li>MI26: Preorder · Estimated to ship: first week of December 2026</li></ul><p>Other items in your cart are not preorders.</p><p>Preorders are paid in full at checkout, the same as in-stock items.</p></div>');
   assert.doesNotMatch(mixed, /role=|aria-live/, 'the disclosure is static text, not another alert');
   const two = renderCartPreorderDisclosure(cartPreorderSummary([preorderMint(), black]), escapeHtml);
-  assert.match(two, /Your cart includes preorders\.[\s\S]*<li>MI-26: Preorder · Estimated to ship: first week of December 2026<\/li><li>BL-50: Preorder · Estimated to ship: mid-January 2027<\/li><\/ul><p>Preorders are paid in full at checkout, the same as in-stock items.<\/p><\/div>$/);
+  assert.match(two, /Your cart includes preorders\.[\s\S]*<li>MI26: Preorder · Estimated to ship: first week of December 2026<\/li><li>BL50: Preorder · Estimated to ship: mid-January 2027<\/li><\/ul><p>Preorders are paid in full at checkout, the same as in-stock items.<\/p><\/div>$/);
   const blocked = cartPreorderSummary([trainer, preorderMint({ available: false })]);
-  assert.deepEqual(blocked, { preorders: [], blocked: ['MI-26'], others: 1 });
-  assert.equal(renderCartPreorderDisclosure(blocked, escapeHtml), '<p class="cart-preorder-disclosure cart-preorder-blocked" id="cart-preorder-disclosure">MI-26 isn’t available to order right now. Remove it to continue to checkout.</p>');
+  assert.deepEqual(blocked, { preorders: [], blocked: ['MI26'], others: 1 });
+  assert.equal(renderCartPreorderDisclosure(blocked, escapeHtml), '<p class="cart-preorder-disclosure cart-preorder-blocked" id="cart-preorder-disclosure">MI26 isn’t available to order right now. Remove it to continue to checkout.</p>');
   assert.equal(renderCartPreorderDisclosure(cartPreorderSummary([preorderMint({ available: false }), { ...black, available: false }]), escapeHtml),
-    '<p class="cart-preorder-disclosure cart-preorder-blocked" id="cart-preorder-disclosure">MI-26, BL-50 aren’t available to order right now. Remove them to continue to checkout.</p>');
+    '<p class="cart-preorder-disclosure cart-preorder-blocked" id="cart-preorder-disclosure">MI26, BL50 aren’t available to order right now. Remove them to continue to checkout.</p>');
   assert.match(renderCartPreorderDisclosure(cartPreorderSummary([{ ...preorderMint(), name: '<b>' }]), escapeHtml), /<li>&lt;b&gt;:/);
 });
 

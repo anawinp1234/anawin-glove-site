@@ -10,7 +10,7 @@ const links = {
   cl16: 'https://judge.me/product_reviews/test-uuid/new?id=10334720360696&source=shareable-link'
 };
 const products = localProducts.map(product => ({ ...product, shopifyProductGid: `gid://shopify/Product/${{
-  'BR-16': '10332428697848', 'OB-16': '10334704271608', 'CL-16': '10334720360696'
+  BR16: '10332428697848', OB16: '10334704271608', CL16: '10334720360696'
 }[product.name]}` }));
 
 test('Judge.me admin links map to the matching product page only', () => {

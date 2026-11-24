@@ -34,7 +34,7 @@ function lightboxFixture() {
   const documentRef = {
     activeElement: null,
     body: { append(element) { overlay = element; }, classList: { add() {}, remove() {} } },
-    querySelector() { return { textContent: 'BR-16' }; },
+    querySelector() { return { textContent: 'BR16' }; },
     createElement(tag) {
       if (tag === 'img') return { remove() { overlay.image = null; } };
       const close = { focus() { documentRef.activeElement = close; } };

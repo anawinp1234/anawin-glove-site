@@ -1,8 +1,8 @@
 import { createShopifyCommerce } from '../src/commerce.js';
-import { FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, fullSizeProducts, gloveModelCode } from '../src/catalog.js';
+import { FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, fullSizeProducts } from '../src/catalog.js';
 
 // By default each full-size glove carries the catalog's approved estimate, as production must.
-const launchMetafields = Object.fromEntries(fullSizeProducts.map(product => [gloveModelCode(product.name).toLowerCase(), product.preorder.shipEstimate]));
+const launchMetafields = Object.fromEntries(fullSizeProducts.map(product => [product.name.toLowerCase(), product.preorder.shipEstimate]));
 const assert = { match(value, pattern) { if (!pattern.test(value)) throw new Error(`Fixture query mismatch: ${pattern}`); } };
 class MemoryStorage {
   constructor(initial = {}) { this.values = new Map(Object.entries(initial)); }

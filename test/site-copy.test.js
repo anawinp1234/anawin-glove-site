@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { breakInService, localProducts } from '../src/catalog.js';
 import { createStorefrontRenderer } from '../src/storefront-render.js';
-import { productPath } from '../src/seo.js';
 
 const views = createStorefrontRenderer({ products: localProducts, breakInService });
 
@@ -14,7 +13,7 @@ test('homepage hero names the product category and keeps the shop CTA', () => {
 });
 
 test('every link to the break-in page uses the same label', () => {
-  const html = [views.header(), views.footer(), ...localProducts.map(product => views.route(productPath(product))), views.route('/product/mi26')].join('');
+  const html = [views.header(), views.footer(), ...localProducts.map(product => views.route(`/product/${product.name.toLowerCase()}`)), views.route('/product/mi26')].join('');
   const labels = [...html.matchAll(/href="\/break-in" data-link>([^<]*)</g)].map(match => match[1]);
   assert.ok(labels.length >= 5);
   assert.deepEqual([...new Set(labels)], ['Break-In Guide']);
