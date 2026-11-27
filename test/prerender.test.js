@@ -45,7 +45,7 @@ test('prerendered shipping copy covers seven destinations while cart totals rema
     assert.match(html, /International rates are calculated at checkout\./);
     assert.match(html, /Free U\.S\. standard shipping\./);
   }
-  assert.match(htmlFor('/'), /BLACK FRIDAY: \$30 OFF PREORDERS WITH CODE PREORDER30 · FREE U\.S\. SHIPPING<\/p>/);
+  assert.match(htmlFor('/'), /BLACK FRIDAY · TODAY ONLY: \$40 OFF GLOVES WITH CODE BLACK · FREE U\.S\. SHIPPING<\/p>/);
   const bundles = readdirSync(join(root, 'dist/assets')).filter(name => /^index-.*\.js$/.test(name));
   assert.equal(bundles.length, 1);
   const bundle = read(`dist/assets/${bundles[0]}`);
