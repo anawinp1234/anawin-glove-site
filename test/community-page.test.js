@@ -46,7 +46,7 @@ test('desktop, mobile and footer offer Community while preserving direct Discord
   const footer = views.footer();
   assert.match(footer, /href="\/community" data-link>Community<\/a>/);
   assert.ok(footer.indexOf('Join our Discord') < footer.indexOf('support@'));
-  assert.match(header, /BLACK FRIDAY: \$30 OFF PREORDERS WITH CODE PREORDER30 · FREE U\.S\. SHIPPING/);
+  assert.match(header, /BLACK FRIDAY · TODAY ONLY: \$40 OFF GLOVES WITH CODE BLACK · FREE U\.S\. SHIPPING/);
   for (const html of [views.route('/'), views.route('/community'), footer]) {
     const links = [...html.matchAll(/<a\b[^>]*href="https:\/\/discord[^>]*>/g)];
     assert.ok(links.length);

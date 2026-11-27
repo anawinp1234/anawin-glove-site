@@ -1,4 +1,4 @@
 export const announcement = {
   enabled: true,
-  message: 'BLACK FRIDAY: $30 OFF PREORDERS WITH CODE PREORDER30 · FREE U.S. SHIPPING'
+  message: 'BLACK FRIDAY · TODAY ONLY: $40 OFF GLOVES WITH CODE BLACK · FREE U.S. SHIPPING'
 };
