@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { checkoutCartIsComplete } from '../src/checkout-safety.js';
-import { TIGHTENED_WRIST, WRIST_FIT_KEY, cartCustomizationIsComplete, withWristFit, wristFitOf } from '../src/catalog.js';
+import { checkoutCartIsComplete } from '../test-support/commerce-profiles.js';
+import { TIGHTENED_WRIST, WRIST_FIT_KEY, withWristFit, wristFitOf } from '../src/catalog.js';
+import { cartCustomizationIsComplete } from '../test-support/commerce-profiles.js';
 import { createLocalCommerce } from '../src/commerce.js';
 import { renderCartRow } from '../src/cart-row.js';
 import { cartUpdateAnnouncement } from '../src/cart-feedback.js';

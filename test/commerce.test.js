@@ -4,7 +4,7 @@ import { createLockManager, shopifyFixture, recoveryBindingOf } from '../test-su
 const unsafeOps = storage => Array.from({ length: storage.length }, (_, index) => storage.key(index))
   .filter(key => key.startsWith('anawin-shopify-unsafe-op:')).map(key => ({ key, ...JSON.parse(storage.getItem(key)) }));
 import assert from 'node:assert/strict';
-import { checkoutCartIsComplete, createCheckoutVerifier } from '../src/checkout-safety.js';
+import { checkoutCartIsComplete, createCheckoutVerifier } from '../test-support/commerce-profiles.js';
 import { breakInService, gloveServiceAttributes, localProducts, purchasePrice, serviceAttributes } from '../src/catalog.js';
 import {
   cartEntryTotal,
@@ -252,16 +252,16 @@ test('Shopify mode requires public connection details and every product handle',
   assert.throws(() => validateShopifyConfig({ VITE_COMMERCE_MODE: 'shopify' }), /domain/);
   assert.throws(() => validateShopifyConfig({
     VITE_COMMERCE_MODE: 'shopify',
-    VITE_SHOPIFY_STORE_DOMAIN: 'store.myshopify.com',
+    VITE_SHOPIFY_STORE_DOMAIN: 'ignvv0-zh.myshopify.com',
   }), /token/);
   assert.throws(() => validateShopifyConfig({
     VITE_COMMERCE_MODE: 'shopify',
-    VITE_SHOPIFY_STORE_DOMAIN: 'store.myshopify.com',
+    VITE_SHOPIFY_STORE_DOMAIN: 'ignvv0-zh.myshopify.com',
     VITE_SHOPIFY_STOREFRONT_TOKEN: 'public-token'
   }), /handles/);
   assert.equal(validateShopifyConfig({
     VITE_COMMERCE_MODE: 'shopify',
-    VITE_SHOPIFY_STORE_DOMAIN: 'store.myshopify.com',
+    VITE_SHOPIFY_STORE_DOMAIN: 'ignvv0-zh.myshopify.com',
     VITE_SHOPIFY_STOREFRONT_TOKEN: 'public-token',
     VITE_SHOPIFY_BR16_HANDLE: 'br16',
     VITE_SHOPIFY_OB16_HANDLE: 'ob16',
@@ -2296,7 +2296,7 @@ test('reload recovers an abandoned pending record under the exclusive recovery l
 test('unavailable or non-enumerable storage refuses mutations before any Shopify request', async () => {
   for (const storage of [undefined, { getItem: () => 'gid://shopify/Cart/c1?key=k1' }]) {
     let requests = 0;
-    const commerce = createShopifyCommerce({ handles: {} }, storage, () => { requests++; throw new Error('Unexpected request'); }, createLockManager());
+    const commerce = createShopifyCommerce(shopifyFixture().config, storage, () => { requests++; throw new Error('Unexpected request'); }, createLockManager());
     await assert.rejects(commerce.addProduct('black', false), error => error.code === 'storage-unavailable' && /storage/i.test(error.message));
     assert.equal(requests, 0);
   }

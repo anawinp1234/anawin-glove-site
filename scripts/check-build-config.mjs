@@ -1,5 +1,6 @@
 import { loadEnv } from 'vite';
 import { validateShopifyConfig } from '../src/commerce.js';
+import { releasedCommerceProfiles } from '../src/released-commerce-profiles.js';
 
 const env = loadEnv('production', process.cwd(), 'VITE_');
 const mode = env.VITE_COMMERCE_MODE;
@@ -9,7 +10,7 @@ if (mode !== 'local' && mode !== 'shopify') {
 }
 
 if (mode === 'shopify') {
-  validateShopifyConfig(env);
+  validateShopifyConfig(env, releasedCommerceProfiles);
   if (!env.VITE_SHOPIFY_BREAK_IN_HANDLE) {
     throw new Error('VITE_SHOPIFY_BREAK_IN_HANDLE is required for a Shopify build.');
   }

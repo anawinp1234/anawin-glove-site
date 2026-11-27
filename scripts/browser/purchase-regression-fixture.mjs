@@ -7,7 +7,8 @@
 // either a Shopify-style userError (for states real Shopify reports that way) or a thrown error that
 // the server records as unmatched. Child (Break-In service) quantities never follow their parent:
 // the storefront must keep them in step itself.
-import { FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_SERVICE_VARIANT, fullSizeProducts } from '../../src/catalog.js';
+import { fullSizeProducts } from '../../src/catalog.js';
+import { FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_SERVICE_VARIANT } from '../../test-support/commerce-profiles.js';
 
 export const FULL_SIZE_SERVICE_HANDLE = 'full-size-glove-break-in-service';
 const launchMetafields = Object.fromEntries(fullSizeProducts.map(product => [product.name.toLowerCase(), product.preorder.shipEstimate]));
@@ -30,6 +31,8 @@ export const isMutation = query => /^\s*mutation\b/.test(query || '');
 
 export class UnmodelledRequest extends Error {}
 
+const productIdFor = handle => handle === FULL_SIZE_SERVICE_HANDLE ? FULL_SIZE_SERVICE_PRODUCT : `gid://product/${handle}`;
+
 export function createStorefrontMock({ checkoutHost, acceptedCodes = ['SYNTH10', 'SYNTH5'], metafields = launchMetafields,
   fullSizeServiceAvailable = true, rekeyOnAdd = false, rekeyOnQuantityUpdate = false, rekeyOnAttributeUpdate = false, codeCase = 'as-sent' } = {}) {
   const carts = new Map();
@@ -50,7 +53,7 @@ export function createStorefrontMock({ checkoutHost, acceptedCodes = ['SYNTH10',
     return { id: `gid://shopify/CartLine/${nextLine++}`, quantity, attributes: structuredClone(attributes || []),
       instructions: { canRemove: true, canUpdateQuantity: true },
       parentRelationship: parent ? { parent: { id: parent.id, merchandise: structuredClone(parent.merchandise) } } : null,
-      merchandise: { id: merchandiseId, product: { handle },
+      merchandise: { id: merchandiseId, product: { handle, id: productIdFor(handle) },
         selectedOptions: HANDED.includes(handle) ? [{ name: 'Throwing Hand', value: merchandiseId.endsWith('-left') ? 'Left' : 'Right' }] : [{ name: 'Title', value: 'Default Title' }] } };
   };
   const signature = attributes => JSON.stringify([...attributes].sort((a, b) => a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
@@ -131,7 +134,7 @@ export function createStorefrontMock({ checkoutHost, acceptedCodes = ['SYNTH10',
       selectedOptions: HANDED.includes(handle) ? [{ name: 'Throwing Hand', value: 'Right' }] : [{ name: 'Title', value: 'Default Title' }] }];
     if (HANDED.includes(handle)) variants.push({ id: VARIANTS[handle].replace('-right', '-left'), availableForSale: true,
       price: { amount, currencyCode: 'USD' }, selectedOptions: [{ name: 'Throwing Hand', value: 'Left' }] });
-    return { id: handle === FULL_SIZE_SERVICE_HANDLE ? FULL_SIZE_SERVICE_PRODUCT : `gid://product/${handle}`, title: handle.toUpperCase(), handle,
+    return { id: productIdFor(handle), title: handle.toUpperCase(), handle,
       ...(Object.hasOwn(meta, handle) ? { preorderShipEstimate: meta[handle] === null ? null : { value: meta[handle] } } : {}),
       variants: { nodes: variants } };
   }

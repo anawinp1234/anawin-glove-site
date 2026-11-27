@@ -205,7 +205,7 @@ test('cart drawer wires the disclosure without re-rendering and falls back to th
 
 test('Shopify fixture: the disclosure tracks a trainer + Break-In cart through apply, rerender, and removal', async () => {
   const { shopifyFixture } = await import('../test-support/shopify-fixture.js');
-  const { checkoutCartIsComplete } = await import('../src/checkout-safety.js');
+  const { checkoutCartIsComplete } = await import('../test-support/commerce-profiles.js');
   const scenario = codes => {
     const launch = codes.some(code => code.toLowerCase() === 'launch10');
     return {

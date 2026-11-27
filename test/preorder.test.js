@@ -210,7 +210,7 @@ test('the cart disclosure lists each preorder and its estimate before checkout',
 
 test('the app wires the disclosure to checkout and keeps checkout closed for blocked preorders', () => {
   const main = readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
-  assert.match(main, /const canCheckout = \(\) => commerce\.mode === 'shopify' && checkoutCartIsComplete\(cart\) && !cartPreorders\(\)\.blocked\.length;/);
+  assert.match(main, /const canCheckout = \(\) => commerce\.mode === 'shopify' && commerce\.isCheckoutComplete\(cart\) && !cartPreorders\(\)\.blocked\.length;/);
   assert.match(main, /\$\{preorderDisclosure\}\$\{checkout\}/);
   assert.match(main, /setAttribute\('aria-describedby', CART_PREORDER_DISCLOSURE_ID\)/);
   assert.match(main, /if \(preorderState\(product\)\.status === 'blocked'\) return;/);

@@ -6,7 +6,7 @@ import { shopifyFixture } from '../test-support/shopify-fixture.js';
 import {
   FULL_SIZE_CONFIGURATION_KEY, PREORDER_CHECKOUT, PREORDER_ORDER_ATTRIBUTE, fullSizeProducts, preorderOrderAttributeValue, preorderState
 } from '../src/catalog.js';
-import { checkoutCartIsComplete } from '../src/checkout-safety.js';
+import { checkoutCartIsComplete } from '../test-support/commerce-profiles.js';
 import { cartDiscountSummary } from '../src/cart-discounts.js';
 
 const ESTIMATE = 'first week of December 2026';

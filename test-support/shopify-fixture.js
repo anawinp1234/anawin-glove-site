@@ -1,5 +1,6 @@
 import { createShopifyCommerce } from '../src/commerce.js';
-import { FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, fullSizeProducts } from '../src/catalog.js';
+import { fullSizeProducts } from '../src/catalog.js';
+import { fixtureProfile } from './commerce-profiles.js';
 
 // By default each full-size glove carries the catalog's approved estimate, as production must.
 const launchMetafields = Object.fromEntries(fullSizeProducts.map(product => [product.name.toLowerCase(), product.preorder.shipEstimate]));
@@ -64,17 +65,17 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
   rekeyOnQuantityUpdate = false, prices = {}, cartPrices = {}, discountedPrices = {}, currencies = {},
   subtotalOverride = null, discountCodes = [], discountApplications = [], discountAllocations = {},
   discountScenario = null, discountWarnings = [], serviceState = 'available', serviceHandle = 'break-in', timeoutMs,
-  recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, checkoutHost = 'ignvv0-zh.myshopify.com',
+  recoveryLocks = undefined, fullSize = false, stock: initialStock = {}, profile = fixtureProfile, checkoutHost = profile.checkoutHost,
   cartAttributesMode = 'replace', metafields = launchMetafields, pageSize = PAGE_LIMIT, cartIdFor = cartGid } = {}) {
   // Cart-level attributes. Shopify does not document whether cartAttributesUpdate replaces or merges, so both are modelled.
   let cartAttributes = [];
   const config = {
-    domain: 'store.myshopify.com', accessToken: 'public-token', apiVersion: '2026-07',
+    domain: profile.storeDomain, profile, accessToken: 'public-token', apiVersion: '2026-07',
     handles: { black: 'br16', blue: 'ob16', brown: 'cl16', ...(fullSize ? { 'full-mint': 'mi26', 'full-black': 'bl50', 'full-orange': 'or17', 'full-camel': 'cm24' } : {}) }, breakInHandle: serviceHandle, timeoutMs
   };
   const variants = {
     mi26: ['gid://variant/mi26-right', prices.mi26 || '295.00'], bl50: ['gid://variant/bl50-right', prices.bl50 || '295.00'], or17: ['gid://variant/or17-right', prices.or17 || '295.00'], cm24: ['gid://variant/cm24-right', prices.cm24 || '295.00'],
-    'full-size-glove-break-in-service': [FULL_SIZE_SERVICE_VARIANT, '75.00'],
+    'full-size-glove-break-in-service': [profile.fullSizeService.variantId, '75.00'],
     br16: ['gid://variant/br16', prices.br16 || '155.00'], ob16: ['gid://variant/ob16', prices.ob16 || '155.00'],
     cl16: ['gid://variant/cl16', prices.cl16 || '155.00'], 'break-in': ['gid://variant/service', prices['break-in'] || '20.00']
   };
@@ -146,12 +147,13 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
     } } })) }
   });
   };
+  const productIdFor = handle => handle === 'full-size-glove-break-in-service' ? profile.fullSizeService.productId : `gid://product/${handle}`;
   const makeLine = (handle, quantity, parent = null, attributes = [], merchandiseId = null) => ({
     id: `line-${nextId++}`, quantity,
     attributes: structuredClone(attributes),
     instructions: { canRemove: true, canUpdateQuantity: true },
     parentRelationship: parent ? { parent: { id: parent.id, merchandise: structuredClone(parent.merchandise) } } : null,
-    merchandise: { id: merchandiseId || variants[handle][0], selectedOptions: ['mi26', 'bl50', 'or17'].includes(handle) ? [{ name: 'Throwing Hand', value: (merchandiseId || variants[handle][0]).endsWith('-left') ? 'Left' : 'Right' }] : [{ name: 'Title', value: 'Default Title' }], product: { handle } }
+    merchandise: { id: merchandiseId || variants[handle][0], selectedOptions: ['mi26', 'bl50', 'or17'].includes(handle) ? [{ name: 'Throwing Hand', value: (merchandiseId || variants[handle][0]).endsWith('-left') ? 'Left' : 'Right' }] : [{ name: 'Title', value: 'Default Title' }], product: { handle, id: productIdFor(handle) } }
   });
   const attributeSignature = attributes => JSON.stringify([...attributes].sort((a, b) =>
     a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
@@ -234,7 +236,7 @@ export function shopifyFixture({ autoSyncChild = true, rekeyOnAttributeUpdate = 
       if (variables.handle === 'break-in' && serviceState === 'failed') return { ok: false, status: 503 };
       const [id, amount] = variants[variables.handle];
       return response({ product: {
-        id: variables.handle === 'full-size-glove-break-in-service' ? FULL_SIZE_SERVICE_PRODUCT : `gid://product/${variables.handle}`, title: variables.handle.toUpperCase(), handle: variables.handle,
+        id: productIdFor(variables.handle), title: variables.handle.toUpperCase(), handle: variables.handle,
         ...(Object.hasOwn(metafields, variables.handle) ? { preorderShipEstimate: metafields[variables.handle] === null ? null : { value: metafields[variables.handle] } } : {}),
         variants: { nodes: [{ id, selectedOptions: ['mi26', 'bl50', 'or17'].includes(variables.handle) ? [{ name: 'Throwing Hand', value: 'Right' }] : [{ name: 'Title', value: 'Default Title' }], availableForSale: variables.handle !== 'break-in' || serviceState !== 'sold-out', price: { amount: variables.handle === 'break-in' && serviceState === 'invalid-price' ? 'bad' : amount, currencyCode: currencies[variables.handle] || 'USD' } }, ...(['mi26', 'bl50', 'or17'].includes(variables.handle) ? [{ id: id.replace('-right', '-left'), availableForSale: true, selectedOptions: [{ name: 'Throwing Hand', value: 'Left' }], price: { amount, currencyCode: 'USD' } }] : [])] }
       } });

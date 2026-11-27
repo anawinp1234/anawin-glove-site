@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { checkoutCartIsComplete } from '../src/checkout-safety.js';
+import { checkoutCartIsComplete } from '../test-support/commerce-profiles.js';
 import { createCartStateTracker, startStartupCartRestore } from '../src/startup-cart.js';
 
 // Tabs are separate commerce instances sharing one storage and one mocked Shopify cart.

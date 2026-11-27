@@ -1,3 +1,4 @@
+import { fixtureProfile } from '../../test-support/commerce-profiles.js';
 // Loopback-only fixture server. No Shopify requests or real carts are used.
 import { createServer } from 'vite';
 import { shopifyFixture } from '../../test-support/shopify-fixture.js';
@@ -11,8 +12,10 @@ const server = await createServer({ server: { host: '127.0.0.1', port: 5199, str
   name: 'local-break-in-rehearsal', enforce: 'pre',
   transform(source, id) {
     if (id.endsWith('/src/catalog.js')) return source.replaceAll('comingSoon: true', 'comingSoon: false');
-    if (id.endsWith('/src/main.js')) return source.replace('commerce = createCommerce();',
-      `commerce = createCommerce({ env: ${JSON.stringify(env)}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
+    if (!id.endsWith('/src/main.js')) return;
+    if (source.split('commerce = createCommerce();').length !== 2) throw new Error('Unexpected commerce fixture entry.');
+    return source.replace('commerce = createCommerce();',
+      `commerce = createCommerce({ env: ${JSON.stringify(env)}, profiles: ${JSON.stringify([fixtureProfile])}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
   },
   configureServer(server) {
     server.middlewares.use('/__fixture', async (request, response) => {

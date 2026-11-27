@@ -61,18 +61,19 @@ live Shopify/Cloudflare configuration or Judge.me data without that environment.
 
 The storefront defaults to local preview mode. Its confirmed product content lives in `src/catalog.js`, and the preview cart is stored in the browser. Checkout stays disabled in this mode.
 
-Shopify preparation lives in `src/commerce.js`. To connect a store later:
+Shopify mode uses the source-pinned production commerce profile in
+`src/released-commerce-profiles.js`. Set `VITE_COMMERCE_MODE=shopify`, the
+production store domain, the public Storefront API token, and the handle
+variables listed in `.env.example`. The selected profile binds the API store,
+the exact checkout host, and the exact Full-size Break-In product and variant.
+Checkout requires an authoritative cart read and a verified destination.
 
-1. Create BR16, OB16, CL16, and a separate $20 break-in-service product in Shopify. Each must expose one purchasable variant.
-2. Install Shopify's Headless sales channel and create a storefront with product and cart permissions.
-3. Copy `.env.example` to `.env`, enter the `*.myshopify.com` domain, **public** Storefront API token, and exact product handles.
-4. Change `VITE_COMMERCE_MODE` to `shopify`, restart Vite, and test with non-production products and checkout settings.
-
-`VITE_` values are included in the browser bundle. Only the public Storefront API token belongs there; never add an Admin API token or Shopify private token.
-
-In Shopify mode, Shopify owns prices, availability, cart totals, and the hosted checkout URL. The UI never constructs a payable total or checkout URL from browser state.
-
-Checkout redirects are limited to the verified Shopify origin `https://ignvv0-zh.myshopify.com`. If Shopify's checkout domain changes, verify the new `Cart.checkoutUrl` origin against Shopify Admin and a Storefront API test cart, then review `src/checkout-safety.js` before deploying. A rejected link requires the customer to check the cart again, which fetches fresh Shopify state.
+The dedicated test storefront is built with `npm run test-store:serve` and
+served at `http://127.0.0.1:4174`. Supply the test-store configuration through
+the process environment. The command writes to a fresh temporary build
+directory. Add `-- --build-only` to build and verify the output without
+starting the server. See the [deployment guide](DEPLOYMENT_GUIDE.md#5-keeping-production-and-test-store-targets-separate)
+for the required values and the current real-store verification blockers.
 
 ### Cart coordination and checkout freeze
 

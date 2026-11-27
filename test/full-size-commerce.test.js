@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { cartCustomizationIsComplete, fullSizeProducts, normalizeFullSizeOptions, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, optionsFromAttributes, serviceAttributes, FULL_SIZE_SERVICE_VARIANT, fullSizeConfiguration, FULL_SIZE_CONFIGURATION_KEY } from '../src/catalog.js';
-import { checkoutCartIsComplete, createCheckoutVerifier, redirectToVerifiedCheckout } from '../src/checkout-safety.js';
+import { fullSizeProducts, normalizeFullSizeOptions, FULL_SIZE_SHAPING_FIELDS, fullSizeBreakInService, optionsFromAttributes, serviceAttributes, fullSizeConfiguration, FULL_SIZE_CONFIGURATION_KEY } from '../src/catalog.js';
+import { cartCustomizationIsComplete } from '../test-support/commerce-profiles.js';
+import { FULL_SIZE_SERVICE_VARIANT } from '../test-support/commerce-profiles.js';
+import { checkoutCartIsComplete, createCheckoutVerifier, redirectToVerifiedCheckout } from '../test-support/commerce-profiles.js';
 const options = { type: 'full-size', wearingStyle: 'Traditional — index finger out', closure: 'Ring finger', thumbShape: 'Straight', pinkyShape: 'Flared', fingerShape: 'Rolled', firmness: 'Medium', notes: '  slight thumb flare  ' };
 async function fixture(config) { const f = shopifyFixture({ fullSize: true, ...config }); await f.commerce.listProducts(); return f; }
 const add = (f, selected = options, hand = 'right') => f.commerce.addProduct('full-mint', true, selected, `gid://variant/mi26-${hand}`);

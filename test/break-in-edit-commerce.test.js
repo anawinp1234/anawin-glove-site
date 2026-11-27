@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { checkoutCartIsComplete, createCheckoutVerifier } from '../src/checkout-safety.js';
-import { FULL_SIZE_CONFIGURATION_KEY, FULL_SIZE_SERVICE_VARIANT, fullSizeConfiguration, normalizeFullSizeOptions } from '../src/catalog.js';
+import { checkoutCartIsComplete, createCheckoutVerifier } from '../test-support/commerce-profiles.js';
+import { FULL_SIZE_CONFIGURATION_KEY, fullSizeConfiguration, normalizeFullSizeOptions } from '../src/catalog.js';
+import { FULL_SIZE_SERVICE_VARIANT } from '../test-support/commerce-profiles.js';
 
 const MEDIUM = { level: 'Medium (65%)', wearingStyle: 'Traditional' };
 const FIRM_TIP = { level: 'Firm (40%)', wearingStyle: 'Two in the Pinky (TIP)' };

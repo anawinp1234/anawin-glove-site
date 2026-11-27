@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey } from '../src/checkout-safety.js';
+import { checkoutCartIsComplete, createCheckoutVerifier, isCartStorageKey } from '../test-support/commerce-profiles.js';
 
 const glove = (id = 'line-1', quantity = 1, service = 'none') => ({
   remoteLineId: id, parentLineId: null, merchandiseId: 'gid://variant/br16', productId: 'black',
@@ -20,7 +20,7 @@ const child = (parentId = 'line-1') => ({
   unitPrice: { amount: 20, currencyCode: 'USD' }, lineTotal: { amount: 20, currencyCode: 'USD' }
 });
 const cart = (id = 'gid://shopify/Cart/c1?key=k1', lines = [glove()]) => ({
-  id, checkoutUrl: `https://store.myshopify.com/checkouts/${id.split('/').at(-1)}`,
+  id, checkoutUrl: `https://ignvv0-zh.myshopify.com/checkouts/${id.split('/').at(-1)}`,
   lines, subtotal: lines.reduce((sum, line) => sum + line.lineTotal.amount, 0),
   currencyCode: 'USD', discountCodes: [], incomplete: false
 });

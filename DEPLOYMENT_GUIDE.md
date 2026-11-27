@@ -17,7 +17,7 @@ Wrangler commands, the repository, and Cloudflare's documentation. Items marked
 | Git repository | `anawinp1234/anawin-glove-site`, connected through Workers Builds |
 | Production branch | `main`. Every push or merge to `main` builds **and deploys to production automatically** |
 | Non-production branches | Builds enabled; they upload a version but do not deploy it |
-| Production Shopify store | `ignvv0-zh.myshopify.com` (also the only checkout host allowed by `src/checkout-safety.js`) |
+| Production Shopify store | `ignvv0-zh.myshopify.com` (also the checkout host pinned in `src/released-commerce-profiles.js`) |
 
 The active [Protect main ruleset](https://github.com/anawinp1234/anawin-glove-site/rules/27179659)
 applies only to `refs/heads/main`:
@@ -57,7 +57,7 @@ watch paths include all files.
 | --- | --- |
 | Root directory | `/` |
 | Install | `npm clean-install` (run by Workers Builds; lockfile required) |
-| Build command | `npm run build` → `check-build-config.mjs`, `check-source-imports.mjs`, `vite build`, `prerender.mjs` |
+| Build command | `npm run build` → `check-build-config.mjs`, `check-source-imports.mjs`, `vite build`, `prerender.mjs`, `check-bundle-separation.mjs` |
 | Output directory | `dist/` (from `assets.directory` in `wrangler.jsonc`) |
 | Deploy command (`main`) | `npx wrangler deploy` |
 | Version command (other branches) | `npx wrangler versions upload` |
@@ -107,15 +107,32 @@ production.
 - Cloudflare holds only production values. **Preview versions are built with
   the same build variables, so a preview URL talks to the production Shopify
   store.** Do not create carts, checkouts or newsletter signups on preview URLs.
-- The development store is `anawin-test.myshopify.com`. It has no Cloudflare
-  configuration. Test-store work runs from an isolated local copy outside the
-  repository. That copy changes `APPROVED_CHECKOUT_HOST` to the test host, adds a
-  domain guard refusing any other store, and loads test values from that
-  copy's own `.env.local`. These adaptations must never be committed.
-- `src/checkout-safety.js` only redirects to `https://ignvv0-zh.myshopify.com`,
-  so a production build cannot send shoppers to another store's checkout.
-- Never point `VITE_SHOPIFY_STORE_DOMAIN` in Cloudflare at the test store, and
-  never put test credentials in Cloudflare.
+- The normal build uses only the source-pinned production commerce profile.
+  Shopify mode requires an exact match after removing the supported scheme
+  and trailing slash. The existing Cloudflare variables cover this build.
+  Bundle verification checks the production profile and rejects test-store
+  identities and private Shopify credential patterns across browser output.
+- For an isolated test build, set `VITE_COMMERCE_MODE=shopify` and
+  `VITE_SHOPIFY_STORE_DOMAIN=anawin-test.myshopify.com`. Supply the test store's
+  public `VITE_SHOPIFY_STOREFRONT_TOKEN` and its BR16, OB16, CL16 and Trainer
+  Break-In handle variables. Set `VITE_SHOPIFY_MI26_HANDLE=mi26`,
+  `VITE_SHOPIFY_BL50_HANDLE=bl50`, `VITE_SHOPIFY_OR17_HANDLE=or17` and
+  `VITE_SHOPIFY_CM24_HANDLE=cm24`. The existing API version default applies.
+  Supply these values only in the process environment.
+- Run `npm run test-store:serve` for loopback preview, or
+  `npm run test-store:serve -- --build-only` for a build without serving. The
+  command substitutes the test profile at build time, validates separation,
+  and writes to a fresh temporary output directory. Keep test values out of
+  Cloudflare and do not deploy the temporary output.
+- The test profile expects `anawin-test.myshopify.com` as its only checkout
+  host. A real test cart's checkout hostname remains unobserved. Any different
+  hostname will stop checkout and requires independent verification before a
+  trust change. The live test catalog currently returns null for all four
+  full-size preorder estimates. The existing preorder validation still blocks
+  purchasing those gloves. A live test discount remains unverified.
+- The test build can carry production-domain references in the static CSP
+  report-only header and Judge.me review code. These references serve their
+  respective features. The checkout validator reads only the test profile.
 
 ## 6. Build passed, version uploaded, or deployed?
 

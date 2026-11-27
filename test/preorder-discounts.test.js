@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shopifyFixture } from '../test-support/shopify-fixture.js';
-import { FULL_SIZE_SERVICE_VARIANT } from '../src/catalog.js';
+import { FULL_SIZE_SERVICE_VARIANT } from '../test-support/commerce-profiles.js';
 import { cartDiscountSummary, entryDisplayAmounts, renderCartDiscounts } from '../src/cart-discounts.js';
-import { checkoutCartIsComplete } from '../src/checkout-safety.js';
+import { checkoutCartIsComplete } from '../test-support/commerce-profiles.js';
 
 // Models the proposed Shopify configuration (docs/preorder-commerce.md):
 // PREORDER30 = Amount off products, $30.00 fixed, each eligible item, four full-size gloves only.

@@ -1,4 +1,6 @@
-import { fullSizeProducts, fullSizeBreakInService, preorderState, preorderOrderAttributeValue, PREORDER_ORDER_ATTRIBUTE, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_SERVICE_VARIANT, FULL_SIZE_SERVICE_PRODUCT, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
+import { selectCommerceProfile } from './commerce-profile.js';
+import { releasedCommerceProfiles } from './released-commerce-profiles.js';
+import { fullSizeProducts, fullSizeBreakInService, preorderState, preorderOrderAttributeValue, PREORDER_ORDER_ATTRIBUTE, FULL_SIZE_SERVICE_HANDLE, FULL_SIZE_CONFIGURATION_KEY, SERVICE_ATTRIBUTE_KEYS, optionsFromAttributes, breakInService, cartCustomizationIsComplete, savedBreakInOptions, DEFAULT_BREAK_IN, gloveServiceAttributes, localProducts, normalizeBreakInOptions, productHandleMap, serviceAttributes, WRIST_FIT_KEY, normalizeWristFit, withWristFit, wristFitOf } from './catalog.js';
 import { codeKey, discountCodeList } from './cart-discounts.js';
 import { checkoutCartIsComplete, verifiedCheckoutUrl } from './checkout-safety.js';
 
@@ -178,20 +180,22 @@ export function createLocalCommerce(storage) {
   };
 }
 
-export function validateShopifyConfig(env = {}) {
-  if ((env.VITE_COMMERCE_MODE || 'local') !== 'shopify') return null;
-  const domain = (env.VITE_SHOPIFY_STORE_DOMAIN || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+export function validateShopifyConfig(env = {}, profiles = releasedCommerceProfiles) {
+  const mode = env.VITE_COMMERCE_MODE ?? 'local';
+  if (mode === 'local') return null;
+  if (mode !== 'shopify') throw new Error('Invalid commerce mode.');
+  const domain = (typeof env.VITE_SHOPIFY_STORE_DOMAIN === 'string' ? env.VITE_SHOPIFY_STORE_DOMAIN : '').replace(/^https?:\/\//, '').replace(/\/$/, '');
   const accessToken = env.VITE_SHOPIFY_STOREFRONT_TOKEN || '';
   const apiVersion = env.VITE_SHOPIFY_API_VERSION || '2026-07';
   const handles = { ...productHandleMap(env), ...Object.fromEntries(fullSizeProducts.filter(product => env[`VITE_SHOPIFY_${product.name}_HANDLE`]).map(product => [product.id, env[`VITE_SHOPIFY_${product.name}_HANDLE`]])) };
   const breakInHandle = env.VITE_SHOPIFY_BREAK_IN_HANDLE || '';
   const missingHandles = Object.entries(handles).filter(([, value]) => !value).map(([key]) => key);
 
-  if (!domain.endsWith('.myshopify.com')) throw new Error('Shopify store domain must end in .myshopify.com.');
-  if (!accessToken) throw new Error('Shopify public Storefront API token is missing.');
+  const profile = selectCommerceProfile(domain, profiles);
+  if (typeof accessToken !== 'string' || !accessToken.trim() || /^(?:shpat|shppa|shpca|shpss|shpua|shpka)_/i.test(accessToken)) throw new Error('Shopify public Storefront API token is missing.');
   if (!/^\d{4}-\d{2}$/.test(apiVersion)) throw new Error('Shopify API version must use YYYY-MM format.');
   if (missingHandles.length) throw new Error(`Shopify product handles are missing for: ${missingHandles.join(', ')}.`);
-  return { domain, accessToken, apiVersion, handles, breakInHandle };
+  return { domain, accessToken, apiVersion, handles, breakInHandle, profile };
 }
 
 export async function shopifyRequest(config, query, variables = {}, fetchImpl = fetch) {
@@ -254,7 +258,7 @@ const PRODUCT_QUERY = `query ProductByHandle($handle: String!) {
 // `[BaseCartDiscountApplication!]!` (code, automatic and custom implementers), line allocations are the
 // `CartDiscountAllocation` interface (code or title per implementer), `lines` is a `BaseCartLineConnection`
 // with `PageInfo { hasNextPage endCursor }`, and `CartLine.parentRelationship.parent` is a `CartLine`.
-const VARIANT_FIELDS = '... on ProductVariant { id selectedOptions { name value } product { handle } }';
+const VARIANT_FIELDS = '... on ProductVariant { id selectedOptions { name value } product { id handle } }';
 const cartFields = lineArguments => `
   id checkoutUrl
   attributes { key value }
@@ -385,10 +389,6 @@ function cartLineQuantity(cart, productId, isBreakIn) {
     .reduce((sum, line) => sum + line.quantity, 0);
 }
 
-function hasConsistentBreakInLines(cart) {
-  return cartCustomizationIsComplete(cart.lines);
-}
-
 function canRecoverWithoutService(cart) {
   if (!cart.id || !cart.lineCoverageComplete || !cart.lines.some(line => line.isBreakIn)) return false;
   const parents = cart.lines.filter(line => !line.isBreakIn);
@@ -449,6 +449,10 @@ export function cartLineIdentity(lines, parent) {
 }
 
 export function createShopifyCommerce(config, storage, fetchImpl = fetch, recoveryLocks = globalThis.navigator?.locks) {
+  const profile = selectCommerceProfile(config?.domain, [config?.profile]);
+  const { checkoutHost, fullSizeService: serviceIdentity } = profile;
+  config = { ...config, profile };
+  const hasConsistentBreakInLines = cart => cartCustomizationIsComplete(cart.lines, serviceIdentity);
   let products = [];
   let breakInVariant = null;
   let fullSizeVariant = null;
@@ -722,7 +726,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     if (!plainObject(value) || typeof value.id !== 'string' || !value.id || !plainObject(value.product) ||
       typeof value.product.handle !== 'string' || !value.product.handle) return null;
     const options = validPairs(value.selectedOptions, 'name', 'value');
-    return options ? { id: value.id, handle: value.product.handle, options } : null;
+    return options ? { id: value.id, handle: value.product.handle, productId: value.product.id, options } : null;
   }
   function pricingValue(value, money) {
     if (!plainObject(value)) return null;
@@ -740,7 +744,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     try {
       if (!catalog) reject('catalog');
       if (!plainObject(raw) || raw.id !== expectedId || !trustedCartId(raw.id)) reject('id');
-      const checkoutUrl = verifiedCheckoutUrl(raw.checkoutUrl);
+      const checkoutUrl = verifiedCheckoutUrl(raw.checkoutUrl, checkoutHost);
       const attributes = validPairs(raw.attributes, 'key', 'value') || reject('cart attributes');
       if (!plainObject(raw.cost)) reject('cost');
       const subtotal = strictMoney(raw.cost.subtotalAmount) || reject('subtotal');
@@ -807,7 +811,10 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           if (!owner || owner === entry || owner.parent) reject('service parent');
           if (owner.merchandise.id !== parent.merchandise.id || owner.merchandise.handle !== parent.merchandise.handle ||
             optionsKey(owner.merchandise.options) !== optionsKey(parent.merchandise.options)) reject('service parent identity');
-          if (serviceType === 'full-size' ? merchandise.id !== FULL_SIZE_SERVICE_VARIANT : !catalog.trainerServiceVariantIds.has(merchandise.id)) reject('service variant');
+          if (serviceType === 'full-size') {
+            if (merchandise.id !== serviceIdentity.variantId || merchandise.productId !== serviceIdentity.productId) reject('full-size service identity');
+            if (entry.prices[0].amount !== fullSizeBreakInService.price || currencyCode !== fullSizeBreakInService.currencyCode) reject('full-size service price');
+          } else if (!catalog.trainerServiceVariantIds.has(merchandise.id)) reject('service variant');
           productId = handleToProductId[owner.merchandise.handle];
           if (!productId || (serviceType === 'full-size') !== productId.startsWith('full-')) reject('service type');
         } else {
@@ -832,6 +839,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
           lineTotal: { amount: lineTotal.amount, currencyCode },
           allDiscountAllocations: entry.allocations.map(allocation => ({ amount: { amount: allocation.amount.amount, currencyCode }, targetType: allocation.targetType, code: allocation.code })),
           isBreakIn: Boolean(serviceType), serviceType, attributes: entry.attributes,
+          ...(serviceType === 'full-size' ? { serviceProductId: merchandise.productId } : {}),
           serviceConfiguration: entry.attributes.find(attribute => attribute.key === SERVICE_ATTRIBUTE)?.value || null,
           instructions: { canRemove: node.instructions.canRemove, canUpdateQuantity: node.instructions.canUpdateQuantity },
           canonical: entry.prices.map(price => price.canonical), allocationCanonical: entry.allocations.map(allocation => allocation.amount.canonical) };
@@ -845,8 +853,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
         }
         if (!Number.isFinite(child.unitPrice.amount + owner.unitPrice.amount) || !Number.isFinite(child.lineTotal.amount + owner.lineTotal.amount)) reject('pair sum');
       }
-      if (lines.some(line => line.serviceType === 'full-size' && line.merchandiseId !== FULL_SIZE_SERVICE_VARIANT)) reject('service variant');
-      const limited = !cartCustomizationIsComplete(lines);
+      const limited = !cartCustomizationIsComplete(lines, serviceIdentity);
       if (!checkoutUrl) reject(limited ? 'checkout url and customization' : 'checkout url');
       const cart = { id: raw.id, checkoutUrl, attributes, subtotal: subtotal.amount, currencyCode, discountCodes, discountsIncomplete: false,
         discountApplications: applications.filter(application => application.code).map(application => ({ code: application.code,
@@ -997,7 +1004,8 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   const flag = (op, kind, before = null) => { op.flags.add(kind); if (before?.id && !op.record.before) op.flagBefore = minimalSnapshot(before); };
   const minimalSnapshot = cart => ({ id: cart.id, lines: cart.lines.map(line => ({ remoteLineId: line.remoteLineId, parentLineId: line.parentLineId,
     merchandiseId: line.merchandiseId, productId: line.productId, isBreakIn: line.isBreakIn, serviceType: line.serviceType, quantity: line.quantity,
-    attributes: line.attributes, throwingHand: line.throwingHand, serviceConfiguration: line.serviceConfiguration })), discountCodes: cart.discountCodes });
+    attributes: line.attributes, throwingHand: line.throwingHand, serviceConfiguration: line.serviceConfiguration,
+    ...(line.serviceType === 'full-size' ? { serviceProductId: line.serviceProductId } : {}) })), discountCodes: cart.discountCodes });
   function retireOperation(op, resolution) {
     try {
       rewriteOwn(op, { status: 'terminal', resolution, resolvedAt: Date.now() });
@@ -1820,7 +1828,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
 
   // A service change must leave every glove's saved choices matching its service line.
   function verifyServiceChoices(before, after) {
-    if (cartCustomizationIsComplete(before.lines) && !cartCustomizationIsComplete(after.lines)) {
+    if (hasConsistentBreakInLines(before) && !hasConsistentBreakInLines(after)) {
       throw new Error('Shopify did not save the selected break-in choices on both cart lines.');
     }
   }
@@ -2154,7 +2162,18 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     if (source.incomplete && !legacyRecovery && !splitRecoveryBinding && (!historical || !snapshotMatchesUnaffectedLines(source, historical, kinds))) {
       throw new ShopifyRequestError('The original cart differs from the last verified cart. Its full contents cannot be established safely.', 'recovery-ambiguous');
     }
-    const observed = legacyRecovery ? source : source.incomplete ? historical : source;
+    // Older journals omitted the service product ID. Restore that evidence only from the
+    // same authoritative source line after the existing unaffected-line proof succeeds.
+    const observed = legacyRecovery || !source.incomplete ? source : {
+      ...historical,
+      lines: historical.lines.map(line => {
+        if (line.serviceType !== 'full-size' || line.serviceProductId !== undefined) return line;
+        const current = source.lines.find(candidate => candidate.remoteLineId === line.remoteLineId &&
+          candidate.parentLineId === line.parentLineId && candidate.merchandiseId === line.merchandiseId &&
+          candidate.serviceType === line.serviceType);
+        return { ...line, serviceProductId: current?.serviceProductId };
+      })
+    };
     if (!observed || observed.id !== unsafeId || !legacyRecovery && !hasConsistentBreakInLines(observed)) {
       throw new Error('Shopify has not returned a complete cart for recovery.');
     }
@@ -2763,7 +2782,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
     if (verdict.status === 'invalid' && verdict.reason === 'checkout url') return blocked('We couldn’t open secure checkout. Check your cart and try again.');
     if (verdict.status !== 'valid') return verifyFailed();
     const reviewed = verdict.cart;
-    if (!checkoutCartIsComplete(reviewed)) return verifyFailed(reviewed);
+    if (!checkoutCartIsComplete(reviewed, profile)) return verifyFailed(reviewed);
     if (unavailable(reviewed)) return blocked('A preorder glove in your cart isn’t available right now. Remove it to continue.');
     // A changed (or explicitly unreviewed) cart is shown for review first; integrity failures never reach here.
     if (requireReview || displayedCart?.stamp !== reviewed.stamp) {
@@ -2778,7 +2797,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       verdict = await readAuthoritativeCart(id);
       assertSafetySnapshot(snapshot);
       if (verdict.status === 'invalid' && verdict.reason === 'checkout url') return blocked('We couldn’t open secure checkout. Check your cart and try again.');
-      if (verdict.status !== 'valid' || !checkoutCartIsComplete(verdict.cart)) return verifyFailed();
+      if (verdict.status !== 'valid' || !checkoutCartIsComplete(verdict.cart, profile)) return verifyFailed();
       // Only the verified preorder snapshot may differ from what the shopper reviewed.
       if (purchaseStamp(verdict.cart) !== purchaseStamp(reviewed)) {
         return { status: 'review', cart: applySafety(verdict.cart, { snapshot }), message: 'Your cart changed. Review the items, then choose Checkout again.' };
@@ -2786,7 +2805,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       final = verdict.cart;
     }
     // The approved URL from this exact read.
-    const url = verifiedCheckoutUrl(final.checkoutUrl);
+    const url = verifiedCheckoutUrl(final.checkoutUrl, checkoutHost);
     if (!url) return blocked('We couldn’t open secure checkout. Check your cart and try again.');
     const owner = newOwner();
     const freezeKey = UNSAFE_RECORD_PREFIX + owner;
@@ -2810,6 +2829,7 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
 
   const api = {
     mode: 'shopify',
+    isCheckoutComplete: cart => checkoutCartIsComplete(cart, profile),
     async listProducts() {
       catalogLoad = loadCatalog();
       return catalogLoad;
@@ -2839,10 +2859,11 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
       if (!products.some(product => product.line === 'full-size')) return fullSizeService;
       try {
         const service = await loadService(FULL_SIZE_SERVICE_HANDLE);
-        const variant = service.variants.nodes.find(variant => variant.id === FULL_SIZE_SERVICE_VARIANT);
-        if (service.id !== FULL_SIZE_SERVICE_PRODUCT || !variant || Number(variant.price.amount) !== 75 || variant.price.currencyCode !== 'USD') throw new Error('Full-size service reference or price differs.');
+        const variant = service.variants.nodes.find(variant => variant.id === serviceIdentity.variantId);
+        if (service.id !== serviceIdentity.productId || service.handle !== FULL_SIZE_SERVICE_HANDLE || !variant || Number(variant.price?.amount) !== fullSizeBreakInService.price || variant.price.currencyCode !== fullSizeBreakInService.currencyCode) throw new Error('Full-size service reference or price differs.');
+        if (variant.availableForSale !== true) return fullSizeService;
         fullSizeVariant = variant;
-        fullSizeService = { ...fullSizeService, merchandiseId: variant.id, available: variant.availableForSale };
+        fullSizeService = { ...fullSizeService, merchandiseId: variant.id, available: true };
       } catch { /* Full-size glove-only purchases remain available. */ }
       return fullSizeService;
     },
@@ -2894,7 +2915,22 @@ export function createShopifyCommerce(config, storage, fetchImpl = fetch, recove
   return api;
 }
 
-export function createCommerce({ env = import.meta.env || {}, storage = globalThis.localStorage, fetchImpl = globalThis.fetch } = {}) {
-  const config = validateShopifyConfig(env);
+const builtCommerceEnvironment = () => typeof document === 'undefined' ? {} : ({
+  VITE_COMMERCE_MODE: import.meta.env.VITE_COMMERCE_MODE,
+  VITE_SHOPIFY_STORE_DOMAIN: import.meta.env.VITE_SHOPIFY_STORE_DOMAIN,
+  VITE_SHOPIFY_STOREFRONT_TOKEN: import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN,
+  VITE_SHOPIFY_API_VERSION: import.meta.env.VITE_SHOPIFY_API_VERSION,
+  VITE_SHOPIFY_BREAK_IN_HANDLE: import.meta.env.VITE_SHOPIFY_BREAK_IN_HANDLE,
+  VITE_SHOPIFY_BR16_HANDLE: import.meta.env.VITE_SHOPIFY_BR16_HANDLE,
+  VITE_SHOPIFY_OB16_HANDLE: import.meta.env.VITE_SHOPIFY_OB16_HANDLE,
+  VITE_SHOPIFY_CL16_HANDLE: import.meta.env.VITE_SHOPIFY_CL16_HANDLE,
+  VITE_SHOPIFY_MI26_HANDLE: import.meta.env.VITE_SHOPIFY_MI26_HANDLE,
+  VITE_SHOPIFY_BL50_HANDLE: import.meta.env.VITE_SHOPIFY_BL50_HANDLE,
+  VITE_SHOPIFY_OR17_HANDLE: import.meta.env.VITE_SHOPIFY_OR17_HANDLE,
+  VITE_SHOPIFY_CM24_HANDLE: import.meta.env.VITE_SHOPIFY_CM24_HANDLE,
+});
+
+export function createCommerce({ env = builtCommerceEnvironment(), storage = globalThis.localStorage, fetchImpl = globalThis.fetch, profiles = releasedCommerceProfiles } = {}) {
+  const config = validateShopifyConfig(env, profiles);
   return config ? createShopifyCommerce(config, storage, fetchImpl) : createLocalCommerce(storage);
 }

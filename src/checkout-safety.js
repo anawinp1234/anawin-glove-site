@@ -1,16 +1,15 @@
 import { cartCustomizationIsComplete } from './catalog.js';
 
-// Verified against ANAWIN's Shopify Admin primary domain and a Storefront API
-// Cart.checkoutUrl. Review this policy before changing checkout domains.
-const APPROVED_CHECKOUT_HOST = 'ignvv0-zh.myshopify.com';
+import { isCommerceProfile, isShopifyHostname } from './commerce-profile.js';
 
-export function verifiedCheckoutUrl(value) {
+export function verifiedCheckoutUrl(value, checkoutHost) {
+  if (!isShopifyHostname(checkoutHost)) return null;
   if (typeof value !== 'string' || !/^https:\/\//i.test(value) ||
     /[\u0000-\u0020\u007f\\]/.test(value)) return null;
   try {
     const url = new URL(value);
     // URL normalizes the default HTTPS port to an empty string.
-    if (url.protocol !== 'https:' || url.hostname !== APPROVED_CHECKOUT_HOST ||
+    if (url.protocol !== 'https:' || url.hostname !== checkoutHost ||
       url.port !== '' || url.username || url.password ||
       value.slice(8).split(/[/?#]/, 1)[0].includes('@')) return null;
     // Pass Shopify's path and query through unchanged.
@@ -20,8 +19,8 @@ export function verifiedCheckoutUrl(value) {
   }
 }
 
-export function redirectToVerifiedCheckout(value, navigate) {
-  const url = verifiedCheckoutUrl(value);
+export function redirectToVerifiedCheckout(value, navigate, checkoutHost) {
+  const url = verifiedCheckoutUrl(value, checkoutHost);
   if (!url) return false;
   navigate(url);
   return true;
@@ -55,9 +54,9 @@ export function isCartStorageKey(key) {
     Boolean(key?.startsWith('anawin-shopify-unsafe-op:'));
 }
 
-export function checkoutCartIsComplete(cart) {
-  if (!cart?.id || !cart.checkoutUrl || cart.incomplete || !cart.lines?.length) return false;
-  if (!cartCustomizationIsComplete(cart.lines)) return false;
+export function checkoutCartIsComplete(cart, profile) {
+  if (!isCommerceProfile(profile) || !cart?.id || !verifiedCheckoutUrl(cart.checkoutUrl, profile.checkoutHost) || cart.incomplete || !cart.lines?.length) return false;
+  if (!cartCustomizationIsComplete(cart.lines, profile.fullSizeService)) return false;
   return cart.lines.every(line => {
     if (!line.merchandiseId || !Number.isInteger(line.quantity) || line.quantity < 1) return false;
     if (!line.isBreakIn) return true;
@@ -66,7 +65,7 @@ export function checkoutCartIsComplete(cart) {
   });
 }
 
-export function createCheckoutVerifier({ getCart, readSafety }) {
+export function createCheckoutVerifier({ getCart, readSafety, profile }) {
   let pending = false;
   return async (displayedCart, { requireReview = false } = {}) => {
     if (pending) return { status: 'busy' };
@@ -82,7 +81,7 @@ export function createCheckoutVerifier({ getCart, readSafety }) {
           return { status: 'blocked', cart: current,
             message: 'A cart change is still being checked. Check your cart before checkout.' };
         }
-        if (!checkoutCartIsComplete(current)) {
+        if (!checkoutCartIsComplete(current, profile)) {
           return { status: 'blocked', cart: current,
             message: 'Shopify could not verify your cart. Check your cart before checkout.' };
         }

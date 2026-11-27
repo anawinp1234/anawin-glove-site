@@ -1,3 +1,4 @@
+import { isFullSizeServiceIdentity } from './commerce-profile.js';
 export const breakInService = Object.freeze({
   id: 'break-in-service',
   name: 'Break-in service',
@@ -30,8 +31,6 @@ export function withWristFit(attributes, fit) {
 }
 
 export const FULL_SIZE_SERVICE_HANDLE = 'full-size-glove-break-in-service';
-export const FULL_SIZE_SERVICE_VARIANT = 'gid://shopify/ProductVariant/68062398808312';
-export const FULL_SIZE_SERVICE_PRODUCT = 'gid://shopify/Product/15498355474680';
 export const FULL_SIZE_SHAPING_FIELDS = Object.freeze([
   { key: 'thumbShape', attribute: 'Thumb Shape', name: 'full-size-thumb-shape', label: 'Thumb shape', choices: ['Straight', 'Flared', 'None', 'Recommend for me'] },
   { key: 'pinkyShape', attribute: 'Pinky Shape', name: 'full-size-pinky-shape', label: 'Pinky shape', choices: ['Straight', 'Flared', 'None', 'Recommend for me'] },
@@ -108,7 +107,7 @@ export function gloveServiceAttributes(options = DEFAULT_BREAK_IN) {
   ];
 }
 
-export function cartCustomizationIsComplete(lines = []) {
+export function cartCustomizationIsComplete(lines = [], fullSizeService) {
   const value = (line, key) => {
     const matches = (line.attributes || []).filter(attribute => attribute.key === key);
     return matches.length === 1 ? matches[0].value : null;
@@ -131,7 +130,8 @@ export function cartCustomizationIsComplete(lines = []) {
     if (parent.productId?.startsWith('full-')) {
       if (service !== 'break-in' || attached.length !== 1 || level || style || value(parent, '_anawin_service_type') !== 'full-size') return false;
       const child = attached[0];
-      if (child.serviceType !== 'full-size' || child.merchandiseId !== FULL_SIZE_SERVICE_VARIANT || child.productId !== parent.productId || child.quantity !== parent.quantity) return false;
+      if (!isFullSizeServiceIdentity(fullSizeService) || child.serviceType !== 'full-size' ||
+        child.merchandiseId !== fullSizeService.variantId || child.serviceProductId !== fullSizeService.productId || child.productId !== parent.productId || child.quantity !== parent.quantity) return false;
       if ([...FULL_SIZE_ATTRIBUTE_KEYS, 'Glove Model', 'Throwing Hand'].some(key => (child.attributes || []).filter(attribute => attribute.key === key).length > 1)) return false;
       const configuration = value(parent, FULL_SIZE_CONFIGURATION_KEY);
       if (configuration !== null) {

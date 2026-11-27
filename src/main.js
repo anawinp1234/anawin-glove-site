@@ -7,7 +7,7 @@ import { breakInEditorField, createBreakInEditor } from './cart-break-in-editor.
 import { cartFeedbackMarkup, cartUpdateAnnouncement, createCartAnnouncer } from './cart-feedback.js';
 import { createCartActionGate } from './cart-action-gate.js';
 import { createCartStateTracker, startStartupCartRestore } from './startup-cart.js';
-import { checkoutCartIsComplete, createCheckoutHandoffWatcher, isCartStorageKey } from './checkout-safety.js';
+import { createCheckoutHandoffWatcher, isCartStorageKey } from './checkout-safety.js';
 import { nextHeaderHidden } from './header-scroll.js';
 import { focusCommerceRetryStatus, focusCommerceRetryResult } from './retry-focus.js';
 import { dismissDiscountError, discountEntryExpanded, discountResultFeedback, renderCartDiscountSection } from './cart-discounts.js';
@@ -141,7 +141,7 @@ const reviewData = Object.fromEntries(localProducts.map(product => {
 const cartCount = () => cart.lines.filter(line => !line.isBreakIn).reduce((sum, line) => sum + line.quantity, 0);
 const cartPreorders = () => cartPreorderSummary(cart.lines.filter(line => !line.isBreakIn).map(line => products.find(product => product.id === line.productId)));
 // A preorder glove whose estimate or availability Shopify no longer confirms keeps checkout closed.
-const canCheckout = () => commerce.mode === 'shopify' && checkoutCartIsComplete(cart) && !cartPreorders().blocked.length;
+const canCheckout = () => commerce.mode === 'shopify' && commerce.isCheckoutComplete(cart) && !cartPreorders().blocked.length;
 const cartProductName = id => {
   const product = products.find(item => item.id === id);
   return product ? `${product.name}${preorderState(product).status === 'active' ? ' preorder' : ''}` : 'Glove';

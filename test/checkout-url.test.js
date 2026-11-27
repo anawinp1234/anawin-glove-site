@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCheckoutVerifier, redirectToVerifiedCheckout, verifiedCheckoutUrl } from '../src/checkout-safety.js';
+import { createCheckoutVerifier, redirectToVerifiedCheckout, verifiedCheckoutUrl } from '../test-support/commerce-profiles.js';
 
 const approved = 'https://ignvv0-zh.myshopify.com/checkouts/cn/token?key=a%2Fb&discount=SAVE%2020';
 
@@ -50,7 +50,7 @@ test('the final handoff validates the fresh Shopify cart URL, not the displayed 
   const verifyRejected = createCheckoutVerifier({ getCart: async () => ({ ...displayed,
     checkoutUrl: 'https://evil.example/fresh' }), readSafety: () => state });
   const rejected = await verifyRejected({ ...displayed, checkoutUrl: approved });
-  assert.equal(rejected.status, 'ready');
+  assert.equal(rejected.status, 'blocked');
   assert.equal(redirectToVerifiedCheckout(rejected.checkoutUrl, url => navigations.push(url)), false);
   assert.deepEqual(navigations, [approved]);
 });

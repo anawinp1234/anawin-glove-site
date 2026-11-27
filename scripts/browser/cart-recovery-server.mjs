@@ -1,3 +1,4 @@
+import { fixtureProfile } from '../../test-support/commerce-profiles.js';
 // Loopback-only fixture server for the cart recovery browser suite. No Shopify requests or real carts
 // are used. `/__fixture-control` (loopback only) resets the fixture and injects Shopify faults.
 import { createServer } from 'vite';
@@ -21,8 +22,10 @@ const port = Number(process.env.ANAWIN_RECOVERY_PORT || 5201);
 const server = await createServer({ server: { host: '127.0.0.1', port, strictPort: true }, plugins: [{
   name: 'local-cart-recovery-rehearsal', enforce: 'pre',
   transform(source, id) {
-    if (id.endsWith('/src/main.js')) return source.replace('commerce = createCommerce();',
-      `commerce = createCommerce({ env: ${JSON.stringify(env)}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
+    if (!id.endsWith('/src/main.js')) return;
+    if (source.split('commerce = createCommerce();').length !== 2) throw new Error('Unexpected commerce fixture entry.');
+    return source.replace('commerce = createCommerce();',
+      `commerce = createCommerce({ env: ${JSON.stringify(env)}, profiles: ${JSON.stringify([fixtureProfile])}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
   },
   configureServer(vite) {
     vite.middlewares.use('/__fixture-control', async (request, response) => {

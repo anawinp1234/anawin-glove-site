@@ -1,3 +1,4 @@
+import { fixtureProfile } from '../../test-support/commerce-profiles.js';
 // Loopback-only, scenario-controlled Storefront mock for the purchase regression suite
 // (purchase-regression-browser.mjs starts it; it is not meant to be run by hand).
 //
@@ -288,9 +289,9 @@ const server = await createServer({ logLevel: 'error', clearScreen: false,
     transform(source, id) {
       if (id.endsWith('/src/catalog.js')) return source.replaceAll('comingSoon: true', 'comingSoon: false');
       if (id.endsWith('/src/main.js')) {
-        if (!source.includes('commerce = createCommerce();')) throw new Error('main.js no longer creates commerce the way the mock expects');
+        if (source.split('commerce = createCommerce();').length !== 2) throw new Error('main.js no longer creates commerce the way the mock expects');
         return source.replace('commerce = createCommerce();',
-          `commerce = createCommerce({ env: ${JSON.stringify(env)}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
+          `commerce = createCommerce({ env: ${JSON.stringify(env)}, profiles: ${JSON.stringify([fixtureProfile])}, fetchImpl: (_url, options) => fetch('/__fixture', options) });`);
       }
     },
     configureServer(vite) { vite.middlewares.use(guard); }

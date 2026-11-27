@@ -1,3 +1,4 @@
+import { FULL_SIZE_SERVICE_VARIANT } from '../../test-support/commerce-profiles.js';
 // Purchase regression suite: viewports, Break-In pairing, discounts, checkout handoff, cart
 // concurrency/failures and drawer accessibility, against the loopback mock storefront in
 // purchase-regression-server.mjs, which this suite starts.
@@ -23,7 +24,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { release as osRelease, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FULL_SIZE_CONFIGURATION_KEY, FULL_SIZE_SERVICE_VARIANT, fullSizeBreakInService, fullSizeConfiguration, fullSizeProducts, localProducts, optionsFromAttributes, serviceAttributes } from '../../src/catalog.js';
+import { FULL_SIZE_CONFIGURATION_KEY, fullSizeBreakInService, fullSizeConfiguration, fullSizeProducts, localProducts, optionsFromAttributes, serviceAttributes } from '../../src/catalog.js';
 import { codeKey } from '../../src/cart-discounts.js';
 import { netnsOf, requireIsolation } from './isolation.mjs';
 import { createStorefrontMock } from './purchase-regression-fixture.mjs';
