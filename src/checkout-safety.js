@@ -39,6 +39,8 @@ function cartSignature(cart) {
       remoteLineId: line.remoteLineId, parentLineId: line.parentLineId,
       merchandiseId: line.merchandiseId, productId: line.productId,
       isBreakIn: line.isBreakIn, serviceType: line.serviceType, quantity: line.quantity,
+      // A changed selected hand is a different glove even under the same merchandise ID.
+      throwingHand: line.throwingHand ?? null,
       attributes: [...(line.attributes || [])].sort((a, b) => a.key.localeCompare(b.key)),
       unitPrice: line.unitPrice, lineSubtotal: line.lineSubtotal,
       lineTotal: line.lineTotal, allDiscountAllocations: line.allDiscountAllocations
@@ -49,7 +51,7 @@ function cartSignature(cart) {
 export function isCartStorageKey(key) {
   // Per-operation safety records (see UNSAFE_RECORD_PREFIX in commerce.js) count as cart changes too.
   return key === null || ['anawin-shopify-cart-id', 'anawin-shopify-unsafe-cart-id',
-    'anawin-shopify-pending-mutation', 'anawin-shopify-cart-revision'].includes(key) ||
+    'anawin-shopify-pending-mutation', 'anawin-shopify-pending-addition', 'anawin-shopify-cart-revision'].includes(key) ||
     Boolean(key?.startsWith('anawin-shopify-unsafe-op:'));
 }
 

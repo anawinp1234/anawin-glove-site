@@ -200,16 +200,30 @@ test('checkout proceeds with both codes applied and blocks if a discount respons
   const applied = await fixture.commerce.applyDiscountCode('WRECKER100');
   assert.equal((await fixture.commerce.checkout(applied, {}, () => {})).status, 'navigating');
 
+  // Task 2H: a reply's cart is never authority, so a split must be in what Shopify saved to matter. A saved split
+  // (two service lines on one glove) is invalid data: the write stays unresolved and checkout is blocked.
   const split = await twoGlovesTwoServices();
   split.fixture.transformNextMutationResponse(payload => {
-    const nodes = payload.cart.lines.nodes;
-    const child = nodes.find(line => line.parentRelationship);
-    child.quantity = 1;
-    nodes.push({ ...structuredClone(child), id: `${child.id}-split` });
+    const child = payload.cart.lines.nodes.find(line => line.parentRelationship);
+    payload.cart.lines.nodes.push({ ...structuredClone(child), id: `${child.id}-split` });
   });
-  const result = await split.fixture.commerce.applyDiscountCode('WRECKER100');
-  assert.equal(result.lines.filter(line => line.isBreakIn).length, 2);
-  assert.equal(checkoutCartIsComplete(result), false, 'a split service line never reaches checkout');
+  const ignored = await split.fixture.commerce.applyDiscountCode('WRECKER100');
+  assert.equal(checkoutCartIsComplete(ignored), true, 'the reply alone changes nothing');
+
+  const saved = await twoGlovesTwoServices();
+  let splitting = false;
+  saved.fixture.observeMutations(({ field }) => { if (field === 'cartDiscountCodesUpdate') splitting = true; });
+  saved.fixture.observeQueries(({ lines }) => {
+    if (!splitting) return;
+    splitting = false;
+    const child = lines.find(line => line.parentRelationship);
+    child.quantity = 1;
+    lines.push({ ...structuredClone(child), id: `${child.id}-split` });
+  });
+  await assert.rejects(saved.fixture.commerce.applyDiscountCode('WRECKER100'), error => error.code === 'uncertain');
+  const current = await saved.fixture.commerce.getCart().catch(() => null);
+  assert.ok(!current || checkoutCartIsComplete(current) === false, 'a split service line never reaches checkout');
+  assert.notEqual((await saved.fixture.commerce.checkout(current || {}, {}, () => assert.fail('navigated'))).status, 'navigating');
 });
 
 test('a service line whose discount reprices it below zero or in another currency is not displayed as a saving', () => {

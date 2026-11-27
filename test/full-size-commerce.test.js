@@ -116,8 +116,9 @@ test('wrong service type/variant, parent, quantity, duplicate or missing instruc
     c => { c.lines.find(l=>l.isBreakIn).attributes=[]; },
     c => { parent(c).attributes.push({ key: 'Firmness', value:'Medium' }); }
   ]) { const bad=structuredClone(cart);change(bad);assert.equal(checkoutCartIsComplete(bad),false); }
+  // Task 2H (row 3): a service outside the pinned variant is invalid data; the read rejects.
   f.lines.find(l=>l.parentRelationship).merchandise.id='gid://variant/wrong';
-  assert.equal((await f.commerce.getCart()).incomplete,true);
+  await assert.rejects(f.commerce.getCart(), error => error.code === 'cart-unverified');
 });
 test('partial full-size additions block checkout, retain old items, never retry and recover safely', async () => {
   const f=await fixture();await f.commerce.addProduct('black',true);await add(f);
@@ -135,9 +136,13 @@ test('full-size API rejection and ambiguous completed mutations do not report su
   f.failAfterNextMutation(); await assert.rejects(add(f),/uncertain/);
   assert.equal((await f.restore().getCart()).incomplete,true);
 });
+// Task 2H: a reply never publishes a cart. A created cart named beside userErrors stays a journaled candidate; the
+// shopper's explicit check adopts it from a fresh read, so it is never lost and never activated unverified.
 test('known partially created carts remain available for review rather than being lost',async()=>{
-  const f=await fixture();f.partialUserErrorNextMutation();await assert.rejects(add(f),/reported errors/);
-  const cart=await f.commerce.getCart();assert.ok(cart.id);assert.equal(cart.incomplete,true);
+  const f=await fixture();f.partialUserErrorNextMutation();await assert.rejects(add(f),error=>error.code==='uncertain-create'&&/Partial Shopify error/.test(error.shopifyMessage));
+  assert.equal(f.storage.getItem('anawin-shopify-cart-id'),null);
+  const cart=await f.commerce.getCart();assert.equal(cart.unconfirmedCandidate,true);
+  const adopted=await f.commerce.reconcileUnconfirmedCart();assert.ok(adopted.id);assert.equal(adopted.incomplete,false);
 });
 test('checkout verification uses fresh Shopify checkout URL after full-size mutations', async () => {
   const f=await fixture();const displayed=await add(f);const current={...displayed,checkoutUrl:'https://ignvv0-zh.myshopify.com/checkouts/current?key=fresh'};
@@ -159,7 +164,7 @@ test('full-size service reference and price mismatches fail closed while glove-o
       const response = await f.fetchImpl(url, request); const payload = await response.json();
       if (JSON.parse(request.body).variables.handle === 'full-size-glove-break-in-service') alter(payload.data.product);
       return { ok: true, json: async () => payload };
-    });
+    }, f.locks);
     await commerce.listProducts(); assert.equal((await commerce.getFullSizeBreakInService()).available, false);
     await assert.rejects(commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right'), /not currently available/);
     assert.equal((await commerce.addProduct('full-mint', false, undefined, 'gid://variant/mi26-right')).incomplete, false);
@@ -173,7 +178,7 @@ test('an available left-hand variant remains purchasable when the right-hand var
     const response = await f.fetchImpl(url, request); const payload = await response.json();
     if (JSON.parse(request.body).variables.handle === 'mi26') payload.data.product.variants.nodes[0].availableForSale = false;
     return { ok: true, json: async () => payload };
-  });
+  }, f.locks);
   await commerce.listProducts(); await commerce.getFullSizeBreakInService();
   const cart = await commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-left');
   assert.equal(parent(cart).merchandiseId, 'gid://variant/mi26-left'); assert.equal(cart.incomplete, false);
@@ -190,6 +195,16 @@ test('silent service omission is not success and can recover only the verified p
       if (!omitted && index >= 0) { lines.splice(index, 1); omitted = true; }
     });
     await assert.rejects(add(f), /did not preserve/);
+    if (!existing) {
+      // Task 2H: a first cart that fails its postcondition is never published. Its candidate (saved without the
+      // service) is not a valid cart to reconcile, so only the disclosed, explicit abandonment moves on.
+      const pending = await f.commerce.getCart(); assert.equal(pending.unconfirmedCandidate, true);
+      await assert.rejects(f.commerce.reconcileUnconfirmedCart(), error => error.code === 'cart-unverified');
+      const sent = f.requests.filter(request => request.query.includes('mutation')).length;
+      assert.equal((await f.commerce.startNewCart({ abandonUnknown: true, binding: pending.abandonmentBinding })).unconfirmedCreate, undefined);
+      assert.equal(f.requests.filter(request => request.query.includes('mutation')).length, sent);
+      continue;
+    }
     const unsafe = await f.commerce.getCart(); assert.equal(unsafe.incomplete, true); assert.equal(unsafe.recoveryAvailable, true);
     const originalLines = f.lines;
     const originalSnapshot = structuredClone(originalLines);
@@ -293,10 +308,11 @@ test('a partial cartCreate response cannot replace a cart activated in another t
   const f = await fixture();
   f.partialUserErrorNextMutation(); const delayed = f.delayNextMutationResponse();
   const addition = add(f); await delayed;
-  f.storage.setItem('anawin-shopify-cart-id', 'gid://cart/another-tab');
+  f.storage.setItem('anawin-shopify-cart-id', 'gid://shopify/Cart/canother-tab?key=kanother-tab');
   f.releaseDelayedMutation();
-  await assert.rejects(addition, error => error.code === 'cart-changed');
-  assert.equal(f.storage.getItem('anawin-shopify-cart-id'), 'gid://cart/another-tab');
+  // Task 2H: the reply is evidence only; it never publishes, so the other tab's pointer is kept either way.
+  await assert.rejects(addition, error => ['cart-changed', 'uncertain-create'].includes(error.code));
+  assert.equal(f.storage.getItem('anawin-shopify-cart-id'), 'gid://shopify/Cart/canother-tab?key=kanother-tab');
 });
 
 test('removing a full-size glove detects unchanged or wrong removals and blocks checkout', async () => {
@@ -343,12 +359,13 @@ test('a partial new cart containing only unrecognized lines is retained and bloc
       }
     }
     return { ok: true, json: async () => payload };
-  });
+  }, f.locks);
   await commerce.listProducts(); await commerce.getFullSizeBreakInService();
-  await assert.rejects(commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right'), /reported errors/);
-  assert.ok(f.storage.getItem('anawin-shopify-cart-id'));
-  assert.equal((await commerce.getCart()).incomplete, true);
-  await assert.rejects(commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right'), /incomplete/);
+  // Task 2H: the created cart is journaled as a candidate, never activated from the reply; another add is refused.
+  await assert.rejects(commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right'), error => error.code === 'uncertain-create');
+  assert.equal(f.storage.getItem('anawin-shopify-cart-id'), null);
+  assert.equal((await commerce.getCart()).unconfirmedCandidate, true);
+  await assert.rejects(commerce.addProduct('full-mint', true, options, 'gid://variant/mi26-right'), error => error.code === 'create-unresolved');
 });
 
 test('every supported full-size selection serializes literally onto only its service and survives reload', async () => {

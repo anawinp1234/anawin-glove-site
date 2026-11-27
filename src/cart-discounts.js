@@ -128,17 +128,18 @@ export function dismissDiscountError(input, message) {
   message.setAttribute('role', 'status');
 }
 
-export function renderDiscountEntry(cart, { busy = false, input = '', message = '', error = false, expanded = false, announceOnly = false } = {}, escapeHtml) {
+export function renderDiscountEntry(cart, { busy = false, blocked = busy, waiting = busy, input = '', message = '', error = false, expanded = false, announceOnly = false } = {}, escapeHtml) {
   if (!cart.id || !cart.lines?.length) return '';
   const codes = discountCodeList(cart);
   const open = discountEntryExpanded({ expanded, error });
   return `<section class="cart-discount-entry" aria-labelledby="discount-toggle"${busy ? ' aria-busy="true"' : ''}>
     <button type="button" id="discount-toggle" class="cart-discount-toggle" data-discount-toggle aria-expanded="${open}" aria-controls="cart-discount-panel">Have a discount code?</button>
-    <form id="cart-discount-panel" data-discount-form ${open ? '' : 'hidden'}><label class="visually-hidden" for="cart-discount-input">Discount code</label><input id="cart-discount-input" name="discountCode" type="text" autocomplete="off" placeholder="Enter code" value="${escapeHtml(input)}" ${busy ? 'disabled' : ''}${error ? ' aria-invalid="true"' : ''} aria-describedby="cart-discount-message"><button type="submit" data-discount-apply ${busy ? 'disabled' : ''}>${busy ? 'Applying…' : 'Apply'}</button></form>
+    <form id="cart-discount-panel" data-discount-form ${open ? '' : 'hidden'}><label class="visually-hidden" for="cart-discount-input">Discount code</label><input id="cart-discount-input" name="discountCode" type="text" autocomplete="off" placeholder="Enter code" value="${escapeHtml(input)}" ${blocked ? 'disabled' : ''}${error ? ' aria-invalid="true"' : ''} aria-describedby="cart-discount-message"><button type="submit" data-discount-apply ${blocked ? 'disabled' : ''}>${busy ? 'Applying…' : 'Apply'}</button></form>
     ${codes.length ? `<div class="cart-discount-code-list">${codes.map(code => {
       const applicable = cart.discountCodes.find(item => codeKey(item.code) === codeKey(code))?.applicable === true;
-      return `<div class="cart-discount-code"><span>${applicable ? '<span aria-hidden="true">✓</span> ' : ''}${escapeHtml(code)} ${applicable ? 'applied' : 'not applicable'}</span><button type="button" data-remove-discount="${escapeHtml(code)}" aria-label="Remove discount code ${escapeHtml(code)}" ${busy ? 'disabled' : ''}>${busy ? 'Updating…' : 'Remove'}</button></div>`;
+      return `<div class="cart-discount-code"><span>${applicable ? '<span aria-hidden="true">✓</span> ' : ''}${escapeHtml(code)} ${applicable ? 'applied' : 'not applicable'}</span><button type="button" data-remove-discount="${escapeHtml(code)}" aria-label="Remove discount code ${escapeHtml(code)}" ${blocked ? 'disabled' : ''}>${busy ? 'Updating…' : 'Remove'}</button></div>`;
     }).join('')}</div>` : ''}
+    ${waiting && !busy ? '<p role="status">Wait for your cart update before changing discounts.</p>' : ''}
     <p id="cart-discount-message" class="cart-discount-message${error ? ' cart-error' : ''}${announceOnly && !error ? ' visually-hidden' : ''}" role="${error ? 'alert' : 'status'}">${escapeHtml(message)}</p>
   </section>`;
 }

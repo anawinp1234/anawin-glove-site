@@ -35,11 +35,15 @@ try {
       assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
       assert.equal(await evaluate(`document.querySelector('.full-size-pdp .price').textContent`),'$295');
       assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $295.'));
+      // Unmodified local mode has no Shopify preorder estimate, so preorderState is 'blocked' and the
+      // service is disabled. A disabled, unavailable service must not be selectable or priced in; the
+      // valid $295 + $75 = $370 total is checked against the fixture on 5199 below.
+      assert.equal(await evaluate(`document.querySelector('[data-full-size-break-in]').disabled`),true);
+      assert.equal(await evaluate(`document.querySelector('.full-size-service-availability')?.textContent`),'Available to add when this glove launches.');
       await click('[data-full-size-break-in]');
-      assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $370.'));
-      assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
-      await click('[data-full-size-break-in]');
+      assert.equal(await evaluate(`document.querySelector('[data-full-size-break-in]').checked`),false);
       assert.ok((await evaluate(`document.querySelector('[data-full-size-setup-summary]').textContent`)).includes('Total before shipping/tax: $295.'));
+      assert.equal(await evaluate(`document.documentElement.scrollWidth>innerWidth`),false);
     }
     await visit('http://127.0.0.1:5199/');
     await until(`document.querySelector('main')`);await evaluate(`localStorage.clear()`);

@@ -68,7 +68,7 @@ test('a tightened wrist can be added with or without break-in', async () => {
   assert.equal(attribute(blue, WRIST_FIT_KEY), TIGHTENED_WRIST);
   assert.equal(attribute(childOf(cart, blue), WRIST_FIT_KEY), undefined);
   assert.equal(checkoutCartIsComplete(cart), true);
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('a full-size glove keeps a tightened wrist beside its break-in configuration', async () => {
@@ -92,7 +92,7 @@ test('changing the wrist fit of a single glove keeps its break-in in one request
   assert.equal(checkoutCartIsComplete(after), true);
   const back = await fixture.commerce.setWristFit(glove.remoteLineId, 'regular');
   assert.deepEqual(fits(back), [['black', 'regular', 1, 1]]);
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('choosing the wrist fit a glove already has sends nothing', async () => {
@@ -115,7 +115,7 @@ test('changing the wrist fit of one of several gloves splits off only that glove
     if (service) for (const glove of gloves(after, 'black')) assert.equal(attribute(childOf(after, glove), 'Break-In Level'), MEDIUM.level);
     assert.equal(after.subtotal, before.subtotal);
     assert.equal(checkoutCartIsComplete(after), true, String(service));
-    assert.deepEqual(unsafeOps(fixture.storage), []);
+    assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
   }
 });
 

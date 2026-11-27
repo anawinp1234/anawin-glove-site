@@ -195,9 +195,21 @@ test('a page left active after a checkout handoff stays busy, then shows the fro
   assert.match(frozen, /cart = \{ \.\.\.cart, checkoutUrl: null, incomplete: true \};/);
   assert.match(frozen, /checkoutBusy = false;/);
   assert.doesNotMatch(frozen, /recoverCart|clearUnsafe|removeItem|checkout\(/, 'showing the frozen cart never lifts the freeze');
-  assert.match(frozen, /\(document\.querySelector\('\[data-recover-cart\]'\) \|\| document\.querySelector\('\[data-refresh-cart\]'\)\)\?\.focus\(\);/);
+  assert.match(frozen, /if \(!checkoutOwnsFocus\) \{[\s\S]*?return;/);
+  assert.match(frozen, /openCart\(null, \{ manageFocus: false \}\);[\s\S]*?\['\[data-recover-cart\]', '\[data-refresh-cart\]'\][\s\S]*?isVisibleFocusTarget/);
+  assert.match(frozen, /\(next \|\| document\.querySelector\('\.cart-head \[data-close-cart\]'\)\)\?\.focus\(\);/);
   // One watcher for the page; a reopened drawer during the handoff is still not actionable.
   assert.equal(mainSource.match(/createCheckoutHandoffWatcher\(/g).length, 1);
   assert.match(mainSource, /<button data-checkout \$\{cartBusy \|\| checkoutBusy \? 'disabled' : ''\}\$\{checkoutBusy \? ' aria-busy="true"' : ''\}>\$\{checkoutHandoff\.pending \? 'Opening checkout…'/);
   assert.match(mainSource, /checkoutStarted: checkoutStarted\(\),/);
+});
+
+test('a cart Shopify reports missing offers Check cart and an explicit Start a new cart, announced once', () => {
+  const html = cartFeedbackMarkup({ incomplete: true, cartMissing: true, mode: 'shopify', createMismatch: true }, value => value);
+  assert.match(html, /role="alert"/);
+  assert.match(html, /Shopify no longer has this cart/);
+  assert.match(html, /data-refresh-cart/);
+  assert.match(html, /data-start-new-cart/);
+  assert.doesNotMatch(html, /data-keep-unconfirmed-cart|data-discard-unconfirmed-cart|data-recover-cart/);
+  assert.doesNotMatch(cartFeedbackMarkup({ incomplete: true, cartMissing: true, mode: 'shopify', announce: false }, value => value), /role="alert"/);
 });

@@ -29,7 +29,8 @@ const cartControlKinds = [
   ['data-qty-line', 'quantity'], ['data-qty', 'quantity'], ['data-remove-line', 'remove'], ['data-remove', 'remove'],
   ['data-remove-service', 'remove-service'], ['data-add-service', 'add-service'], ['data-edit-service', 'edit-service'], ['data-wrist-fit', 'wrist-fit'], ['data-remove-discount', 'remove-discount'],
   ['data-discount-toggle', 'discount-toggle'], ['data-discount-apply', 'discount-apply'], ['data-checkout', 'checkout'], ['data-refresh-cart', 'refresh'],
-  ['data-recover-cart', 'recover'], ['data-recover-without-service', 'recover-glove-only'], ['data-close-cart', 'close']
+  ['data-recover-cart', 'recover'], ['data-recover-without-service', 'recover-glove-only'], ['data-recover-retry', 'recover-retry'], ['data-recover-retry-without-service', 'recover-retry-glove-only'], ['data-recover-retry-with-service', 'recover-retry-with-service'],
+  ['data-keep-unconfirmed-cart', 'keep-unconfirmed'], ['data-discard-unconfirmed-cart', 'discard-unconfirmed'], ['data-start-new-cart', 'start-new-cart'], ['data-reconcile-cart', 'reconcile'], ['data-close-cart', 'close']
 ];
 const cartControlSelector = 'button, a[href], input';
 

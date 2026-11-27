@@ -19,7 +19,7 @@ const child = (parentId = 'line-1') => ({
   ],
   unitPrice: { amount: 20, currencyCode: 'USD' }, lineTotal: { amount: 20, currencyCode: 'USD' }
 });
-const cart = (id = 'gid://cart/1', lines = [glove()]) => ({
+const cart = (id = 'gid://shopify/Cart/c1?key=k1', lines = [glove()]) => ({
   id, checkoutUrl: `https://store.myshopify.com/checkouts/${id.split('/').at(-1)}`,
   lines, subtotal: lines.reduce((sum, line) => sum + line.lineTotal.amount, 0),
   currencyCode: 'USD', discountCodes: [], incomplete: false
@@ -106,13 +106,13 @@ test('checkout blocks missing, duplicate, or mismatched customization attributes
     [glove(), validChild]
   ];
   for (const lines of invalid) {
-    const displayed = cart('gid://cart/1', lines);
+    const displayed = cart('gid://shopify/Cart/c1?key=k1', lines);
     assert.equal(checkoutCartIsComplete(displayed), false);
     const verify = createCheckoutVerifier({ getCart: async () => displayed,
       readSafety: () => safety(displayed.id) });
     assert.equal((await verify(displayed)).status, 'blocked');
   }
-  assert.equal(checkoutCartIsComplete(cart('gid://cart/1', [validParent, validChild])), true);
+  assert.equal(checkoutCartIsComplete(cart('gid://shopify/Cart/c1?key=k1', [validParent, validChild])), true);
 });
 
 test('a cart marked unsafe during verification never returns a checkout URL', async () => {
@@ -129,7 +129,7 @@ test('a cart marked unsafe during verification never returns a checkout URL', as
 
 test('checkout loads a replacement cart and requires review before redirect', async () => {
   const displayed = cart();
-  const replacement = cart('gid://cart/2');
+  const replacement = cart('gid://shopify/Cart/c2?key=k2');
   const verify = createCheckoutVerifier({ getCart: async () => replacement,
     readSafety: () => safety(replacement.id) });
   assert.equal((await verify(displayed)).status, 'review');
@@ -140,7 +140,7 @@ test('checkout loads a replacement cart and requires review before redirect', as
 
 test('a cart ID switch during checkout verification cannot validate the stale response', async () => {
   const displayed = cart();
-  const replacement = cart('gid://cart/2');
+  const replacement = cart('gid://shopify/Cart/c2?key=k2');
   let release;
   const started = new Promise(resolve => { release = resolve; });
   let resolveFirst;
@@ -231,7 +231,7 @@ test('double-clicking checkout starts only one Shopify verification', async () =
 });
 
 test('a replacement cart must be explicitly reviewed even when items match', async () => {
-  const displayed = cart('gid://cart/2');
+  const displayed = cart('gid://shopify/Cart/c2?key=k2');
   const verify = createCheckoutVerifier({ getCart: async () => displayed,
     readSafety: () => safety(displayed.id) });
   assert.equal((await verify(displayed, { requireReview: true })).status, 'review');

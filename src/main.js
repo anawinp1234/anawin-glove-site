@@ -1,7 +1,7 @@
 import './style.css';
 import { breakInService as localBreakInService, localProducts, FULL_SIZE_SHAPING_FIELDS, PREORDER_BREAK_IN_TIMING, WRIST_FITS, fullSizeBreakInService, normalizeFullSizeOptions, preorderState, purchasePrice, savedBreakInOptions } from './catalog.js';
 import { createStorefrontRenderer, fullSizeSetupDetails, installFooterAccordion, newsletterPopupMarkup, money, cartMoney, escapeHtml, arrow, cartTriggerLabel } from './storefront-render.js';
-import { createCommerce, commerceErrorMessage } from './commerce.js';
+import { cartLineIdentity, createCommerce, commerceErrorMessage } from './commerce.js';
 import { CART_PREORDER_DISCLOSURE_ID, bindCartImageFallbacks, cartPreorderSummary, renderCartPreorderDisclosure, renderCartRow } from './cart-row.js';
 import { breakInEditorField, createBreakInEditor } from './cart-break-in-editor.js';
 import { cartFeedbackMarkup, cartUpdateAnnouncement, createCartAnnouncer } from './cart-feedback.js';
@@ -148,6 +148,8 @@ const cartProductName = id => {
 };
 const checkoutStarted = () => Boolean(cart.uncertainMutation?.split(', ').includes('checkout handoff'));
 
+const discountBlocked = () => cartBusy || checkoutBusy || cart.incomplete || cart.storageUnavailable;
+
 function cartDrawer() {
   const productItems = commerce.mode === 'shopify'
     ? cart.lines.filter(line => !line.isBreakIn).map(line => ({
@@ -167,11 +169,20 @@ function cartDrawer() {
     ? `<button data-checkout ${cartBusy || checkoutBusy ? 'disabled' : ''}${checkoutBusy ? ' aria-busy="true"' : ''}>${checkoutHandoff.pending ? 'Opening checkout…' : checkoutBusy ? 'Checking cart…' : 'Checkout securely'}</button><p class="checkout-status" role="status" aria-live="polite">${checkoutHandoff.pending ? 'Opening secure checkout…' : checkoutBusy ? 'Checking your cart with Shopify…' : ''}</p>`
     : preorderSummary.blocked.length && commerce.mode === 'shopify' ? `<button disabled${describedBy}>Checkout unavailable</button>`
     : `<button disabled>${commerce.mode === 'local' ? 'Checkout coming soon' : 'Checkout unavailable'}</button><small>${commerce.mode === 'local' ? 'Connect Shopify to enable secure checkout.' : 'Checkout is unavailable until Shopify returns a verified cart.'}</small>`;
-  const feedbackText = cartError || (cart.incomplete ? 'incomplete' : '');
-  const cartFeedback = cartFeedbackMarkup({ error: cartError, incomplete: cart.incomplete, guidance: cartGuidance,
+  const recoveryError = cart.splitRecoveryBinding && !cart.recoveryUnconfirmed
+    ? 'We could not confirm your Break-In edit. Continue with verified items in a new cart to restore your prior configuration.'
+    : cartError;
+  const feedbackText = recoveryError || (cart.storageUnavailable ? 'storage-unavailable' : cart.cartMissing ? 'cart-missing' : cart.incomplete ? 'incomplete' :
+    cart.unconfirmedCreate ? 'unconfirmed-create' : '');
+  const cartFeedback = cartFeedbackMarkup({ error: recoveryError, incomplete: cart.incomplete, guidance: cartGuidance,
     announce: feedbackText !== announcedCartFeedback,
-    recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn,
+    recoveryAvailable: cart.recoveryAvailable, recoveryHasBreakIn: cart.recoveryHasBreakIn && (!cart.splitRecoveryBinding || cart.recoveryUnconfirmed),
     gloveOnlyRecoveryAvailable: cart.gloveOnlyRecoveryAvailable, checkoutStarted: checkoutStarted(),
+    unconfirmedCreate: cart.unconfirmedCreate, unconfirmedCandidate: cart.unconfirmedCandidate,
+    recoveryUnconfirmed: cart.recoveryUnconfirmed, recoveryAttemptWithoutBreakIn: cart.recoveryAttemptWithoutBreakIn,
+    storageUnavailable: cart.storageUnavailable, cartMissing: cart.cartMissing,
+    createMismatch: cart.createMismatch, attemptedNames: (cart.attemptedItems || []).map(item =>
+      `${item.quantity > 1 ? `${item.quantity} × ` : ''}${cartProductName(item.productId) || 'a glove'}${item.breakIn ? ' with Break-In Service' : ''}`),
     busy: cartBusy, mode: commerce.mode }, escapeHtml);
   announcedCartFeedback = feedbackText;
   return `<div class="cart-backdrop" data-close-cart aria-hidden="true"></div><aside class="cart-drawer${breakInEditor.state ? ' is-editing-service' : ''}${commerce.mode === 'shopify' && discountEntryExpanded({ expanded: discountExpanded, error: discountError }) ? ' is-discount-open' : ''}" role="dialog" aria-modal="true" aria-labelledby="cart-heading"><div class="cart-head"><h2 id="cart-heading">Your cart</h2><button data-close-cart aria-label="Close cart">Close</button></div>
@@ -181,7 +192,7 @@ function cartDrawer() {
       busy: cartBusy, incomplete: cart.incomplete, money: cartMoney, escapeHtml,
       editor: breakInEditor.state, notice: serviceNotice?.lineId && serviceNotice.lineId === line.remoteLineId ? serviceNotice.text : ''
     })).join('') : `<div class="empty-cart"><p>Your cart is empty.</p><a href="/shop" data-link data-close-cart>Shop gloves ${arrow()}</a></div>`}</div>
-    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, input: discountInput, message: discountMessage, error: discountError, expanded: discountExpanded, announceOnly: discountAnnounceOnly }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${preorderDisclosure}${checkout}</div>` : ''}</aside>`;
+    ${productItems.length ? `<div class="cart-foot">${renderCartDiscountSection(cart, commerce.mode, { busy: discountBusy, blocked: discountBlocked(), waiting: cartBusy || checkoutBusy, input: discountInput, message: discountMessage, error: discountError, expanded: discountExpanded, announceOnly: discountAnnounceOnly }, cartMoney, escapeHtml)}<p>Free U.S. standard shipping. Shipping options and rates are shown at checkout. Taxes are calculated at checkout.</p>${preorderDisclosure}${checkout}</div>` : ''}</aside>`;
 }
 
 function fitHeroHeading() {
@@ -346,7 +357,9 @@ function navigate(path) {
 }
 function openCart(opener = null, { manageFocus = true } = {}) {
   const previousDrawer = cartIsOpen ? document.querySelector('.cart-drawer') : null;
-  const focusKey = previousDrawer ? pendingCartFocus || cartFocusKey(document.activeElement, previousDrawer) : null;
+  const activeKey = cartFocusKey(document.activeElement, previousDrawer);
+  const focusKey = previousDrawer ? (pendingCartFocus?.kind === 'checkout' && activeKey
+    ? activeKey : pendingCartFocus || activeKey) : null;
   if (!cartIsOpen) cartReturnFocus = opener || document.activeElement;
   cartIsOpen = true;
   stickyPurchase?.refresh();
@@ -365,7 +378,7 @@ function openCart(opener = null, { manageFocus = true } = {}) {
   cartAnnouncer.attach(drawer);
   if (!manageFocus) { pendingCartFocus = null; return; }
   const target = findCartFocusTarget(drawer, focusKey);
-  pendingCartFocus = !target && focusKey && cartBusy ? focusKey : null;
+  pendingCartFocus = !target && focusKey && (cartBusy || checkoutBusy && focusKey.kind === 'checkout') ? focusKey : null;
   if (target) target.focus({ preventScroll: true });
   else if (pendingCartFocus) { drawer.tabIndex = -1; drawer.focus({ preventScroll: true }); }
   else document.querySelector('.cart-head [data-close-cart]')?.focus();
@@ -454,8 +467,11 @@ async function cartAction(action, opener = null, kind = 'cart', { inlineError = 
     try {
       cart = await action();
       outcome = { status: 'ok', cart };
-      // A cart frozen for checkout explains itself through the cart alert.
-      if (cart.incomplete && !checkoutStarted()) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
+      // A quantity step applied to a cart another tab had changed is reviewed before checkout.
+      if (cart.rebased) checkoutNeedsReview = true;
+      // A cart frozen for checkout, and a first cart that differs from what was added, explain themselves
+      // through the cart alert.
+      if (cart.incomplete && !checkoutStarted() && !cart.createMismatch && !cart.cartMissing) cartError = 'We could not confirm your cart update. Check your cart before continuing.';
       else if (kind === 'recovery') {
         checkoutNeedsReview = true;
         cartGuidance = 'Review the items in your new cart before checkout.';
@@ -465,8 +481,15 @@ async function cartAction(action, opener = null, kind = 'cart', { inlineError = 
       const message = commerceErrorMessage(error, kind);
       outcome = { status: 'error', message };
       if (!inlineError) cartError = message;
-      try { cart = await commerce.getCart(); }
-      catch { cart = { ...cart, checkoutUrl: null }; }
+      // Every redraw is a read that never changes local state. After a refused Keep or Start a new cart, a cart
+      // Shopify reports missing keeps the reviewed cart shown.
+      if (kind === 'consent') {
+        try { cart = await commerce.peekCart() || { ...cart, checkoutUrl: null }; }
+        catch { cart = { ...cart, checkoutUrl: null }; }
+      } else {
+        try { cart = await commerce.getCart(); }
+        catch { cart = { ...cart, checkoutUrl: null }; }
+      }
     }
     finally {
       cartBusy = false; syncCartCount(); if (cartIsOpen) openCart();
@@ -601,7 +624,7 @@ function addProductFromButton(productId, trigger) {
 }
 
 async function discountAction(action, code = '', removingCode = '') {
-  if (cartBusy || discountBusy || checkoutBusy) return;
+  if (discountBlocked()) return;
   cartState.localChange();
   cartBusy = true;
   discountBusy = true;
@@ -641,7 +664,25 @@ function bindCart() {
   // Screen readers hear the preorder estimates with the checkout button itself.
   if (document.querySelector(`#${CART_PREORDER_DISCLOSURE_ID}`)) document.querySelector('[data-checkout]')?.setAttribute('aria-describedby', CART_PREORDER_DISCLOSURE_ID);
   document.querySelector('[data-refresh-cart]')?.addEventListener('click', () => cartAction(() => commerce.refreshCart()));
-  document.querySelector('[data-recover-cart]')?.addEventListener('click', () => cartAction(() => commerce.recoverCart(), null, 'recovery'));
+  // Checking an earlier recovery attempt continues it in its own Break-In mode, never another one.
+  const splitBinding = cart.splitRecoveryBinding;
+  document.querySelector('[data-recover-cart]')?.addEventListener('click', () => cartAction(() =>
+    commerce.recoverCart(cart.recoveryUnconfirmed ? { withoutBreakIn: Boolean(cart.recoveryAttemptWithoutBreakIn) } : splitBinding ? { splitBinding } : undefined), null, 'recovery'));
+  // The button sits beside the disclosure that a cart may already exist; pressing it is the explicit abandonment.
+  const abandonmentBinding = cart.abandonmentBinding;
+  document.querySelector('[data-start-new-cart]')?.addEventListener('click', () => cartAction(() =>
+    commerce.startNewCart({ abandonUnknown: true, binding: abandonmentBinding }), null, 'consent'));
+  document.querySelector('[data-reconcile-cart]')?.addEventListener('click', () => cartAction(() => commerce.reconcileUnconfirmedCart()));
+  // Trying again keeps the earlier attempt's Break-In choice; the mode switches are separate buttons.
+  document.querySelector('[data-recover-retry]')?.addEventListener('click', () => cartAction(() =>
+    commerce.recoverCart({ abandonUnconfirmed: true, withoutBreakIn: Boolean(cart.recoveryAttemptWithoutBreakIn), binding: cart.recoveryBinding }), null, 'recovery'));
+  document.querySelector('[data-recover-retry-with-service]')?.addEventListener('click', () =>
+    cartAction(() => commerce.recoverCart({ abandonUnconfirmed: true, withoutBreakIn: false, binding: cart.recoveryBinding }), null, 'recovery'));
+  document.querySelector('[data-recover-retry-without-service]')?.addEventListener('click', () =>
+    cartAction(() => commerce.recoverCart({ withoutBreakIn: true, abandonUnconfirmed: true, binding: cart.recoveryBinding }), null, 'recovery'));
+  document.querySelector('[data-keep-unconfirmed-cart]')?.addEventListener('click', () => cartAction(() => commerce.keepUnconfirmedCart(cart), null, 'consent'));
+  // Both mismatch choices carry the exact cart the shopper reviewed; a stale one is refused.
+  document.querySelector('[data-discard-unconfirmed-cart]')?.addEventListener('click', () => cartAction(() => commerce.discardUnconfirmedCart(cart), null, 'consent'));
   document.querySelector('[data-recover-without-service]')?.addEventListener('click', () =>
     cartAction(() => commerce.recoverCart({ withoutBreakIn: true }), null, 'recovery'));
   const discountForm = document.querySelector('[data-discount-form]');
@@ -665,6 +706,7 @@ function bindCart() {
   });
   discountForm?.addEventListener('submit', event => {
     event.preventDefault();
+    if (discountBlocked()) return;
     const code = discountInput.trim();
     if (!code) {
       discountMessage = 'Enter a discount code.';
@@ -700,19 +742,20 @@ function bindCart() {
   document.querySelectorAll('[data-wrist-fit]').forEach(element => element.addEventListener('click', () =>
     cartAction(() => commerce.setWristFit(element.dataset.wristFit, element.dataset.fit))));
   document.querySelectorAll('[data-remove-service]').forEach(element => element.addEventListener('click', () => cartAction(() => commerce.removeBreakIn(element.dataset.removeService))));
-  document.querySelectorAll('[data-qty]').forEach(element => element.addEventListener('click', () => {
-    const line = cart.lines.find(line => line.productId === element.dataset.qty && !line.isBreakIn);
-    return cartAction(() => commerce.setQuantity(element.dataset.qty, (line?.quantity || 0) + Number(element.dataset.delta)));
-  }));
+  // Steppers send +1/-1 intents; commerce applies them to the cart as it is when the step runs.
+  document.querySelectorAll('[data-qty]').forEach(element => element.addEventListener('click', () =>
+    cartAction(() => commerce.adjustQuantity(element.dataset.qty, Number(element.dataset.delta)))));
   document.querySelectorAll('[data-qty-line]').forEach(element => element.addEventListener('click', () => {
     const line = cart.lines.find(line => line.remoteLineId === element.dataset.qtyLine && !line.isBreakIn);
     if (!line) return;
-    return cartAction(() => commerce.setLineQuantity(line.remoteLineId, line.quantity + Number(element.dataset.delta)));
+    const expected = { quantity: line.quantity, identity: cartLineIdentity(cart.lines, line) };
+    return cartAction(() => commerce.adjustLineQuantity(line.remoteLineId, Number(element.dataset.delta), expected));
   }));
   document.querySelector('[data-checkout]')?.addEventListener('click', async () => {
     if (checkoutBusy || cartBusy || !canCheckout()) return;
     cartState.localChange();
     checkoutBusy = true;
+    openCart();
     const button = document.querySelector('[data-checkout]');
     button.disabled = true;
     button.textContent = 'Checking cart…';
@@ -746,10 +789,6 @@ function bindCart() {
 // Shopify's view of it, which offers recovery into a new cart, without lifting the freeze.
 async function showFrozenCheckout() {
   cartState.localChange();
-  const drawer = cartIsOpen ? document.querySelector('.cart-drawer') : null;
-  const focused = document.activeElement;
-  // Focus left on the busy Checkout button (or dropped by the browser) moves to the next step once.
-  const keepPlace = Boolean(drawer?.contains(focused) && !focused.matches('[data-checkout]'));
   try { cart = await commerce.getCart(); }
   catch (error) {
     cart = { ...cart, checkoutUrl: null, incomplete: true };
@@ -758,9 +797,18 @@ async function showFrozenCheckout() {
   checkoutBusy = false;
   syncCartCount();
   if (!cartIsOpen) return;
-  if (keepPlace) { openCart(); return; }
+  const drawer = document.querySelector('.cart-drawer');
+  const focused = document.activeElement;
+  const checkoutOwnsFocus = focused?.matches('[data-checkout]') ||
+    pendingCartFocus?.kind === 'checkout' && (focused === drawer || focused === document.body);
+  if (!checkoutOwnsFocus) {
+    openCart(null, { manageFocus: drawer?.contains(focused) });
+    return;
+  }
   openCart(null, { manageFocus: false });
-  (document.querySelector('[data-recover-cart]') || document.querySelector('[data-refresh-cart]'))?.focus();
+  const next = ['[data-recover-cart]', '[data-refresh-cart]'].map(selector => document.querySelector(selector))
+    .find(element => isVisibleFocusTarget(element));
+  (next || document.querySelector('.cart-head [data-close-cart]'))?.focus();
 }
 
 function bind() {

@@ -79,7 +79,7 @@ test('another tab replacing the active cart id is detected and only the new id i
   const original = fixture.storage.getItem('anawin-shopify-cart-id');
   const readIds = [];
   const finish = startStartupCartRestore({ getCart: () => { readIds.push(fixture.storage.getItem('anawin-shopify-cart-id')); return tab.getCart(); }, tracker });
-  const replacement = 'gid://cart/other-tab';
+  const replacement = 'gid://shopify/Cart/cother-tab?key=kother-tab';
   fixture.storage.setItem('anawin-shopify-cart-id', replacement); // before the early answer is applied
   const result = await finish();
   assert.deepEqual(readIds, [original, replacement]);
@@ -158,14 +158,16 @@ test('restoration failure is reported as an error, blocks nothing else, and a la
   assert.equal(reads, 2);
 });
 
-test('an expired cart cleared by the startup read itself is not mistaken for another tab', async () => {
+// Task 2G: the startup read is an observation, so an expired cart is shown empty and its ID stays until an add replaces it.
+test('an expired cart seen by the startup read is shown empty, kept, and not mistaken for another tab', async () => {
   const { fixture, tab, tracker } = await startupWithCart();
+  const id = fixture.storage.getItem('anawin-shopify-cart-id');
   fixture.expireCart();
   let reads = 0;
   const result = await startStartupCartRestore({ getCart: () => { reads += 1; return tab.getCart(); }, tracker })();
   assert.equal(result.status, 'current');
   assert.equal(result.value.lines.length, 0);
-  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), null);
+  assert.equal(fixture.storage.getItem('anawin-shopify-cart-id'), id);
   assert.equal(reads, 1);
 });
 

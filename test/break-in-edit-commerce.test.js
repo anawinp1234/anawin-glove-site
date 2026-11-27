@@ -51,7 +51,7 @@ test('editing a single trainer glove updates the glove and its service in one re
   assert.equal(after.subtotal, before.subtotal);
   assert.equal(after.incomplete, false);
   assert.equal(checkoutCartIsComplete(after), true);
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('saving unchanged break-in choices sends nothing to Shopify', async () => {
@@ -81,7 +81,7 @@ test('editing one of several identical trainer gloves splits off only that glove
   assert.equal(childOf(after, changed).quantity, 1);
   assert.equal(after.subtotal, before.subtotal);
   assert.equal(checkoutCartIsComplete(after), true);
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('an edit that matches another glove line merges into it with matching service', async () => {
@@ -126,8 +126,10 @@ test('edits are refused without a mutation for unserviced, mismatched, or unreso
 test('a rejected edit leaves the cart usable; an unanswered or unconfirmed edit blocks checkout', async () => {
   const rejected = await trainerFixture();
   let cart = await rejected.commerce.addProduct('black', true, MEDIUM);
-  rejected.rejectNextMutation();
-  await assert.rejects(rejected.commerce.editBreakIn(gloves(cart, 'black')[0].remoteLineId, FIRM_TIP));
+  // Task 2H: a verified-unchanged user error is the definitive rejection (an HTTP status never settles a write).
+  rejected.setUserError('Edit not allowed');
+  await assert.rejects(rejected.commerce.editBreakIn(gloves(cart, 'black')[0].remoteLineId, FIRM_TIP), error => error.definitiveRejection === true);
+  rejected.setUserError('');
   assert.deepEqual(unsafeOps(rejected.storage), []);
   assert.equal((await rejected.commerce.getCart()).incomplete, false);
 
@@ -175,7 +177,7 @@ test('checkout in another tab is blocked while an edit is in flight', async () =
   assert.equal((await verify(cart)).status, 'blocked');
   fixture.releaseDelayedMutation();
   await editing;
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('a full-size glove can get break-in in the cart with its model and throw hand', async () => {
@@ -191,7 +193,7 @@ test('a full-size glove can get break-in in the cart with its model and throw ha
     assert.equal(attribute(service, 'Throwing Hand'), hand === 'left' ? 'Left' : 'Right');
     assert.equal(attribute(glove, FULL_SIZE_CONFIGURATION_KEY), fullSizeConfiguration(FULL));
     assert.equal(checkoutCartIsComplete(after), true, hand);
-    assert.deepEqual(unsafeOps(fixture.storage), []);
+    assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
   }
 });
 
@@ -220,7 +222,7 @@ test('editing full-size break-in rewrites the instructions and their saved confi
   assert.equal(attribute(service, 'Glove Model'), 'MI26');
   assert.equal(after.subtotal, before.subtotal);
   assert.equal(checkoutCartIsComplete(after), true);
-  assert.deepEqual(unsafeOps(fixture.storage), []);
+  assert.deepEqual(unsafeOps(fixture.storage).filter(record => record.status !== 'terminal'), []);
 });
 
 test('editing one of several full-size gloves splits off only that glove', async () => {

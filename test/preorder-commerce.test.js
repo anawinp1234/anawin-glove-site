@@ -28,7 +28,7 @@ function commerceWithMetafield(metafields = {}) {
     }
     return { ok: true, json: async () => payload };
   };
-  return { fixture, commerce: createShopifyCommerce(fixture.config, fixture.storage, fetchImpl) };
+  return { fixture, commerce: createShopifyCommerce(fixture.config, fixture.storage, fetchImpl, fixture.locks) };
 }
 
 test('the product query optionally reads custom.preorder_ship_estimate', async () => {

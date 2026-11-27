@@ -176,8 +176,10 @@ test('mutation failure keeps the editor open with selections and allows a retry'
     try { return { status: 'ok', cart: await commerce.addBreakIn(lineId, options) }; }
     catch { return { status: 'error', message: 'Couldn’t add break-in service. Please try again.' }; }
   };
-  fixture.rejectNextMutation();
+  // Task 2H: an HTTP status never settles a write; the retryable rejection is Shopify's verified-unchanged user error.
+  fixture.setUserError('Break-in service is unavailable right now.');
   const failed = await editor.submit(lineId, perform);
+  fixture.setUserError('');
   assert.equal(failed.status, 'failed');
   assert.deepEqual({ level: editor.state.level, wearingStyle: editor.state.wearingStyle, submitting: editor.state.submitting },
     { level: 'Firm (40%)', wearingStyle: 'Two in the Pinky (TIP)', submitting: false });

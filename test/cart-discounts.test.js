@@ -27,7 +27,7 @@ const cart = (lines, subtotal, codes = [], applications = []) => ({
 const applied = [{ code: 'LAUNCH10', applicable: true }];
 const percentage = [{ code: 'LAUNCH10', targetType: 'LINE_ITEM', percentage: 10 }];
 const totals = value => renderCartDiscounts(value, 'shopify', money, escapeHtml);
-const entry = value => renderDiscountEntry({ id: 'gid://cart/1', ...value }, {}, escapeHtml);
+const entry = value => renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value }, {}, escapeHtml);
 const row = (line, child = null) => renderCartRow({
   product: { id: 'black', name: 'BR16', tone: 'Black / Red / Gray', images: ['/images/black1.PNG'] },
   line, service: child, mode: 'shopify', serviceProduct: { price: 20, currencyCode: 'USD', available: true },
@@ -118,7 +118,7 @@ test('code names are escaped and mismatched allocation currency does not invent 
 
 test('discount form is labeled, submits with Enter, and announces non-applicable status', () => {
   const value = cart([glove()], 155, [{ code: 'NOPE', applicable: false }]);
-  const html = renderDiscountEntry({ id: 'gid://cart/1', ...value },
+  const html = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value },
     { input: 'NOPE', message: 'Discount code isn’t valid for this cart.', error: true }, escapeHtml);
   assert.match(html, /<label[^>]*for="cart-discount-input"/);
   assert.match(html, /<form id="cart-discount-panel" data-discount-form >/);
@@ -131,7 +131,7 @@ test('discount form is labeled, submits with Enter, and announces non-applicable
 
 test('discount controls disable during an update and escape input and code attributes', () => {
   const value = cart([glove()], 155, [{ code: '<SAVE>', applicable: true }]);
-  const html = renderDiscountEntry({ id: 'gid://cart/1', ...value }, { busy: true, input: '"<test>' }, escapeHtml);
+  const html = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value }, { busy: true, input: '"<test>' }, escapeHtml);
   assert.match(html, /value="&quot;&lt;test&gt;" disabled/);
   assert.match(html, /Applying…/);
   assert.match(html, /data-remove-discount="&lt;SAVE&gt;" aria-label="Remove discount code &lt;SAVE&gt;" disabled/);
@@ -139,7 +139,7 @@ test('discount controls disable during an update and escape input and code attri
 });
 
 test('an applied code keeps the input, Apply, and its own Remove control above totals', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove(1, 155, 140, [allocation(15)])], 140, applied, percentage) };
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove(1, 155, 140, [allocation(15)])], 140, applied, percentage) };
   const html = renderCartDiscountSection(value, 'shopify', { expanded: true }, money, escapeHtml);
   assert.match(html, /<form id="cart-discount-panel" data-discount-form >.*?<input[^>]+placeholder="Enter code"[^>]*><button type="submit"[^>]*>Apply<\/button><\/form>/);
   assert.match(html, /LAUNCH10 applied<\/span><button type="button" data-remove-discount="LAUNCH10"[^>]*>Remove<\/button>/);
@@ -149,7 +149,7 @@ test('an applied code keeps the input, Apply, and its own Remove control above t
 });
 
 test('another code can be entered while multiple applied codes each retain Remove', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove()], 155,
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove()], 155,
     [{ code: 'LAUNCH10', applicable: true }, { code: 'EXTRA', applicable: true }]) };
   const html = renderCartDiscountSection(value, 'shopify', { input: 'NEXTCODE' }, money, escapeHtml);
   assert.match(html, /value="NEXTCODE"/);
@@ -160,7 +160,7 @@ test('another code can be entered while multiple applied codes each retain Remov
 });
 
 test('discount entry is a collapsed disclosure until opened, and applied codes stay visible', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove(1, 155, 140, [allocation(15)])], 140, applied, percentage) };
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove(1, 155, 140, [allocation(15)])], 140, applied, percentage) };
   const html = renderCartDiscountSection(value, 'shopify', {}, money, escapeHtml);
   assert.match(html, /<button type="button" id="discount-toggle" class="cart-discount-toggle" data-discount-toggle aria-expanded="false" aria-controls="cart-discount-panel">Have a discount code\?<\/button>/);
   assert.match(html, /<section class="cart-discount-entry" aria-labelledby="discount-toggle">/);
@@ -177,15 +177,15 @@ test('an opened disclosure or an error keeps the entry expanded; collapsing keep
   assert.equal(discountEntryExpanded({ error: true }), true);
   assert.equal(discountEntryExpanded({ busy: true }), false);
   const value = cart([glove()], 155);
-  const opened = renderDiscountEntry({ id: 'gid://cart/1', ...value }, { expanded: true }, escapeHtml);
+  const opened = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value }, { expanded: true }, escapeHtml);
   assert.match(opened, /aria-expanded="true"/);
   assert.doesNotMatch(opened, /data-discount-form hidden/);
-  const failed = renderDiscountEntry({ id: 'gid://cart/1', ...value },
+  const failed = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value },
     { input: 'NOPE', message: 'Discount code isn’t valid for this cart.', error: true }, escapeHtml);
   assert.match(failed, /aria-expanded="true"/);
   assert.doesNotMatch(failed, /data-discount-form hidden/);
   assert.match(failed, /role="alert">Discount code isn’t valid for this cart\.</);
-  const collapsed = renderDiscountEntry({ id: 'gid://cart/1', ...value }, { input: 'SAVE10' }, escapeHtml);
+  const collapsed = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...value }, { input: 'SAVE10' }, escapeHtml);
   assert.match(collapsed, /data-discount-form hidden>/);
   assert.match(collapsed, /value="SAVE10"/);
 });
@@ -250,7 +250,7 @@ test('Shopify fixture: the disclosure tracks a trainer + Break-In cart through a
 });
 
 test('a successful apply shows one visible "applied" line and keeps the status line for screen readers only', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove(1, 155, 0, [allocation(155, 'ANAWINTEST100')])], 0,
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove(1, 155, 0, [allocation(155, 'ANAWINTEST100')])], 0,
     [{ code: 'ANAWINTEST100', applicable: true }]) };
   const html = renderDiscountEntry(value, { expanded: true, message: 'ANAWINTEST100 applied.', announceOnly: true }, escapeHtml);
   assert.equal((html.match(/ANAWINTEST100 applied/g) || []).length, 2, 'row text plus the announcement');
@@ -259,7 +259,7 @@ test('a successful apply shows one visible "applied" line and keeps the status l
   // Errors, removals, and Shopify warnings stay visible.
   const failed = renderDiscountEntry(value, { message: 'Discount code isn’t valid for this cart.', error: true, announceOnly: true }, escapeHtml);
   assert.doesNotMatch(failed, /visually-hidden" role="alert"/);
-  const removed = renderDiscountEntry({ id: 'gid://cart/1', ...cart([glove()], 155) }, { message: 'Discount code removed.' }, escapeHtml);
+  const removed = renderDiscountEntry({ id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove()], 155) }, { message: 'Discount code removed.' }, escapeHtml);
   assert.match(removed, /class="cart-discount-message" role="status">Discount code removed\./);
 });
 
@@ -299,7 +299,7 @@ test('invalid → valid → remove: success never carries the stale warning and 
 
   const valid = discountResultFeedback(invalidThenValid.valid, { code: 'ANAWINTEST100' });
   assert.deepEqual(valid, { message: 'ANAWINTEST100 applied.', error: false, announceOnly: true, applied: true });
-  const cartValue = { id: 'gid://cart/1', ...cart([glove(1, 155, 0, [allocation(155, 'ANAWINTEST100')])], 0), ...invalidThenValid.valid };
+  const cartValue = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove(1, 155, 0, [allocation(155, 'ANAWINTEST100')])], 0), ...invalidThenValid.valid };
   const html = renderDiscountEntry(cartValue, { ...valid, expanded: true }, escapeHtml);
   assert.doesNotMatch(html, /Enter a valid discount code/);
   assert.doesNotMatch(html, /aria-invalid/);
@@ -322,7 +322,7 @@ test('warnings with every code applicable stay visible; a failed removal is an e
 });
 
 test('an error marks the code field invalid for assistive technology, and only while it lasts', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove()], 155) };
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove()], 155) };
   assert.match(renderDiscountEntry(value, { error: true, message: 'Discount code isn’t valid for this cart.' }, escapeHtml), /id="cart-discount-input"[^>]*aria-invalid="true"/);
   assert.doesNotMatch(renderDiscountEntry(value, { message: 'Discount code removed.' }, escapeHtml), /aria-invalid/);
 });
@@ -351,7 +351,7 @@ test('correcting a rejected code clears aria-invalid at once but keeps the error
 });
 
 test('the discount section is marked busy only while an update runs', () => {
-  const value = { id: 'gid://cart/1', ...cart([glove()], 155) };
+  const value = { id: 'gid://shopify/Cart/c1?key=k1', ...cart([glove()], 155) };
   assert.match(renderDiscountEntry(value, { busy: true, expanded: true }, escapeHtml), /<section class="cart-discount-entry" aria-labelledby="discount-toggle" aria-busy="true">/);
   assert.doesNotMatch(renderDiscountEntry(value, { expanded: true }, escapeHtml), /aria-busy/);
   assert.match(renderDiscountEntry(value, { expanded: true }, escapeHtml), /<button type="submit" data-discount-apply >Apply<\/button>/);
